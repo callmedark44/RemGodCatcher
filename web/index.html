@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rem God Catcher</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="/eel.js"></script>
+</head>
+<body style="background-image: url('wallpaper/Rem_main.png');">
+
+    <div class="glass-panel">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="openTab('Main', 'Rem_main.png', this)">MAIN</button>
+            <button class="tab-btn" onclick="openTab('Neko', 'Rem_neko.jpg', this)">Nekos.best</button>
+            <button class="tab-btn" onclick="openTab('Zero', 'Rem_zero.jpg', this)">Zerochan</button>
+            <button class="tab-btn" onclick="openTab('Waifu', 'Rem_waifu.png', this)">Waifu.im</button>
+            <button class="tab-btn" onclick="openTab('Safe', 'Rem_safe.jpg', this)">Safebooru</button>
+            <button class="tab-btn" onclick="openTab('Rule34', 'Rem_rule34.jpg', this)" style="color: #ff9ff3;">Rule34</button>
+        </div>
+
+        <div class="tab-container">
+            <div id="Main" class="tab-content" style="display: block;">
+                <h2>System Setup</h2>
+                <div class="input-group">
+                    <label>Master Folder:</label>
+                    <span id="folderDisplay" style="color: #ff9ff3; flex-grow: 1; font-family: monospace;">Loading...</span>
+                    <button class="action-btn" onclick="browseFolder()">Browse</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_main">[SYSTEM] Welcome to Rem God Catcher! Web Interface Online.\n</pre>
+                </div>
+            </div>
+
+            <div id="Zero" class="tab-content" style="display: none;">
+                <h2>Zerochan Downloader</h2>
+                <div class="input-group">
+                    <label>Tag Name:</label>
+                    <input type="text" id="zeroTag" list="zeroList" oninput="fetchZero(this.value)" placeholder="e.g. Rem (Re:Zero)">
+                    <datalist id="zeroList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="zeroLimit" value="50" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('zero')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_zero"></pre>
+                </div>
+            </div>
+
+            <div id="Waifu" class="tab-content" style="display: none;">
+                <h2>Waifu.im Downloader</h2>
+                <div class="input-group">
+                    <label>Tag:</label>
+                    <input type="text" id="waifuTag" list="waifuList" placeholder="e.g. waifu">
+                    <datalist id="waifuList"></datalist>
+                    <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
+                    <label>Limit:</label>
+                    <input type="number" id="waifuLimit" value="30" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_waifu"></pre>
+                </div>
+            </div>
+
+            <div id="Neko" class="tab-content" style="display: none;">
+                <h2>Nekos.best Downloader</h2>
+                <div class="input-group">
+                    <label>Format:</label>
+                    <select id="nekoFormat" onchange="updateNekoDropdown()">
+                        <option value="Images (PNG)">Images (PNG)</option>
+                        <option value="GIFs (Animations)">GIFs (Animations)</option>
+                        <option value="Both">Both</option>
+                    </select>
+                    <label>Category:</label>
+                    <input type="text" id="nekoCat" list="nekoList" placeholder="e.g. neko">
+                    <datalist id="nekoList"></datalist>
+                    <label>Amount:</label>
+                    <input type="number" id="nekoAmount" value="20" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('neko')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_neko"></pre>
+                </div>
+            </div>
+
+            <div id="Safe" class="tab-content" style="display: none;">
+                <h2>Safebooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="safeTag" list="safeList" oninput="fetchSafe(this.value)" placeholder="e.g. 1girl blue_hair">
+                    <datalist id="safeList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="safeLimit" value="50" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('safe')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_safe"></pre>
+                </div>
+            </div>
+
+            <div id="Rule34" class="tab-content" style="display: none;">
+                <h2>Rule34 Downloader</h2>
+                
+                <div class="input-group">
+                    <label>Tags (Max 10):</label>
+                    <input type="text" id="rule34Tag" list="rule34List" oninput="fetchRule34(this.value)" placeholder="e.g. rem blue_hair -maid" style="width: 320px;">
+                    <datalist id="rule34List"></datalist>
+                </div>
+                
+                <div class="input-group" style="margin-top: 10px;">
+                    <label>Method:</label>
+                    <select id="rule34Method">
+                        <option value="and">AND (All Tags)</option>
+                        <option value="or">OR (Any Tag ~)</option>
+                    </select>
+
+                    <label style="margin-left: 10px;">Sort:</label>
+                    <select id="rule34SortType">
+                        <option value="id">Newest (ID)</option>
+                        <option value="score">Score</option>
+                    </select>
+
+                    <select id="rule34SortOrder">
+                        <option value="desc">Desc</option>
+                        <option value="asc">Asc</option>
+                    </select>
+                </div>
+
+                <div class="input-group" style="margin-top: 10px;">
+                    <label>Limit:</label>
+                    <input type="number" id="rule34Limit" value="50" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('rule34')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('rule34')">STOP</button>
+                </div>
+                
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="color: #ff9ff3; text-shadow: none; font-weight: bold; margin-right: 10px;">Exclude:</label>
+                    <input type="checkbox" id="exVideo" checked> <label for="exVideo" style="text-shadow: none; margin-right: 10px;">Video</label>
+                    <input type="checkbox" id="exGif"> <label for="exGif" style="text-shadow: none; margin-right: 10px;">GIF</label>
+                    <input type="checkbox" id="exComic"> <label for="exComic" style="text-shadow: none; margin-right: 10px;">Comic</label>
+                    <input type="checkbox" id="ex3D"> <label for="ex3D" style="text-shadow: none;">3D</label>
+                </div>
+
+                <div class="console-wrapper" style="height: calc(85vh - 290px);">
+                    <pre id="consoleLog_rule34"></pre>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+/* --- لود فونت آفلاین از سیستم محلی --- */
+@font-face {
+    font-family: 'Playfair';
+    src: url('Fonts/Playfair-VariableFont_wdth,opsz.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'MonoLisa';
+    src: url('Fonts/MonoLisa-normal.ttf') format('truetype');
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Playfair', serif;
+}
+
+/* قفل کردن اسکرول کل صفحه وب */
+body {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-size: 100% 100%; 
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background-image 0.4s ease-in-out; 
+    color: white;
+}
+
+/* افکت شیشه‌ای و ارتفاع ثابت پنل اصلی */
+.glass-panel {
+    width: 90%;
+    max-width: 950px;
+    height: 85vh; 
+    padding: 20px;
+    background: rgba(15, 15, 20, 0.75); 
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+h2, label, span, button {
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 1);
+    letter-spacing: 0.5px;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 5px;
+    border-bottom: 2px solid rgba(0, 210, 211, 0.3);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.tab-btn.active { background: rgba(0, 210, 211, 0.4); color: #00d2d3; font-weight: bold; }
+
+.tab-container { 
+    padding: 5px 0;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+input[type="text"], input[type="number"], select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 25, 0.3);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    outline: none;
+    text-shadow: none; 
+}
+
+.action-btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: none;
+    background: #00d2d3;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+    text-shadow: none; 
+}
+.stop-btn { background: #ff9ff3; }
+
+/* --- فیکس نهایی و قطعی اندازه نوار لاگ --- */
+.console-wrapper {
+    /* محاسبه هوشمند ارتفاع باقی‌مانده از کل پنل شیشه‌ای برای بزرگ ماندن باکس لاگ */
+    height: calc(85vh - 190px); 
+    background: rgba(0, 0, 0, 0.85); 
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 15px;
+    overflow-y: auto; 
+    margin-top: 15px;
+}
+
+pre {
+    color: #00d2d3;
+    white-space: pre-wrap;
+    font-size: 14px;
+    font-family: 'MonoLisa', monospace;
+    text-shadow: none;
+}
