@@ -582,6 +582,8 @@ def worker_safebooru(tag, amount, net_config):
 
     downloaded = 0
     page = 1
+    empty_pages = 0
+    max_empty = 3
     while not stop_event.is_set() and (amount == 0 or downloaded < amount):
         try:
             log_msg(name, f"Scanning API... (Page {page})")
@@ -622,6 +624,7 @@ def worker_safebooru(tag, amount, net_config):
             time.sleep(5)
             continue
 
+        page_downloaded = 0
         for post in posts:
             if stop_event.is_set() or (amount > 0 and downloaded >= amount):
                 break
@@ -657,6 +660,7 @@ def worker_safebooru(tag, amount, net_config):
                     break
 
                 downloaded += 1
+                page_downloaded += 1
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
@@ -664,6 +668,14 @@ def worker_safebooru(tag, amount, net_config):
                 time.sleep(random.uniform(0.5, 2.0))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}: {e}")
+
+        if page_downloaded == 0:
+            empty_pages += 1
+            if empty_pages >= max_empty:
+                log_msg(name, f"No downloadable images found after {empty_pages} pages. Stopping.")
+                break
+        else:
+            empty_pages = 0
 
         page += 1
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
