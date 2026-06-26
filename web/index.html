@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rem God Catcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script type="text/javascript" src="/eel.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body style="background-image: url('wallpaper/Rem_main.png');">
 
@@ -16,9 +20,11 @@
             <button class="tab-btn" onclick="openTab('Waifu', 'Rem_waifu.png', this)">Waifu.im</button>
             <button class="tab-btn" onclick="openTab('Safe', 'Rem_safe.jpg', this)">Safebooru</button>
             <button class="tab-btn" onclick="openTab('Rule34', 'Rem_rule34.jpg', this)" style="color: #ff9ff3;">Rule34</button>
+            <button class="tab-btn" onclick="openTab('ApiSettings', 'Rem_main.png', this)" style="color: #00d2d3;">API Keys</button>
         </div>
 
         <div class="tab-container">
+            <!-- MAIN TAB -->
             <div id="Main" class="tab-content" style="display: block;">
                 <h2>System Setup</h2>
                 <div class="input-group">
@@ -26,11 +32,28 @@
                     <span id="folderDisplay" style="color: #ff9ff3; flex-grow: 1; font-family: monospace;">Loading...</span>
                     <button class="action-btn" onclick="browseFolder()">Browse</button>
                 </div>
+
+                <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div class="input-group" style="margin-top: 0;">
+                        <input type="checkbox" id="proxyEnabled"> 
+                        <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (VPN/Proxy Required for Rule34, Safebooru)</label>
+                    </div>
+                    <div class="input-group" style="margin-top: 8px;">
+                        <label style="min-width: 100px;">Proxy URL:</label>
+                        <input type="text" id="proxyUrl" value="http://127.0.0.1:10808" style="width: 280px;" placeholder="http://127.0.0.1:10808">
+                        <input type="checkbox" id="tlsVerify"> 
+                        <label for="tlsVerify">Verify TLS</label>
+                        <button class="action-btn" onclick="saveProxySettings()" style="margin-left: 10px;">Apply</button>
+                    </div>
+                    <p style="color: gray; font-size: 11px; margin-top: 6px;">Common ports: v2rayN=10808, Clash=7890, SSR=1080</p>
+                </div>
+
                 <div class="console-wrapper">
-                    <pre id="consoleLog_main">[SYSTEM] Welcome to Rem God Catcher! Web Interface Online.\n</pre>
+                    <pre id="consoleLog_main"></pre>
                 </div>
             </div>
 
+            <!-- ZEROCHAN TAB -->
             <div id="Zero" class="tab-content" style="display: none;">
                 <h2>Zerochan Downloader</h2>
                 <div class="input-group">
@@ -47,6 +70,7 @@
                 </div>
             </div>
 
+            <!-- WAIFU TAB -->
             <div id="Waifu" class="tab-content" style="display: none;">
                 <h2>Waifu.im Downloader</h2>
                 <div class="input-group">
@@ -64,6 +88,7 @@
                 </div>
             </div>
 
+            <!-- NEKO TAB -->
             <div id="Neko" class="tab-content" style="display: none;">
                 <h2>Nekos.best Downloader</h2>
                 <div class="input-group">
@@ -86,6 +111,7 @@
                 </div>
             </div>
 
+            <!-- SAFEBOORU TAB -->
             <div id="Safe" class="tab-content" style="display: none;">
                 <h2>Safebooru Downloader</h2>
                 <div class="input-group">
@@ -102,6 +128,7 @@
                 </div>
             </div>
 
+            <!-- RULE34 TAB -->
             <div id="Rule34" class="tab-content" style="display: none;">
                 <h2>Rule34 Downloader</h2>
                 
@@ -149,7 +176,43 @@
                     <pre id="consoleLog_rule34"></pre>
                 </div>
             </div>
-            
+
+            <!-- API SETTINGS TAB -->
+            <div id="ApiSettings" class="tab-content" style="display: none;">
+                <h2>API Settings</h2>
+                <p style="color: gray; font-size: 13px; margin-bottom: 15px;">Configure your Rule34 API credentials. Keys are saved to <code>.env</code> file locally.</p>
+                
+                <div class="input-group" style="flex-direction: column; align-items: flex-start; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                        <label style="min-width: 110px;">Rule34 API Key:</label>
+                        <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." style="width: 480px;">
+                        <button class="action-btn" onclick="toggleApiKeyVisibility()" style="padding: 8px 12px;">Show</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                        <label style="min-width: 110px;">Rule34 User ID:</label>
+                        <input type="text" id="apiUserIdInput" placeholder="e.g. 5238422" style="width: 200px;">
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="action-btn" onclick="saveApiSettings()">Save to .env</button>
+                    <button class="action-btn stop-btn" onclick="loadApiSettings()">Reload</button>
+                </div>
+
+                <div id="apiSaveStatus" style="margin-top: 15px; color: #00d2d3; font-size: 14px; min-height: 20px;"></div>
+                
+                <div style="margin-top: 25px; padding: 12px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <p style="color: #ff9ff3; font-size: 13px; font-weight: bold; margin-bottom: 8px;">How to get your Rule34 API Key:</p>
+                    <ol style="color: gray; font-size: 12px; padding-left: 20px; line-height: 1.8;">
+                        <li>Create an account at <a href="https://rule34.xxx" target="_blank" style="color: #00d2d3;">rule34.xxx</a></li>
+                        <li>Go to your Profile &rarr; Settings</li>
+                        <li>Find the <b>API Key</b> section and click <b>Generate API Key</b></li>
+                        <li>Copy your <b>User ID</b> from the profile URL</li>
+                        <li>Paste both values above and click <b>Save to .env</b></li>
+                    </ol>
+                </div>
+            </div>
+
         </div>
     </div>
 

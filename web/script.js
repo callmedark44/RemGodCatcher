@@ -1,14 +1,36 @@
-// --- INITIALIZATION ---
+// ==========================================
+// === INITIALIZATION ===
+// ==========================================
 let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
 window.nekoData = { image: [], gif: [] };
 
+const socket = io();
+
+socket.on("python_log", function(data) {
+    logToConsole(data.worker, data.msg);
+});
+
 window.onload = async function() {
-    let config = await eel.get_startup_config()();
-    if (config) globalNetConfig = config;
+    // Load startup config (including proxy)
+    try {
+        let resp = await fetch("/api/config");
+        let config = await resp.json();
+        if (config) {
+            globalNetConfig = config;
+            document.getElementById("proxyEnabled").checked = config.use_proxy || false;
+            document.getElementById("proxyUrl").value = config.proxy_url || "http://127.0.0.1:10808";
+            document.getElementById("tlsVerify").checked = config.verify_tls || false;
+        }
+    } catch(e) { console.error("Config load error:", e); }
 
-    let currentFolder = await eel.get_current_folder()();
-    if (currentFolder) document.getElementById("folderDisplay").innerText = currentFolder;
+    // Load current folder
+    try {
+        let resp = await fetch("/api/folder");
+        let data = await resp.json();
+        if (data.folder) document.getElementById("folderDisplay").innerText = data.folder;
+    } catch(e) { console.error("Folder load error:", e); }
 
+    // Load neko categories
     await loadNekoCategories();
     document.getElementById("nekoCat").onclick = function() {
         if(this.value.includes("Network Error")) {
@@ -17,28 +39,46 @@ window.onload = async function() {
         }
     };
 
-    let waifuTags = await eel.get_waifu_tags(globalNetConfig)();
-    let wl = document.getElementById("waifuList");
-    wl.innerHTML = "";
-    waifuTags.forEach(t => wl.innerHTML += `<option value="${t}">`);
-    if (waifuTags.length > 0) document.getElementById("waifuTag").value = waifuTags[0];
+    // Load waifu tags
+    try {
+        let resp = await fetch("/api/tags/waifu", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(globalNetConfig)
+        });
+        let waifuTags = await resp.json();
+        let wl = document.getElementById("waifuList");
+        wl.innerHTML = "";
+        waifuTags.forEach(t => wl.innerHTML += `<option value="${t}">`);
+        if (waifuTags.length > 0) document.getElementById("waifuTag").value = waifuTags[0];
+    } catch(e) { console.error("Waifu tags error:", e); }
+
+    // Load API settings
+    await loadApiSettings();
+
+    logToConsole("main", "Welcome to Rem God Catcher! Web Interface Online.");
+    logToConsole("main", "Configure API keys in the 'API Keys' tab for full Rule34 access.");
 };
 
+// ==========================================
+// === CATEGORY LOADERS ===
+// ==========================================
 async function loadNekoCategories() {
-    let data = await eel.get_neko_tags(globalNetConfig)();
-    if (data.image.length === 0 && data.gif.length === 0) {
+    try {
+        let resp = await fetch("/api/tags/neko", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(globalNetConfig)
+        });
+        let data = await resp.json();
+        if (data.image.length === 0 && data.gif.length === 0) {
+            document.getElementById("nekoCat").value = "Network Error (Click to Retry)";
+        } else {
+            window.nekoData = data;
+            updateNekoDropdown();
+        }
+    } catch(e) {
         document.getElementById("nekoCat").value = "Network Error (Click to Retry)";
-    } else {
-        window.nekoData = data;
-        updateNekoDropdown();
-    }
-}
-
-async function browseFolder() {
-    let newFolder = await eel.choose_folder_py()();
-    if (newFolder) {
-        document.getElementById("folderDisplay").innerText = newFolder;
-        logToConsole("main", `Master folder updated to: ${newFolder}`);
     }
 }
 
@@ -56,12 +96,75 @@ function updateNekoDropdown() {
     if (targetList.length > 0) document.getElementById("nekoCat").value = targetList[0];
 }
 
+// ==========================================
+// === FOLDER BROWSER ===
+// ==========================================
+async function saveProxySettings() {
+    globalNetConfig.use_proxy = document.getElementById("proxyEnabled").checked;
+    globalNetConfig.proxy_url = document.getElementById("proxyUrl").value;
+    globalNetConfig.verify_tls = document.getElementById("tlsVerify").checked;
+
+    try {
+        let resp = await fetch("/api/config", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(globalNetConfig)
+        });
+        let result = await resp.json();
+        if (result.success) {
+            logToConsole("main", `Proxy settings updated: ${globalNetConfig.use_proxy ? 'ENABLED' : 'DISABLED'} (${globalNetConfig.proxy_url})`);
+        }
+    } catch(e) {
+        logToConsole("main", `Error saving proxy: ${e}`);
+    }
+}
+
+async function browseFolder() {
+    let input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    input.directory = true;
+    
+    // Use a hidden input trick for folder selection
+    let folderInput = document.createElement("input");
+    folderInput.type = "text";
+    folderInput.placeholder = "Paste folder path here...";
+    
+    let folder = prompt("Enter the master download folder path:");
+    if (!folder) return;
+    
+    try {
+        let resp = await fetch("/api/folder", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ folder: folder })
+        });
+        let data = await resp.json();
+        if (data.folder) {
+            document.getElementById("folderDisplay").innerText = data.folder;
+            logToConsole("main", `Master folder updated to: ${data.folder}`);
+        }
+    } catch(e) {
+        logToConsole("main", `Error: ${e}`);
+    }
+}
+
+// ==========================================
+// === TAG SUGGESTION FETCHERS ===
+// ==========================================
 async function fetchZero(val) {
     if(val.length < 3) return;
-    let tags = await eel.get_zerochan_suggestions(val, globalNetConfig)();
-    let dl = document.getElementById("zeroList");
-    dl.innerHTML = "";
-    tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
+    try {
+        let resp = await fetch("/api/tags/zerochan", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ query: val, net_config: globalNetConfig })
+        });
+        let tags = await resp.json();
+        let dl = document.getElementById("zeroList");
+        dl.innerHTML = "";
+        tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
+    } catch(e) { console.error(e); }
 }
 
 async function fetchSafe(val) {
@@ -70,24 +173,40 @@ async function fetchSafe(val) {
     let lastWord = words[words.length - 1];
     if(lastWord.length < 2) return;
 
-    let tags = await eel.get_safe_suggestions(lastWord)();
-    let dl = document.getElementById("safeList");
-    dl.innerHTML = "";
-    tags.forEach(t => {
-        let suggestion = words.slice(0, -1).join(" ") + (words.length > 1 ? " " : "") + t;
-        dl.innerHTML += `<option value="${suggestion}">`;
-    });
+    try {
+        let resp = await fetch("/api/tags/safe", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ query: lastWord })
+        });
+        let tags = await resp.json();
+        let dl = document.getElementById("safeList");
+        dl.innerHTML = "";
+        tags.forEach(t => {
+            let suggestion = words.slice(0, -1).join(" ") + (words.length > 1 ? " " : "") + t;
+            dl.innerHTML += `<option value="${suggestion}">`;
+        });
+    } catch(e) { console.error(e); }
 }
 
-// --- THE LIVE RULE34 TAG ENGINE ---
 async function fetchRule34(val) {
     if(val.length < 2) return;
-    let tags = await eel.get_rule34_suggestions(val, globalNetConfig)();
-    let dl = document.getElementById("rule34List");
-    dl.innerHTML = "";
-    tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
+    try {
+        let resp = await fetch("/api/tags/rule34", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ query: val, net_config: globalNetConfig })
+        });
+        let tags = await resp.json();
+        let dl = document.getElementById("rule34List");
+        dl.innerHTML = "";
+        tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
+    } catch(e) { console.error(e); }
 }
 
+// ==========================================
+// === TAB SWITCHING ===
+// ==========================================
 function openTab(tabName, wallpaperFile, btn) {
     let contents = document.getElementsByClassName("tab-content");
     for (let i = 0; i < contents.length; i++) contents[i].style.display = "none";
@@ -100,11 +219,9 @@ function openTab(tabName, wallpaperFile, btn) {
     document.body.style.backgroundImage = `url('wallpaper/${wallpaperFile}')`;
 }
 
-eel.expose(pythonLog);
-function pythonLog(tabID, msg) {
-    logToConsole(tabID, msg);
-}
-
+// ==========================================
+// === CONSOLE LOG ===
+// ==========================================
 function logToConsole(tabID, msg) {
     let boxMap = {
         "main": "consoleLog_main",
@@ -120,37 +237,42 @@ function logToConsole(tabID, msg) {
     
     if (consoleBox) {
         let time = new Date().toLocaleTimeString();
-        consoleBox.innerHTML += `[${time}] ${msg}\n`;
+        let line = document.createElement("div");
+        line.textContent = `[${time}] ${msg}`;
+        consoleBox.appendChild(line);
         consoleBox.scrollTop = consoleBox.scrollHeight;
     }
 }
 
+// ==========================================
+// === WORKER CONTROLS ===
+// ==========================================
 function startWorker(workerName) {
     try {
         if (workerName === 'zero') {
             let tag = document.getElementById('zeroTag').value;
             let limit = document.getElementById('zeroLimit').value;
-            if(!tag) return logToConsole('zero', '❌ Error: Tag Name cannot be empty!');
-            eel.start_zerochan(tag, limit, globalNetConfig)();
+            if(!tag) return logToConsole('zero', 'Error: Tag Name cannot be empty!');
+            socket.emit("start_worker", { worker: 'zero', tag: tag, limit: limit, net_config: globalNetConfig });
         } 
         else if (workerName === 'waifu') {
             let tag = document.getElementById('waifuTag').value;
             let limit = document.getElementById('waifuLimit').value;
             let nsfw = document.getElementById('waifuNsfw').checked;
-            if(!tag) return logToConsole('waifu', '❌ Error: Tag Name cannot be empty!');
-            eel.start_waifu(tag, limit, nsfw, globalNetConfig)();
+            if(!tag) return logToConsole('waifu', 'Error: Tag Name cannot be empty!');
+            socket.emit("start_worker", { worker: 'waifu', tag: tag, limit: limit, nsfw: nsfw, net_config: globalNetConfig });
         }
         else if (workerName === 'neko') {
             let tag = document.getElementById('nekoCat').value;
             let limit = document.getElementById('nekoAmount').value;
-            if(!tag) return logToConsole('neko', '❌ Error: Category cannot be empty!');
-            eel.start_neko(tag, limit, globalNetConfig)();
+            if(!tag) return logToConsole('neko', 'Error: Category cannot be empty!');
+            socket.emit("start_worker", { worker: 'neko', category: tag, limit: limit, net_config: globalNetConfig });
         }
         else if (workerName === 'safe') {
             let tag = document.getElementById('safeTag').value;
             let limit = document.getElementById('safeLimit').value;
-            if(!tag) return logToConsole('safe', '❌ Error: Search Tags cannot be empty!');
-            eel.start_safe(tag, limit, globalNetConfig)();
+            if(!tag) return logToConsole('safe', 'Error: Search Tags cannot be empty!');
+            socket.emit("start_worker", { worker: 'safe', tag: tag, limit: limit, net_config: globalNetConfig });
         }
         else if (workerName === 'rule34') {
             let tag = document.getElementById('rule34Tag').value;
@@ -159,23 +281,87 @@ function startWorker(workerName) {
             let sortType = document.getElementById('rule34SortType').value;
             let sortOrder = document.getElementById('rule34SortOrder').value;
 
-            if(!tag) return logToConsole('rule34', '❌ Error: Search Tags cannot be empty!');
+            if(!tag) return logToConsole('rule34', 'Error: Search Tags cannot be empty!');
             
-            // خواندن وضعیت چک‌باکس‌های فیلتر
             let exclusions = [];
             if (document.getElementById('exVideo').checked) exclusions.push('-video');
             if (document.getElementById('exGif').checked) exclusions.push('-gif');
             if (document.getElementById('exComic').checked) exclusions.push('-comic');
             if (document.getElementById('ex3D').checked) exclusions.push('-3d');
 
-            // ارسال تمام پارامترها به هسته پایتون
-            eel.start_rule34(tag, limit, method, sortType, sortOrder, exclusions, globalNetConfig)();
+            socket.emit("start_worker", {
+                worker: 'rule34',
+                tag: tag,
+                limit: limit,
+                method: method,
+                sort_type: sortType,
+                sort_order: sortOrder,
+                exclusions: exclusions,
+                net_config: globalNetConfig
+            });
         }
     } catch (e) {
-        logToConsole('main', `❌ UI Error: ${e}`);
+        logToConsole('main', `UI Error: ${e}`);
     }
 }
 
 function stopWorker(workerName) { 
-    eel.stop_worker(workerName)(); 
+    socket.emit("stop_worker", { worker: workerName });
+}
+
+// ==========================================
+// === API SETTINGS ===
+// ==========================================
+async function loadApiSettings() {
+    try {
+        let resp = await fetch("/api/api-settings");
+        let settings = await resp.json();
+        document.getElementById("apiKeyInput").value = settings.rule34_api_key || "";
+        document.getElementById("apiUserIdInput").value = settings.rule34_user_id || "";
+    } catch(e) {
+        console.error("Failed to load API settings:", e);
+    }
+}
+
+async function saveApiSettings() {
+    let apiKey = document.getElementById("apiKeyInput").value.trim();
+    let userId = document.getElementById("apiUserIdInput").value.trim();
+    let statusEl = document.getElementById("apiSaveStatus");
+
+    if (!apiKey || !userId) {
+        statusEl.style.color = "#ff9ff3";
+        statusEl.textContent = "Error: Both API Key and User ID are required!";
+        return;
+    }
+
+    try {
+        let resp = await fetch("/api/api-settings", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ rule34_api_key: apiKey, rule34_user_id: userId })
+        });
+        let result = await resp.json();
+        if (result.success) {
+            statusEl.style.color = "#00d2d3";
+            statusEl.textContent = result.message;
+        } else {
+            statusEl.style.color = "#ff9ff3";
+            statusEl.textContent = "Error saving settings.";
+        }
+    } catch(e) {
+        statusEl.style.color = "#ff9ff3";
+        statusEl.textContent = "Error: " + e;
+    }
+}
+
+function toggleApiKeyVisibility() {
+    let input = document.getElementById("apiKeyInput");
+    let btn = event.target;
+    if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "Hide";
+    } else {
+        input.type = "password";
+        btn.textContent = "Show";
+    }
 }
