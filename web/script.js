@@ -1,17 +1,18 @@
-// ==========================================
-// === INITIALIZATION ===
-// ==========================================
 let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
-window.nekoData = { image: [], gif: [] };
+let globalWallpapers = {
+    "Main": "Rem_main.png", "Neko": "Rem_neko.jpg", "Zero": "Rem_zero.jpg",
+    "Waifu": "Rem_waifu.png", "Safe": "Rem_safe.jpg", "Rule34": "Rem_rule34.jpg",
+    "Gelbooru": "Rem_gelbooru.jpg", "NekosLife": "Rem_nekos_life.jpg", "ApiSettings": "Rem_option.jpg",
+    "History": "Rem_history.jpg"
+};
 
 const socket = io();
 
-socket.on("python_log", function(data) {
+socket.on("python_log", function (data) {
     logToConsole(data.worker, data.msg);
 });
 
-window.onload = async function() {
-    // Load startup config (including proxy)
+window.onload = async function () {
     try {
         let resp = await fetch("/api/config");
         let config = await resp.json();
@@ -19,383 +20,466 @@ window.onload = async function() {
             globalNetConfig = config;
             document.getElementById("proxyEnabled").checked = config.use_proxy || false;
             document.getElementById("proxyUrl").value = config.proxy_url || "http://127.0.0.1:10808";
-            document.getElementById("tlsVerify").checked = config.verify_tls || false;
             document.getElementById("apiTimeout").value = config.api_timeout || 10;
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
-        }
-    } catch(e) { console.error("Config load error:", e); }
 
-    // Load current folder
+            Object.keys(globalWallpapers).forEach(key => {
+                let confKey = key === "ApiSettings" ? "wp_options" : 
+                             (key === "NekosLife" ? "wp_nekos_life" : `wp_${key.toLowerCase()}`);
+                if(config[confKey]) globalWallpapers[key] = config[confKey];
+                
+                let inputEl = document.getElementById(confKey);
+                if(inputEl) inputEl.value = globalWallpapers[key];
+            });
+
+            document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers["Main"]}')`;
+        }
+    } catch (e) { console.error("Config error:", e); }
+
     try {
         let resp = await fetch("/api/folder");
         let data = await resp.json();
         if (data.folder) document.getElementById("folderDisplay").innerText = data.folder;
-    } catch(e) { console.error("Folder load error:", e); }
+    } catch (e) {}
 
-    // Load neko categories
-    await loadNekoCategories();
-    document.getElementById("nekoCat").onclick = function() {
-        if(this.value.includes("Network Error")) {
-            this.value = "Retrying...";
-            loadNekoCategories();
-        }
-    };
+    // Initialize Nekos.best dropdown
+    updateNekoDropdown();
 
-    // Load waifu tags
     try {
         let resp = await fetch("/api/tags/waifu", {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(globalNetConfig)
         });
         let waifuTags = await resp.json();
         let wl = document.getElementById("waifuList");
-        wl.innerHTML = "";
-        waifuTags.forEach(t => wl.innerHTML += `<option value="${t}">`);
+        let wHtml = "";
+        waifuTags.forEach(t => wHtml += `<option value="${t}">`);
+        wl.innerHTML = wHtml;
         if (waifuTags.length > 0) document.getElementById("waifuTag").value = waifuTags[0];
-    } catch(e) { console.error("Waifu tags error:", e); }
+    } catch (e) {}
 
-    // Load API settings
+    await loadTagsData();
     await loadApiSettings();
-
-    logToConsole("main", "Welcome to Rem God Catcher! Web Interface Online.");
-    logToConsole("main", "Configure API keys and download settings in the 'Options' tab.");
 };
 
-// ==========================================
-// === CATEGORY LOADERS ===
-// ==========================================
-async function loadNekoCategories() {
-    try {
-        let resp = await fetch("/api/tags/neko", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(globalNetConfig)
-        });
-        let data = await resp.json();
-        if (data.image.length === 0 && data.gif.length === 0) {
-            document.getElementById("nekoCat").value = "Network Error (Click to Retry)";
-        } else {
-            window.nekoData = data;
-            updateNekoDropdown();
-        }
-    } catch(e) {
-        document.getElementById("nekoCat").value = "Network Error (Click to Retry)";
-    }
-}
+const nekoImages = ["husbando", "kitsune", "neko", "waifu"];
+const nekoGifs = ["angry", "baka", "bite", "bleh", "blowkiss", "blush", "bonk", "bored", "carry", "clap", "confused", "cry", "cuddle", "dance", "facepalm", "feed", "handhold", "handshake", "happy", "highfive", "hug", "kabedon", "kick", "kiss", "lappillow", "laugh", "lurk", "nod", "nom", "nope", "nya", "pat", "peck", "poke", "pout", "punch", "run", "salute", "shake", "shoot", "shocked", "shrug", "sip", "slap", "sleep", "smile", "smug", "spin", "stare", "tableflip", "teehee", "think", "thumbsup", "tickle", "wag", "wave", "wink", "yawn", "yeet"];
 
 function updateNekoDropdown() {
     let fmt = document.getElementById("nekoFormat").value;
-    let nl = document.getElementById("nekoList");
-    nl.innerHTML = "";
+    let sel = document.getElementById("nekoCat");
+    sel.innerHTML = "";
     
-    let targetList = [];
-    if (fmt === "Images (PNG)") targetList = window.nekoData.image;
-    else if (fmt === "GIFs (Animations)") targetList = window.nekoData.gif;
-    else targetList = window.nekoData.image.concat(window.nekoData.gif).sort();
-
-    targetList.forEach(t => nl.innerHTML += `<option value="${t}">`);
-    if (targetList.length > 0) document.getElementById("nekoCat").value = targetList[0];
+    let targetList = fmt === "Images" ? nekoImages : nekoGifs;
+    targetList.forEach(t => {
+        let opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        sel.appendChild(opt);
+    });
 }
 
-// ==========================================
-// === FOLDER BROWSER ===
-// ==========================================
 async function saveProxySettings() {
     globalNetConfig.use_proxy = document.getElementById("proxyEnabled").checked;
     globalNetConfig.proxy_url = document.getElementById("proxyUrl").value;
-    globalNetConfig.verify_tls = document.getElementById("tlsVerify").checked;
+    try {
+        await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
+        logToConsole("main", "Proxy updated.");
+    } catch (e) {}
+}
+
+async function uploadWallpaper(inputId, tabName, fileInput) {
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    let file = fileInput.files[0];
+    let formData = new FormData();
+    formData.append("file", file);
 
     try {
-        let resp = await fetch("/api/config", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(globalNetConfig)
-        });
+        let resp = await fetch("/api/upload_wallpaper", { method: "POST", body: formData });
         let result = await resp.json();
         if (result.success) {
-            logToConsole("main", `Proxy settings updated: ${globalNetConfig.use_proxy ? 'ENABLED' : 'DISABLED'} (${globalNetConfig.proxy_url})`);
+            document.getElementById(inputId).value = result.filename;
+            await saveWallpapers();
+            
+            let activeTabBtn = document.querySelector(".tab-btn.active");
+            if (activeTabBtn && activeTabBtn.getAttribute("onclick").includes(`'${tabName}'`)) {
+                document.body.style.backgroundImage = `url('user_wallpapers/${result.filename}')`;
+            }
+        } else {
+            alert("Error: " + result.error);
         }
-    } catch(e) {
-        logToConsole("main", `Error saving proxy: ${e}`);
+    } catch (e) { alert("Upload failed: " + e); }
+
+    // این خط حافظه مرورگر را پاک میکند تا بتوانی یک عکس را چند بار پشت سر هم انتخاب کنی
+    fileInput.value = "";
+}
+
+async function saveWallpapers() {
+    let wpConfig = {
+        "wp_main": document.getElementById("wp_main").value.trim(),
+        "wp_neko": document.getElementById("wp_neko").value.trim(),
+        "wp_nekos_life": document.getElementById("wp_nekos_life").value.trim(),
+        "wp_zero": document.getElementById("wp_zero").value.trim(),
+        "wp_waifu": document.getElementById("wp_waifu").value.trim(),
+        "wp_safe": document.getElementById("wp_safe").value.trim(),
+        "wp_rule34": document.getElementById("wp_rule34").value.trim(),
+        "wp_gelbooru": document.getElementById("wp_gelbooru").value.trim(),
+        "wp_options": document.getElementById("wp_options").value.trim(),
+        "wp_history": document.getElementById("wp_history").value.trim()
+    };
+    try {
+        await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wpConfig) });
+        
+        globalWallpapers["Main"] = wpConfig.wp_main;
+        globalWallpapers["Neko"] = wpConfig.wp_neko;
+        globalWallpapers["NekosLife"] = wpConfig.wp_nekos_life;
+        globalWallpapers["Zero"] = wpConfig.wp_zero;
+        globalWallpapers["Waifu"] = wpConfig.wp_waifu;
+        globalWallpapers["Safe"] = wpConfig.wp_safe;
+        globalWallpapers["Rule34"] = wpConfig.wp_rule34;
+        globalWallpapers["Gelbooru"] = wpConfig.wp_gelbooru;
+        globalWallpapers["ApiSettings"] = wpConfig.wp_options;
+        globalWallpapers["History"] = wpConfig.wp_history;
+
+        document.getElementById("wpSaveStatus").textContent = "Saved!";
+        setTimeout(()=> document.getElementById("wpSaveStatus").textContent = "", 2000);
+    } catch(e){}
+}
+
+async function resetWallpapers() {
+    document.getElementById('wp_main').value = 'Rem_main.png';
+    document.getElementById('wp_neko').value = 'Rem_neko.jpg';
+    document.getElementById('wp_nekos_life').value = 'Rem_nekos_life.jpg';
+    document.getElementById('wp_zero').value = 'Rem_zero.jpg';
+    document.getElementById('wp_waifu').value = 'Rem_waifu.png';
+    document.getElementById('wp_safe').value = 'Rem_safe.jpg';
+    document.getElementById('wp_rule34').value = 'Rem_rule34.jpg';
+    document.getElementById('wp_gelbooru').value = 'Rem_gelbooru.jpg';
+    document.getElementById('wp_options').value = 'Rem_option.jpg';
+    document.getElementById('wp_history').value = 'Rem_history.jpg';
+    
+    await saveWallpapers();
+    
+    let activeTabBtn = document.querySelector(".tab-btn.active");
+    if (activeTabBtn) {
+        let tabMatch = activeTabBtn.getAttribute("onclick").match(/'([^']+)'/);
+        if (tabMatch) document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers[tabMatch[1]]}')`;
     }
+    logToConsole('main', "All wallpapers have been reset to their defaults.");
 }
 
 async function browseFolder() {
-    let input = document.createElement("input");
-    input.type = "file";
-    input.webkitdirectory = true;
-    input.directory = true;
-    
-    // Use a hidden input trick for folder selection
-    let folderInput = document.createElement("input");
-    folderInput.type = "text";
-    folderInput.placeholder = "Paste folder path here...";
-    
     let folder = prompt("Enter the master download folder path:");
     if (!folder) return;
-    
     try {
-        let resp = await fetch("/api/folder", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ folder: folder })
-        });
+        let resp = await fetch("/api/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: folder }) });
         let data = await resp.json();
         if (data.folder) {
             document.getElementById("folderDisplay").innerText = data.folder;
             logToConsole("main", `Master folder updated to: ${data.folder}`);
         }
-    } catch(e) {
-        logToConsole("main", `Error: ${e}`);
-    }
+    } catch(e) {}
 }
 
-// ==========================================
-// === TAG SUGGESTION FETCHERS ===
-// ==========================================
-async function fetchZero(val) {
-    if(val.length < 3) return;
-    try {
-        let resp = await fetch("/api/tags/zerochan", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ query: val, net_config: globalNetConfig })
-        });
-        let tags = await resp.json();
-        let dl = document.getElementById("zeroList");
-        dl.innerHTML = "";
-        tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
-    } catch(e) { console.error(e); }
-}
-
-async function fetchSafe(val) {
-    if(val.length < 2) return;
-    let words = val.split(" ");
-    let lastWord = words[words.length - 1];
-    if(lastWord.length < 2) return;
-
-    try {
-        let resp = await fetch("/api/tags/safe", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ query: lastWord })
-        });
-        let tags = await resp.json();
-        let dl = document.getElementById("safeList");
-        dl.innerHTML = "";
-        tags.forEach(t => {
-            let suggestion = words.slice(0, -1).join(" ") + (words.length > 1 ? " " : "") + t;
-            dl.innerHTML += `<option value="${suggestion}">`;
-        });
-    } catch(e) { console.error(e); }
-}
-
-async function fetchRule34(val) {
-    if(val.length < 2) return;
-    try {
-        let resp = await fetch("/api/tags/rule34", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ query: val, net_config: globalNetConfig })
-        });
-        let tags = await resp.json();
-        let dl = document.getElementById("rule34List");
-        dl.innerHTML = "";
-        tags.forEach(t => dl.innerHTML += `<option value="${t}">`);
-    } catch(e) { console.error(e); }
-}
-
-// ==========================================
-// === TAB SWITCHING ===
-// ==========================================
-function openTab(tabName, wallpaperFile, btn) {
+function openTab(tabName, btn) {
     let contents = document.getElementsByClassName("tab-content");
-    for (let i = 0; i < contents.length; i++) {
-        contents[i].style.display = "none";
-    }
-
+    for (let i = 0; i < contents.length; i++) contents[i].style.display = "none";
     let buttons = document.getElementsByClassName("tab-btn");
     for (let i = 0; i < buttons.length; i++) buttons[i].classList.remove("active");
 
-    let tab = document.getElementById(tabName);
-    tab.style.display = "flex";
+    document.getElementById(tabName).style.display = "flex";
     btn.classList.add("active");
-    document.body.style.backgroundImage = `url('wallpaper/${wallpaperFile}')`;
+    document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers[tabName]}')`;
 }
 
-// ==========================================
-// === CONSOLE LOG ===
-// ==========================================
 function logToConsole(tabID, msg) {
     let boxMap = {
-        "main": "consoleLog_main",
-        "neko": "consoleLog_neko",
-        "zero": "consoleLog_zero",
-        "waifu": "consoleLog_waifu",
-        "safe": "consoleLog_safe",
-        "rule34": "consoleLog_rule34"
+        "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
+        "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
+        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru"
     };
-    
-    let targetBoxId = boxMap[tabID.toLowerCase()] || "consoleLog_main";
-    let consoleBox = document.getElementById(targetBoxId);
-    
-    if (consoleBox) {
-        let time = new Date().toLocaleTimeString();
+    let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
+    if (cb) {
         let line = document.createElement("div");
-        line.textContent = `[${time}] ${msg}`;
-        consoleBox.appendChild(line);
-        consoleBox.scrollTop = consoleBox.scrollHeight;
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        cb.appendChild(line);
+        cb.scrollTop = cb.scrollHeight;
     }
 }
 
-// ==========================================
-// === WORKER CONTROLS ===
-// ==========================================
 function startWorker(workerName) {
-    try {
-        if (workerName === 'zero') {
-            let tag = document.getElementById('zeroTag').value;
-            let limit = document.getElementById('zeroLimit').value;
-            if(!tag) return logToConsole('zero', 'Error: Tag Name cannot be empty!');
-            socket.emit("start_worker", { worker: 'zero', tag: tag, limit: limit, net_config: globalNetConfig });
-        } 
-        else if (workerName === 'waifu') {
-            let tag = document.getElementById('waifuTag').value;
-            let limit = document.getElementById('waifuLimit').value;
-            let nsfw = document.getElementById('waifuNsfw').checked;
-            if(!tag) return logToConsole('waifu', 'Error: Tag Name cannot be empty!');
-            socket.emit("start_worker", { worker: 'waifu', tag: tag, limit: limit, nsfw: nsfw, net_config: globalNetConfig });
+    let payload = { worker: workerName, net_config: globalNetConfig };
+    
+    if (workerName === 'zero') {
+        payload.tag = document.getElementById('zeroTag').value;
+        payload.limit = document.getElementById('zeroLimit').value;
+    } else if (workerName === 'waifu') {
+        payload.tag = document.getElementById('waifuTag').value;
+        payload.limit = document.getElementById('waifuLimit').value;
+        payload.nsfw = document.getElementById('waifuNsfw').checked;
+    } else if (workerName === 'neko') {
+        payload.category = document.getElementById('nekoCat').value;
+        payload.limit = document.getElementById('nekoAmount').value;
+    } else if (workerName === 'nekos_life') {
+        payload.category = document.getElementById('nekosLifeCat').value;
+        payload.limit = document.getElementById('nekosLifeAmount').value;
+    } else if (workerName === 'safe') {
+        payload.tag = document.getElementById('safeTag').value;
+        payload.limit = document.getElementById('safeLimit').value;
+        
+        // --- SAFEBOORU FORMAT LOGIC ---
+        let format = document.getElementById('safeFormat').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
         }
-        else if (workerName === 'neko') {
-            let tag = document.getElementById('nekoCat').value;
-            let limit = document.getElementById('nekoAmount').value;
-            if(!tag) return logToConsole('neko', 'Error: Category cannot be empty!');
-            socket.emit("start_worker", { worker: 'neko', category: tag, limit: limit, net_config: globalNetConfig });
-        }
-        else if (workerName === 'safe') {
-            let tag = document.getElementById('safeTag').value;
-            let limit = document.getElementById('safeLimit').value;
-            if(!tag) return logToConsole('safe', 'Error: Search Tags cannot be empty!');
-            socket.emit("start_worker", { worker: 'safe', tag: tag, limit: limit, net_config: globalNetConfig });
-        }
-        else if (workerName === 'rule34') {
-            let tag = document.getElementById('rule34Tag').value;
-            let limit = document.getElementById('rule34Limit').value;
-            let method = document.getElementById('rule34Method').value;
-            let sortType = document.getElementById('rule34SortType').value;
-            let sortOrder = document.getElementById('rule34SortOrder').value;
+        if (document.getElementById('safeExGif').checked) ex.push('-gif');
+        payload.exclusions = ex;
 
-            if(!tag) return logToConsole('rule34', 'Error: Search Tags cannot be empty!');
-            
-            let exclusions = [];
-            if (document.getElementById('exVideo').checked) exclusions.push('-video');
-            if (document.getElementById('exGif').checked) exclusions.push('-gif');
-            if (document.getElementById('exComic').checked) exclusions.push('-comic');
-            if (document.getElementById('ex3D').checked) exclusions.push('-3d');
-
-            socket.emit("start_worker", {
-                worker: 'rule34',
-                tag: tag,
-                limit: limit,
-                method: method,
-                sort_type: sortType,
-                sort_order: sortOrder,
-                exclusions: exclusions,
-                net_config: globalNetConfig
-            });
+    } else if (workerName === 'gelbooru') {
+        payload.tag = document.getElementById('gelbooruTag').value;
+        payload.limit = document.getElementById('gelbooruLimit').value;
+        
+        // --- GELBOORU FORMAT LOGIC ---
+        let format = document.getElementById('gelFormat').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
         }
-    } catch (e) {
-        logToConsole('main', `UI Error: ${e}`);
+        if (document.getElementById('gelExGif').checked) ex.push('-gif');
+        payload.exclusions = ex;
+
+    } else if (workerName === 'rule34') {
+        payload.tag = document.getElementById('rule34Tag').value;
+        payload.limit = document.getElementById('rule34Limit').value;
+        payload.method = document.getElementById('rule34Method').value;
+        payload.sort_type = document.getElementById('rule34SortType').value;
+        payload.sort_order = document.getElementById('rule34SortOrder').value;
+        
+        // --- RULE34 FORMAT LOGIC ---
+        let format = document.getElementById('rule34Format').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
+        }
+        
+        if (document.getElementById('exGif').checked) ex.push('-gif');
+        if (document.getElementById('exComic').checked) ex.push('-comic');
+        if (document.getElementById('ex3D').checked) ex.push('-3d');
+        payload.exclusions = ex;
     }
+    
+    socket.emit("start_worker", payload);
+    setTimeout(loadTagsData, 1000); // آپدیت خودکار لیست هیستوری بعد از یک ثانیه
 }
 
-function stopWorker(workerName) { 
+function stopWorker(workerName) {
     socket.emit("stop_worker", { worker: workerName });
 }
 
-// ==========================================
-// === API SETTINGS ===
-// ==========================================
 async function loadApiSettings() {
-    try {
-        let resp = await fetch("/api/api-settings");
-        let settings = await resp.json();
-        document.getElementById("apiKeyInput").value = settings.rule34_api_key || "";
-        document.getElementById("apiUserIdInput").value = settings.rule34_user_id || "";
-    } catch(e) {
-        console.error("Failed to load API settings:", e);
-    }
+    let resp = await fetch("/api/api-settings");
+    let settings = await resp.json();
+    document.getElementById("r34Key").value = settings.rule34_api_key || "";
+    document.getElementById("r34Uid").value = settings.rule34_user_id || "";
+    document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
+    document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
 }
 
 async function saveApiSettings() {
-    let apiKey = document.getElementById("apiKeyInput").value.trim();
-    let userId = document.getElementById("apiUserIdInput").value.trim();
+    let payload = {
+        rule34_api_key: document.getElementById("r34Key").value.trim(),
+        rule34_user_id: document.getElementById("r34Uid").value.trim(),
+        gelbooru_api_key: document.getElementById("gelKey").value.trim(),
+        gelbooru_user_id: document.getElementById("gelUid").value.trim()
+    };
+    let resp = await fetch("/api/api-settings", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    });
+    let result = await resp.json();
     let statusEl = document.getElementById("apiSaveStatus");
-
-    if (!apiKey || !userId) {
-        statusEl.style.color = "#ff9ff3";
-        statusEl.textContent = "Error: Both API Key and User ID are required!";
-        return;
-    }
-
-    try {
-        let resp = await fetch("/api/api-settings", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ rule34_api_key: apiKey, rule34_user_id: userId })
-        });
-        let result = await resp.json();
-        if (result.success) {
-            statusEl.style.color = "#00d2d3";
-            statusEl.textContent = result.message;
-        } else {
-            statusEl.style.color = "#ff9ff3";
-            statusEl.textContent = "Error saving settings.";
-        }
-    } catch(e) {
-        statusEl.style.color = "#ff9ff3";
-        statusEl.textContent = "Error: " + e;
-    }
+    statusEl.textContent = result.success ? "Saved!" : "Error!";
+    setTimeout(()=> statusEl.textContent = "", 2000);
 }
 
-function toggleApiKeyVisibility() {
-    let input = document.getElementById("apiKeyInput");
-    let btn = event.target;
-    if (input.type === "password") {
-        input.type = "text";
-        btn.textContent = "Hide";
-    } else {
-        input.type = "password";
-        btn.textContent = "Show";
-    }
-}
-
-// ==========================================
-// === DOWNLOAD SETTINGS ===
-// ==========================================
 async function saveDownloadSettings() {
     globalNetConfig.api_timeout = document.getElementById("apiTimeout").value;
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
+    await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
+    document.getElementById("dlSettingsStatus").textContent = "Saved!";
+    setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
+}
 
+// ==========================================
+// === AUTO-SUGGEST FIX ===
+// ==========================================
+async function fetchZero(val) {
+    if (val.length < 3) return;
     try {
-        let resp = await fetch("/api/config", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(globalNetConfig)
-        });
-        let result = await resp.json();
-        if (result.success) {
-            let status = document.getElementById("dlSettingsStatus");
-            status.style.color = "#00d2d3";
-            status.textContent = "Saved!";
-            setTimeout(() => status.textContent = "", 2000);
-        }
-    } catch(e) {
-        let status = document.getElementById("dlSettingsStatus");
-        status.style.color = "#ff9ff3";
-        status.textContent = "Error: " + e;
+        let resp = await fetch("/api/tags/zerochan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: val, net_config: globalNetConfig }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("zeroList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchSafe(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/safe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("safeList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchRule34(val) {
+    if (val.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/rule34", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: val, net_config: globalNetConfig }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("rule34List");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchGelbooru(val) {
+    if (val.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/rule34", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: val, net_config: globalNetConfig }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("gelbooruList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+// ==========================================
+// === HISTORY & FAVORITES SYSTEM ===
+// ==========================================
+let historyTags = [];
+let favoriteTags = [];
+
+async function loadTagsData() {
+    try {
+        let resHist = await fetch("/api/history");
+        historyTags = await resHist.json();
+        
+        let resFav = await fetch("/api/favorites");
+        favoriteTags = await resFav.json();
+        
+        renderHistory();
+        renderFavorites();
+    } catch(e) { console.error("Error loading tags", e); }
+}
+
+function isFavorite(site, tag) {
+    return favoriteTags.some(x => x.site === site && x.tag === tag);
+}
+
+function renderHistory() {
+    let ui = document.getElementById("historyListUI");
+    if(!ui) return;
+    ui.innerHTML = "";
+    if (historyTags.length === 0) {
+        ui.innerHTML = "<p style='color: gray; font-size: 13px;'>No search history yet.</p>";
+        return;
     }
+
+    historyTags.forEach(item => {
+        let isFav = isFavorite(item.site, item.tag);
+        let heartIcon = isFav ? "💖" : "🤍";
+        
+        ui.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <span style="color: #ff9ff3; font-size: 11px; text-transform: uppercase; border: 1px solid #ff9ff3; padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
+                    <span style="font-size: 14px; color: white;">${item.tag}</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
+                    <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function renderFavorites() {
+    let ui = document.getElementById("favoritesListUI");
+    if(!ui) return;
+    ui.innerHTML = "";
+    if (favoriteTags.length === 0) {
+        ui.innerHTML = "<p style='color: gray; font-size: 12px;'>Click 🤍 in the History tab to add favorites.</p>";
+        return;
+    }
+
+    favoriteTags.forEach(item => {
+        // کلیک روی فیوریت باعث باز شدن سایت و پر شدن اتوماتیک تگ میشود!
+        ui.innerHTML += `
+            <div onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
+                <span>❄️</span>
+                <span style="color: #00d2d3; font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
+                <span>${item.tag}</span>
+            </div>
+        `;
+    });
+}
+
+async function toggleFavorite(site, tag) {
+    let action = isFavorite(site, tag) ? "remove" : "add";
+    let resp = await fetch("/api/favorites", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: site, tag: tag, action: action })
+    });
+    let data = await resp.json();
+    favoriteTags = data.favorites;
+    renderHistory();
+    renderFavorites();
+}
+
+async function removeFromHistory(site, tag) {
+    await fetch("/api/history/remove", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: site, tag: tag })
+    });
+    await loadTagsData();
+}
+
+async function clearHistory() {
+    if(confirm("Are you sure you want to delete all search history?")) {
+        await fetch("/api/history/clear", { method: "POST" });
+        await loadTagsData();
+    }
+}
+
+// تابع پرش از صفحه اصلی به تب سایت و پر کردن خودکار
+function jumpToSite(site, tag) {
+    let tabId = site === "rule34" ? "Rule34" : (site === "gelbooru" ? "Gelbooru" : "Safe");
+    let inputId = site === "rule34" ? "rule34Tag" : (site === "gelbooru" ? "gelbooruTag" : "safeTag");
+    
+    // باز کردن تب
+    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(tabId.toLowerCase()));
+    if(btn) openTab(tabId, btn);
+    
+    // پر کردن اینپوت جستجو
+    let inputEl = document.getElementById(inputId);
+    if(inputEl) inputEl.value = tag;
 }

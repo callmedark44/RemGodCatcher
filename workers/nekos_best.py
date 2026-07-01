@@ -10,6 +10,7 @@ def worker_nekos_best(category, amount, net_config):
     STOP_EVENTS[name] = threading.Event()
     stop_event = STOP_EVENTS[name]
 
+    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
     log_msg(name, f"Initializing worker for category: '{category}'")
 
     site_root = os.path.join(MASTER_FOLDER, "Nekos.best")
@@ -71,8 +72,8 @@ def worker_nekos_best(category, amount, net_config):
                 log_msg(name, f"[FAILED] {filename}: {e}")
 
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
-            delay = random.uniform(3.5, 6.5)
-            log_msg(name, f"Tactical pause... ({delay:.1f}s)")
+            delay = random.uniform(anti_ban_pause, anti_ban_pause + 3.0)
+            log_msg(name, f"Anti-ban pause... ({delay:.1f}s)")
             time.sleep(delay)
 
     log_msg(name, "--- Worker Terminated ---")

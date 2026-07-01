@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rem God Catcher</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -14,46 +12,204 @@
 
     <div class="glass-panel">
         <div class="tab-buttons">
-            <button class="tab-btn active" onclick="openTab('Main', 'Rem_main.png', this)">MAIN</button>
-            <button class="tab-btn" onclick="openTab('Neko', 'Rem_neko.jpg', this)">Nekos.best</button>
-            <button class="tab-btn" onclick="openTab('Zero', 'Rem_zero.jpg', this)">Zerochan</button>
-            <button class="tab-btn" onclick="openTab('Waifu', 'Rem_waifu.png', this)">Waifu.im</button>
-            <button class="tab-btn" onclick="openTab('Safe', 'Rem_safe.jpg', this)">Safebooru</button>
-            <button class="tab-btn" onclick="openTab('Rule34', 'Rem_rule34.jpg', this)" style="color: #ff9ff3;">Rule34</button>
-            <button class="tab-btn" onclick="openTab('ApiSettings', 'Rem_main.png', this)" style="color: #00d2d3;">Options</button>
+            <button class="tab-btn active" onclick="openTab('Main', this)">MAIN</button>
+            <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
+            <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
+            <button class="tab-btn" onclick="openTab('Zero', this)">Zerochan</button>
+            <button class="tab-btn" onclick="openTab('Waifu', this)">Waifu.im</button>
+            <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
+            <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
+            <button class="tab-btn" onclick="openTab('Rule34', this)" style="color: #ff9ff3;">Rule34</button>
+            <button class="tab-btn" onclick="openTab('History', this)">History</button>
+            <button class="tab-btn" onclick="openTab('ApiSettings', this)" style="color: #00d2d3;">Options</button>
         </div>
 
         <div class="tab-container">
-            <!-- MAIN TAB -->
             <div id="Main" class="tab-content" style="display: flex;">
-                <h2>System Setup</h2>
-                <div class="input-group">
-                    <label>Master Folder:</label>
-                    <span id="folderDisplay" style="color: #ff9ff3; flex-grow: 1; font-family: monospace;">Loading...</span>
-                    <button class="action-btn" onclick="browseFolder()">Browse</button>
-                </div>
-
-                <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                    <div class="input-group" style="margin-top: 0;">
-                        <input type="checkbox" id="proxyEnabled"> 
-                        <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (VPN/Proxy Required for Rule34, Safebooru)</label>
+                <div class="options-scroll">
+                    <h2>System Setup</h2>
+                    <div class="input-group">
+                        <label>Master Folder:</label>
+                        <span id="folderDisplay" style="color: #ff9ff3; flex-grow: 1; font-family: monospace;">Loading...</span>
+                        <button class="action-btn" onclick="browseFolder()">Browse</button>
                     </div>
-                    <div class="input-group" style="margin-top: 8px;">
-                        <label style="min-width: 100px;">Proxy URL:</label>
-                        <input type="text" id="proxyUrl" value="http://127.0.0.1:10808" style="width: 280px;" placeholder="http://127.0.0.1:10808">
-                        <input type="checkbox" id="tlsVerify"> 
-                        <label for="tlsVerify">Verify TLS</label>
-                        <button class="action-btn" onclick="saveProxySettings()" style="margin-left: 10px;">Apply</button>
-                    </div>
-                    <p style="color: gray; font-size: 11px; margin-top: 6px;">Common ports: v2rayN=10808, Clash=7890, SSR=1080</p>
-                </div>
 
-                <div class="console-wrapper">
-                    <pre id="consoleLog_main"></pre>
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="input-group" style="margin-top: 0;">
+                            <input type="checkbox" id="proxyEnabled">
+                            <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (Required for Rule34, Safebooru)</label>
+                        </div>
+                        <div class="input-group" style="margin-top: 8px;">
+                            <label style="min-width: 100px;">Proxy URL:</label>
+                            <input type="text" id="proxyUrl" value="http://127.0.0.1:10808" style="width: 280px;">
+                            <button class="action-btn" onclick="saveProxySettings()" style="margin-left: 10px;">Apply</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <p style="color: #00d2d3; font-size: 14px; font-weight: bold; margin-bottom: 8px;">Themes & Wallpapers</p>
+                        <p style="color: gray; font-size: 11px; margin-bottom: 10px;">Select custom backgrounds. Files are permanently saved to the app folder.</p>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Main Tab:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_main" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_main').click()">Browse</button>
+                                    <input type="file" id="file_wp_main" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_main', 'Main', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Nekos.best:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_neko" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_neko').click()">Browse</button>
+                                    <input type="file" id="file_wp_neko" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_neko', 'Neko', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Nekos.life:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_nekos_life" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_nekos_life').click()">Browse</button>
+                                    <input type="file" id="file_wp_nekos_life" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_nekos_life', 'NekosLife', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Zerochan:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_zero" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_zero').click()">Browse</button>
+                                    <input type="file" id="file_wp_zero" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_zero', 'Zero', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Waifu.im:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_waifu" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_waifu').click()">Browse</button>
+                                    <input type="file" id="file_wp_waifu" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_waifu', 'Waifu', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Safebooru:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_safe" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_safe').click()">Browse</button>
+                                    <input type="file" id="file_wp_safe" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_safe', 'Safe', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Rule34:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_rule34" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_rule34').click()">Browse</button>
+                                    <input type="file" id="file_wp_rule34" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_rule34', 'Rule34', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Gelbooru:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_gelbooru" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_gelbooru').click()">Browse</button>
+                                    <input type="file" id="file_wp_gelbooru" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_gelbooru', 'Gelbooru', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">Options:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_options" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_options').click()">Browse</button>
+                                    <input type="file" id="file_wp_options" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_options', 'ApiSettings', this)">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 12px;">History:</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" id="wp_history" style="width: 95px; font-size: 12px;" readonly>
+                                    <button class="action-btn" style="padding: 2px 6px; font-size: 10px;" onclick="document.getElementById('file_wp_history').click()">Browse</button>
+                                    <input type="file" id="file_wp_history" accept="image/*" style="display: none" onchange="uploadWallpaper('wp_history', 'History', this)">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                            <button class="action-btn" onclick="saveWallpapers()" style="font-size: 11px; padding: 6px 12px;">Save Themes</button>
+                            <button class="action-btn stop-btn" onclick="resetWallpapers()" style="font-size: 11px; padding: 6px 12px;">Reset to Default</button>
+                            <span id="wpSaveStatus" style="font-size: 12px; color: #00d2d3;"></span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <p style="color: #00d2d3; font-size: 14px; font-weight: bold; margin-bottom: 8px;">❄️ Favorite Tags</p>
+                        <div id="favoritesListUI" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;">
+                            </div>
+                    </div>
+
+                    <div class="console-wrapper" style="min-height: 120px;">
+                        <pre id="consoleLog_main"></pre>
+                    </div>
                 </div>
             </div>
 
-            <!-- ZEROCHAN TAB -->
+            <div id="Neko" class="tab-content" style="display: none;">
+                <h2>Nekos.best Downloader</h2>
+                <div class="input-group">
+                    <label>Format:</label>
+                    <select id="nekoFormat" onchange="updateNekoDropdown()">
+                        <option value="Images">Images</option>
+                        <option value="GIFs">GIFs</option>
+                    </select>
+                    <label>Category:</label>
+                    <select id="nekoCat" style="width: 140px;"></select>
+                    <label>Amount:</label>
+                    <input type="number" id="nekoAmount" value="20" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('neko')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_neko"></pre>
+                </div>
+            </div>
+
+            <div id="NekosLife" class="tab-content" style="display: none;">
+                <h2>Nekos.life Downloader</h2>
+                <div class="input-group">
+                    <label>Category:</label>
+                    <select id="nekosLifeCat" style="width: 150px;">
+                        <option value="smug">smug</option>
+                        <option value="baka">baka</option>
+                        <option value="tickle">tickle</option>
+                        <option value="slap">slap</option>
+                        <option value="poke">poke</option>
+                        <option value="pat">pat</option>
+                        <option value="neko">neko</option>
+                        <option value="ngif">nekoGif</option>
+                        <option value="meow">meow</option>
+                        <option value="lizard">lizard</option>
+                        <option value="kiss">kiss</option>
+                        <option value="hug">hug</option>
+                        <option value="fox_girl">foxGirl</option>
+                        <option value="feed">feed</option>
+                        <option value="cuddle">cuddle</option>
+                        <option value="kemonomimi">kemonomimi</option>
+                        <option value="holo">holo</option>
+                        <option value="woof">woof</option>
+                        <option value="wallpaper">wallpaper</option>
+                        <option value="goose">goose</option>
+                        <option value="gecg">gecg</option>
+                        <option value="avatar">avatar</option>
+                        <option value="waifu">waifu</option>
+                    </select>
+                    <label>Amount:</label>
+                    <input type="number" id="nekosLifeAmount" value="20" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('nekos_life')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('nekos_life')">STOP</button>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_nekos_life"></pre>
+                </div>
+            </div>
+
             <div id="Zero" class="tab-content" style="display: none;">
                 <h2>Zerochan Downloader</h2>
                 <div class="input-group">
@@ -70,7 +226,6 @@
                 </div>
             </div>
 
-            <!-- WAIFU TAB -->
             <div id="Waifu" class="tab-content" style="display: none;">
                 <h2>Waifu.im Downloader</h2>
                 <div class="input-group">
@@ -88,30 +243,6 @@
                 </div>
             </div>
 
-            <!-- NEKO TAB -->
-            <div id="Neko" class="tab-content" style="display: none;">
-                <h2>Nekos.best Downloader</h2>
-                <div class="input-group">
-                    <label>Format:</label>
-                    <select id="nekoFormat" onchange="updateNekoDropdown()">
-                        <option value="Images (PNG)">Images (PNG)</option>
-                        <option value="GIFs (Animations)">GIFs (Animations)</option>
-                        <option value="Both">Both</option>
-                    </select>
-                    <label>Category:</label>
-                    <input type="text" id="nekoCat" list="nekoList" placeholder="e.g. neko">
-                    <datalist id="nekoList"></datalist>
-                    <label>Amount:</label>
-                    <input type="number" id="nekoAmount" value="20" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('neko')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
-                </div>
-                <div class="console-wrapper">
-                    <pre id="consoleLog_neko"></pre>
-                </div>
-            </div>
-
-            <!-- SAFEBOORU TAB -->
             <div id="Safe" class="tab-content" style="display: none;">
                 <h2>Safebooru Downloader</h2>
                 <div class="input-group">
@@ -123,120 +254,152 @@
                     <button class="action-btn" onclick="startWorker('safe')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
                 </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="safeFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Exclude:</label>
+                    <input type="checkbox" id="safeExGif"> <label for="safeExGif" style="margin-right: 10px;">GIF</label>
+                </div>
                 <div class="console-wrapper">
                     <pre id="consoleLog_safe"></pre>
                 </div>
             </div>
 
-            <!-- RULE34 TAB -->
+            <div id="Gelbooru" class="tab-content" style="display: none;">
+                <h2>Gelbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="gelbooruTag" list="gelbooruList" oninput="fetchGelbooru(this.value)" placeholder="e.g. 1girl blue_hair">
+                    <datalist id="gelbooruList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="gelbooruLimit" value="50" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="gelFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Exclude:</label>
+                    <input type="checkbox" id="gelExGif"> <label for="gelExGif" style="margin-right: 10px;">GIF</label>
+                </div>
+                <div class="console-wrapper">
+                    <pre id="consoleLog_gelbooru"></pre>
+                </div>
+            </div>
+
             <div id="Rule34" class="tab-content" style="display: none;">
                 <h2>Rule34 Downloader</h2>
-                
                 <div class="input-group">
                     <label>Tags (Max 10):</label>
                     <input type="text" id="rule34Tag" list="rule34List" oninput="fetchRule34(this.value)" placeholder="e.g. rem blue_hair -maid" style="width: 320px;">
                     <datalist id="rule34List"></datalist>
                 </div>
-                
                 <div class="input-group" style="margin-top: 10px;">
                     <label>Method:</label>
                     <select id="rule34Method">
                         <option value="and">AND (All Tags)</option>
                         <option value="or">OR (Any Tag ~)</option>
                     </select>
-
                     <label style="margin-left: 10px;">Sort:</label>
                     <select id="rule34SortType">
                         <option value="id">Newest (ID)</option>
                         <option value="score">Score</option>
                     </select>
-
                     <select id="rule34SortOrder">
                         <option value="desc">Desc</option>
                         <option value="asc">Asc</option>
                     </select>
                 </div>
-
                 <div class="input-group" style="margin-top: 10px;">
                     <label>Limit:</label>
                     <input type="number" id="rule34Limit" value="50" style="width: 80px;">
                     <button class="action-btn" onclick="startWorker('rule34')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('rule34')">STOP</button>
                 </div>
-                
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
-                    <label style="color: #ff9ff3; text-shadow: none; font-weight: bold; margin-right: 10px;">Exclude:</label>
-                    <input type="checkbox" id="exVideo" checked> <label for="exVideo" style="text-shadow: none; margin-right: 10px;">Video</label>
-                    <input type="checkbox" id="exGif"> <label for="exGif" style="text-shadow: none; margin-right: 10px;">GIF</label>
-                    <input type="checkbox" id="exComic"> <label for="exComic" style="text-shadow: none; margin-right: 10px;">Comic</label>
-                    <input type="checkbox" id="ex3D"> <label for="ex3D" style="text-shadow: none;">3D</label>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="rule34Format" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <label style="color: #ff9ff3; font-weight: bold; margin-right: 10px;">Exclude:</label>
+                    <input type="checkbox" id="exGif"> <label for="exGif" style="margin-right: 10px;">GIF</label>
+                    <input type="checkbox" id="exComic"> <label for="exComic" style="margin-right: 10px;">Comic</label>
+                    <input type="checkbox" id="ex3D"> <label for="ex3D">3D</label>
                 </div>
-
                 <div class="console-wrapper">
                     <pre id="consoleLog_rule34"></pre>
                 </div>
             </div>
 
-            <!-- API SETTINGS TAB -->
+            <div id="History" class="tab-content" style="display: none;">
+                <div class="options-scroll">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2>Tag Search History</h2>
+                        <button class="action-btn stop-btn" onclick="clearHistory()">Clear All History</button>
+                    </div>
+                    <div id="historyListUI" style="display: flex; flex-direction: column; gap: 8px;">
+                        </div>
+                </div>
+            </div>
+
             <div id="ApiSettings" class="tab-content" style="display: none;">
                 <div class="options-scroll">
-                <h2>Options</h2>
-                <p style="color: gray; font-size: 13px; margin-bottom: 15px;">Configure your Rule34 API credentials. Keys are saved to <code>.env</code> file locally.</p>
-                
-                <div class="input-group" style="flex-direction: column; align-items: flex-start; gap: 12px;">
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                        <label style="min-width: 110px;">Rule34 API Key:</label>
-                        <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." style="width: 480px;">
-                        <button class="action-btn" onclick="toggleApiKeyVisibility()" style="padding: 8px 12px;">Show</button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                        <label style="min-width: 110px;">Rule34 User ID:</label>
-                        <input type="text" id="apiUserIdInput" placeholder="e.g. 6661100" style="width: 200px;">
-                    </div>
-                </div>
-
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button class="action-btn" onclick="saveApiSettings()">Save to .env</button>
-                    <button class="action-btn stop-btn" onclick="loadApiSettings()">Reload</button>
-                </div>
-
-                <div id="apiSaveStatus" style="margin-top: 15px; color: #00d2d3; font-size: 14px; min-height: 20px;"></div>
-
-                <div style="margin-top: 25px; padding: 14px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                    <p style="color: #00d2d3; font-size: 14px; font-weight: bold; margin-bottom: 12px;">Download Settings</p>
-                    <div class="input-group" style="flex-wrap: wrap; gap: 15px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <label style="min-width: 120px; font-size: 13px;">API Timeout:</label>
-                            <input type="number" id="apiTimeout" value="10" style="width: 70px;">
-                            <span style="font-size: 12px; color: gray;">sec</span>
+                    <h2>API & Download Settings</h2>
+                    
+                    <div style="display: flex; gap: 20px;">
+                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                            <p style="color: #ff9ff3; font-weight: bold; margin-bottom: 10px;">Rule34 Credentials</p>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <input type="password" id="r34Key" placeholder="API Key">
+                                <input type="text" id="r34Uid" placeholder="User ID">
+                            </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <label style="min-width: 120px; font-size: 13px;">Retry Wait:</label>
-                            <input type="number" id="retryWait" value="5" style="width: 70px;">
-                            <span style="font-size: 12px; color: gray;">sec</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <label style="min-width: 120px; font-size: 13px;">Anti-Ban Pause:</label>
-                            <input type="number" id="antiBanPause" value="3" step="0.5" style="width: 70px;">
-                            <span style="font-size: 12px; color: gray;">sec</span>
+
+                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                            <p style="color: #ff9ff3; font-weight: bold; margin-bottom: 10px;">Gelbooru Credentials</p>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <input type="password" id="gelKey" placeholder="API Key">
+                                <input type="text" id="gelUid" placeholder="User ID">
+                            </div>
                         </div>
                     </div>
-                    <div style="margin-top: 12px;">
-                        <button class="action-btn" onclick="saveDownloadSettings()">Save Settings</button>
-                        <span id="dlSettingsStatus" style="margin-left: 10px; font-size: 12px; color: gray;"></span>
+
+                    <div style="margin-top: 15px;">
+                        <button class="action-btn" onclick="saveApiSettings()">Save All Keys to .env</button>
+                        <span id="apiSaveStatus" style="margin-left: 10px; color: #00d2d3; font-size: 14px;"></span>
                     </div>
-                </div>
-                
-                <div style="margin-top: 25px; padding: 12px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                    <p style="color: #ff9ff3; font-size: 13px; font-weight: bold; margin-bottom: 8px;">How to get your Rule34 API Key:</p>
-                    <ol style="color: gray; font-size: 12px; padding-left: 20px; line-height: 1.8;">
-                        <li>Create an account at <a href="https://rule34.xxx" target="_blank" style="color: #00d2d3;">rule34.xxx</a></li>
-                        <li>Go to your Profile &rarr; Settings</li>
-                        <li>Find the <b>API Key</b> section and click <b>Generate API Key</b></li>
-                        <li>Copy your <b>User ID</b> from the profile URL</li>
-                        <li>Paste both values above and click <b>Save to .env</b></li>
-                    </ol>
-                </div>
+
+                    <div style="margin-top: 25px; padding: 14px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <p style="color: #00d2d3; font-size: 14px; font-weight: bold; margin-bottom: 12px;">Download Settings</p>
+                        <div class="input-group" style="flex-wrap: wrap; gap: 15px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="min-width: 120px; font-size: 13px;">API Timeout:</label>
+                                <input type="number" id="apiTimeout" value="10" style="width: 70px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="min-width: 120px; font-size: 13px;">Retry Wait:</label>
+                                <input type="number" id="retryWait" value="5" style="width: 70px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="min-width: 120px; font-size: 13px;">Anti-Ban Pause:</label>
+                                <input type="number" id="antiBanPause" value="3" step="0.5" style="width: 70px;">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <button class="action-btn" onclick="saveDownloadSettings()">Save Download Settings</button>
+                            <span id="dlSettingsStatus" style="margin-left: 10px; font-size: 12px; color: gray;"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

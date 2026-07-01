@@ -4,7 +4,6 @@ import threading
 import random
 import re
 
-# Import the core engine tools
 import shared
 from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history
 
@@ -13,6 +12,7 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
     STOP_EVENTS[name] = threading.Event()
     stop_event = STOP_EVENTS[name]
 
+    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
     log_msg(name, "Initializing worker... [RULE34PY LIBRARY MODE]")
     tag_list = [t.strip() for t in tag.strip().lower().split() if t.strip()]
 
@@ -31,13 +31,10 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
     else:
         TAGS.extend(tag_list)
 
-    if sort_order == "desc":
-        TAGS.append(f"sort:{sort_type}")
-    else:
-        TAGS.append(f"sort:{sort_type}:{sort_order}")
+    if sort_order == "desc": TAGS.append(f"sort:{sort_type}")
+    else: TAGS.append(f"sort:{sort_type}:{sort_order}")
 
-    if exclusions:
-        TAGS.extend(exclusions)
+    if exclusions: TAGS.extend(exclusions)
 
     log_msg(name, f"Final Payload sent to rule34Py: {TAGS}")
 
@@ -47,8 +44,7 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
 
     clean_folder_name = " ".join([t for t in tag_list if not t.startswith('-')])
     safe_tag_dir = re.sub(r'[\\/*?:"<>|~]', "", clean_folder_name).strip().replace(' ', '_')
-    if not safe_tag_dir:
-        safe_tag_dir = "mixed_tags"
+    if not safe_tag_dir: safe_tag_dir = "mixed_tags"
 
     tag_dir = os.path.join(site_root, safe_tag_dir)
     os.makedirs(tag_dir, exist_ok=True)
@@ -94,25 +90,21 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                     if "string indices must be integers" in str(e):
                         results = []
                         break
-                    else:
-                        raise e
+                    else: raise e
                 except Exception as e:
                     error_msg = str(e)
                     if "timeout" in error_msg.lower() or "read timed out" in error_msg.lower():
                         log_msg(name, f"Network Timeout (Attempt {attempt+1}/{max_retries}). Retrying in 3s...")
                         time.sleep(3)
-                    else:
-                        raise e
+                    else: raise e
 
             if results is None:
                 log_msg(name, "Failed to connect to Rule34 after 5 attempts. Check your VPN/Proxy.")
                 break
 
             if not results:
-                if page == 0:
-                    log_msg(name, f"0 images found for {TAGS}.")
-                else:
-                    log_msg(name, "End of database reached.")
+                if page == 0: log_msg(name, f"0 images found for {TAGS}.")
+                else: log_msg(name, "End of database reached.")
                 break
 
             for result in results:
@@ -120,8 +112,16 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                 file_url = result.image
                 if not file_url: continue
                 
+                # --- استخراج تگهای عکس از کتابخانه Rule34Py ---
+                tags_raw = getattr(result, 'tags', "")
+                tags_str = " ".join(tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
+                tags_str = (tags_str[:120] + "...") if len(tags_str) > 120 else tags_str
+                
                 ext = file_url.split('.')[-1].lower()
+                
+                # --- VIDEO/IMAGE FILTERING LOGIC ---
                 if ext in ["mp4", "webm", "zip"] and "-video" in exclusions: continue
+                if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in exclusions: continue
                 if ext == "gif" and "-gif" in exclusions: continue
 
                 post_id = getattr(result, 'id', random.randint(1000, 99999))
@@ -148,15 +148,15 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                     dl_history.add(filename)
                     save_history(site_root, dl_history)
 
-                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                    log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
                     time.sleep(random.uniform(0.6, 1.2))
                 except Exception as e:
                     log_msg(name, f"[FAILED] {filename}: {e}")
 
             page += 1
             if not stop_event.is_set() and (amount == 0 or downloaded < amount):
-                delay = random.uniform(3.0, 5.0)
-                log_msg(name, f"Tactical pause... ({delay:.1f}s)")
+                delay = random.uniform(anti_ban_pause, anti_ban_pause + 2.0)
+                log_msg(name, f"Anti-ban pause... ({delay:.1f}s)")
                 time.sleep(delay)
 
     except Exception as e:

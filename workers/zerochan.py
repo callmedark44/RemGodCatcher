@@ -12,6 +12,7 @@ def worker_zerochan(tag, amount, net_config):
     STOP_EVENTS[name] = threading.Event()
     stop_event = STOP_EVENTS[name]
 
+    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
     tag = tag.split('|')[0].strip()
     log_msg(name, f"Initializing worker for tag: '{tag}'")
     session = get_session("zero", net_config)
@@ -23,7 +24,8 @@ def worker_zerochan(tag, amount, net_config):
     try:
         r_resp = session.get(f"https://www.zerochan.net/{urllib.parse.quote_plus(tag)}", timeout=10, allow_redirects=True)
         if r_resp.url and "/search?q=" not in r_resp.url:
-            real_tag = urllib.parse.unquote(r_resp.url.split('/')[-1]).replace('+', ' ')
+            parsed_path = urllib.parse.urlparse(r_resp.url).path
+            real_tag = urllib.parse.unquote(parsed_path.split('/')[-1]).replace('+', ' ')
             if real_tag and real_tag.lower() != tag.lower():
                 tag = real_tag
     except Exception:
@@ -54,7 +56,13 @@ def worker_zerochan(tag, amount, net_config):
             if stop_event.is_set() or (amount > 0 and downloaded >= amount): break
             try:
                 det_resp = session.get(f"https://www.zerochan.net/{item.get('id')}?json", timeout=10)
-                img_url = det_resp.json().get("full") or det_resp.json().get("large")
+                json_data = det_resp.json()
+                img_url = json_data.get("full") or json_data.get("large")
+                
+                # --- استخراج تگهای عکس ---
+                tags_raw = json_data.get("tags", [])
+                tags_str = ", ".join(tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
+                tags_str = (tags_str[:120] + "...") if len(tags_str) > 120 else tags_str
             except Exception: continue
             
             if not img_url: continue
@@ -79,15 +87,15 @@ def worker_zerochan(tag, amount, net_config):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
                 time.sleep(random.uniform(0.3, 1.2))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}")
 
         page += 1
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
-            delay = random.uniform(3.0, 6.0)
-            log_msg(name, f"Stealth delay... ({delay:.1f}s)")
+            delay = random.uniform(anti_ban_pause, anti_ban_pause + 3.0)
+            log_msg(name, f"Anti-ban pause... ({delay:.1f}s)")
             time.sleep(delay)
 
     log_msg(name, "--- Worker Terminated ---")

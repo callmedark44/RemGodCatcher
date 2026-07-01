@@ -6,11 +6,12 @@ import re
 
 from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
 
-def worker_safebooru(tag, amount, net_config):
+def worker_safebooru(tag, amount, exclusions, net_config):
     name = "safe"
     STOP_EVENTS[name] = threading.Event()
     stop_event = STOP_EVENTS[name]
 
+    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
     tag = tag.strip().lower()
     log_msg(name, f"Initializing worker for tag: '{tag}'")
 
@@ -41,8 +42,7 @@ def worker_safebooru(tag, amount, net_config):
 
             text_resp = resp.text.strip()
             if not text_resp or text_resp == "[]":
-                if page == 1:
-                    log_msg(name, f"ZERO images found for '{tag}'.")
+                if page == 1: log_msg(name, f"ZERO images found for '{tag}'.")
                 break
 
             raw_data = resp.json()
@@ -51,20 +51,15 @@ def worker_safebooru(tag, amount, net_config):
                     log_msg(name, f"API Alert: {raw_data.get('message', 'Unknown Error')}")
                     break
                 posts = [raw_data]
-            elif isinstance(raw_data, list):
-                posts = raw_data
-            else:
-                break
+            elif isinstance(raw_data, list): posts = raw_data
+            else: break
 
-            if not posts:
-                break
+            if not posts: break
 
         except Exception as e:
             err_str = str(e)
-            if "403" in err_str:
-                log_msg(name, "ERROR 403: Cloudflare/ISP block. You need a VPN or proxy to access Safebooru.")
-            else:
-                log_msg(name, f"API Error: {e}")
+            if "403" in err_str: log_msg(name, "ERROR 403: Cloudflare/ISP block. You need a VPN.")
+            else: log_msg(name, f"API Error: {e}")
             time.sleep(5)
             continue
 
@@ -77,8 +72,16 @@ def worker_safebooru(tag, amount, net_config):
             if not url: continue
             if url.startswith("https://"): url = url.replace("https://", "http://")
 
+            # --- استخراج تگهای عکس ---
+            tags_raw = post.get("tags", "")
+            tags_str = (tags_raw[:120] + "...") if len(tags_raw) > 120 else tags_raw
+
             ext = (post.get("file_ext") or "").lower()
-            if ext in ["mp4", "webm", "zip", "gif"]: continue
+            
+            # --- VIDEO/IMAGE FILTERING LOGIC ---
+            if ext in ["mp4", "webm", "zip"] and "-video" in exclusions: continue
+            if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in exclusions: continue
+            if ext == "gif" and "-gif" in exclusions: continue
 
             filename = f"{post.get('id')}.{ext}"
             filepath = os.path.join(tag_dir, filename)
@@ -101,7 +104,7 @@ def worker_safebooru(tag, amount, net_config):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
                 time.sleep(random.uniform(0.5, 2.0))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}: {e}")
@@ -109,14 +112,14 @@ def worker_safebooru(tag, amount, net_config):
         if page_downloaded == 0:
             empty_pages += 1
             if empty_pages >= max_empty:
-                log_msg(name, f"No downloadable images found after {empty_pages} pages. Stopping.")
+                log_msg(name, f"No downloadable content found after {empty_pages} pages. Stopping.")
                 break
         else:
             empty_pages = 0
 
         page += 1
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
-            delay = random.uniform(3.0, 5.0)
+            delay = random.uniform(anti_ban_pause, anti_ban_pause + 2.0)
             log_msg(name, f"Anti-ban pause... ({delay:.1f}s)")
             time.sleep(delay)
 
