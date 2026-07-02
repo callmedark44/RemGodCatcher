@@ -24,7 +24,7 @@ def worker_yande(tag, amount, rating, net_config):
     dl_history = load_history(site_root)
     session = get_session("yande", net_config)
 
-    safe_tag = re.sub(r'[\\/*?:"<>|]', "", tag).replace(' ', '_')
+    safe_tag = re.sub(r'[\\/*?"<>|]', "", tag).replace(' ', '_')
     tag_dir = os.path.join(site_root, safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
 
