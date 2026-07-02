@@ -112,11 +112,6 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                 file_url = result.image
                 if not file_url: continue
                 
-                # --- استخراج تگهای عکس از کتابخانه Rule34Py ---
-                tags_raw = getattr(result, 'tags', "")
-                tags_str = " ".join(tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
-                tags_str = (tags_str[:120] + "...") if len(tags_str) > 120 else tags_str
-                
                 ext = file_url.split('.')[-1].lower()
                 
                 # --- VIDEO/IMAGE FILTERING LOGIC ---
@@ -148,7 +143,12 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                     dl_history.add(filename)
                     save_history(site_root, dl_history)
 
-                    log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
+                    tags_raw = getattr(result, 'tags', "")
+                    if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+                    else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+
+                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                    shared.send_tags(name, filename, tags_list, [])
                     time.sleep(random.uniform(0.6, 1.2))
                 except Exception as e:
                     log_msg(name, f"[FAILED] {filename}: {e}")

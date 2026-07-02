@@ -6,10 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [3.0.0] - Rem 3: The Discovery & Archive Update - 2026-07-02
+
+### Added
+- **Image Archive System**: A completely new UI in the frontend that creates individual cards for every downloaded image, displaying its filename, source site, clickable tags, and extracted artist names.
+- **Favorites System**: Users can now heart tags in the History or Image Archive. These favorite tags appear in the Main Tab. Clicking a favorite tag instantly jumps to the corresponding site's tab and auto-fills the search input.
+- **Search History Tracking**: Added a dedicated "History" tab with its own customizable wallpaper. It automatically records the latest searched tags across all sites (Rule34, Gelbooru, Safebooru, Zerochan, etc.) and limits the database to 500 entries to maintain high performance.
+- **Background Tag Extraction**: Workers now intelligently parse massive tag lists and artist names directly from the APIs (`tag_string`, `tag_string_artist`, etc.) and send them to the backend without freezing the app.
+- **Video & Format Filtering**: Implemented dedicated filters to exclusively search for Video formats (`.mp4`, `.webm`) or restrict searches to Images only across supported platforms.
+- **Image History API**: New REST endpoints (`/api/image_history`, `/api/image_history/clear`, `/api/image_history/remove`) for managing the per-image tag archive.
+
+### Changed
+- **Cleaner Console Logs**: Removed verbose tag strings from the real-time console log. Logs now remain clean and readable, while tags are silently routed to the new Image Archive UI.
+- **Safebooru Tag Parsing**: Fixed an issue where Safebooru hid its primary tags inside a `tag_string` variable instead of the standard `tags` array, ensuring accurate tag extraction.
+- **Duplicate Tag Handling**: Improved backend logic to accurately differentiate between similar character tags and prevent duplicate entries in the JSON databases.
+- **Scroll-Preserving History**: The History tab now preserves scroll position when new tags are added in real-time, preventing jarring jumps.
+- **`.gitignore` Refined**: Replaced blanket `*.json` exclusion with specific filenames (`tag_history.json`, `fav_tags.json`, `image_history.json`) so project JSON files like `tags.json` are not ignored.
+
+---
+
 ## [2.1.0] - 2026-06-26
 
 ### Added
-
 - **Options Tab** -- Renamed "API Keys" to "Options". Added configurable download settings (API Timeout, Retry Wait, Anti-Ban Pause) directly in the Web UI.
 - **Waifu.im Tag Database (`tags.json`)** -- Local tag database with name-to-slug conversion. Typing "Genshin Impact" now correctly sends "genshin-impact" to the API.
 - **Download Settings in `.env`** -- Added `API_TIMEOUT`, `RETRY_WAIT`, `ANTI_BAN_PAUSE` fields. All settings persist across restarts.
@@ -18,7 +36,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Safebooru Parentheses Support** -- Parentheses in tag names (e.g., `rem_(re:zero)`) are now handled correctly via URL params instead of stripping them.
 
 ### Fixed
-
 - **Rule34 API Key Format** -- Fixed `client.api_key` format. The library expects raw key string, not `&api_key=...` prefix.
 - **Rule34 Image Download Proxy** -- Changed `requests.get()` to `client.session.get()` for image downloads, so proxy settings are applied.
 - **Waifu.im NSFW Parameter** -- Changed `"True"` to `"true"` for `IsNsfw` parameter (API requires lowercase).
@@ -29,14 +46,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Tab Display Mode** -- Changed from `display: block` to `display: flex` for proper height distribution.
 
 ### Changed
-
 - **Console Font** -- Replaced JetBrains Mono with **Source Code Pro** (Google Fonts) for softer, eye-friendly terminal text.
 - **Tab Name** -- "API Keys" renamed to **"Options"**.
 - **Safebooru Worker** -- Added `page_downloaded` counter and `empty_pages` tracker to prevent infinite loops.
 - **All Workers** -- Now read `api_timeout`, `retry_wait`, `anti_ban_pause` from `net_config` for configurable behavior.
 
 ### Removed
-
 - **"Resting..." Log Message** -- Removed from Waifu.im worker to reduce log noise.
 - **Parentheses Stripping** -- No longer removes `()` from Safebooru tags (they are valid and required).
 
@@ -45,48 +60,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2.0.0] - 2026-06-25
 
 ### Major Changes
-
 - **Migrated from Eel to Flask + Socket.IO** -- The Web UI no longer requires Chrome/Chromium. It now opens in your default browser via a local Flask server.
 - **Added Web-based Proxy Configuration** -- Proxy settings are now configurable directly from the Web UI's Main tab.
 
 ### Added
-
 - **Options Tab** -- New tab in the Web UI to manage Rule34 API credentials and download settings.
 - **Socket.IO Real-Time Logging** -- Console logs are pushed to the browser via WebSocket for instant feedback.
 - **Persistent Proxy Settings** -- Proxy configuration is saved to `.env` and restored on restart.
 - **Google Fonts Integration** -- Inter font loaded from Google Fonts CDN.
 - **Custom Scrollbar Styling** -- Scrollbar appearance customized for the console log panels.
-- **Input Focus States** -- Added focus ring animations on input fields.
-- **Checkbox Styling** -- Checkboxes now use the cyan accent color.
 
 ### Fixed
-
 - **Font Path Mismatch** -- CSS referenced wrong font filename. Both CSS and Python paths corrected.
-- **Input Border Color Bug** -- CSS had wrong RGB value. Fixed.
 - **Console Log XSS** -- Replaced `innerHTML +=` with `document.createElement()` to prevent injection.
 - **Hardcoded API Keys** -- Removed from source code. Moved to `.env` file.
-- **Waifu.im NSFW Parameter** -- Lowercase fix.
 
 ### Changed
-
 - **Font**: Replaced Playfair with **Inter** (Google Fonts). Console uses **Source Code Pro**.
 - **CSS**: Complete rewrite with glass-morphism improvements.
 - **JavaScript**: Full rewrite -- `eel.xxx()` replaced with `fetch()` + `socket.emit()`.
 - **Python**: Removed `eel`, `customtkinter`. Added `flask`, `flask-socketio`.
-- **README**: Rewritten with badges, project structure, and setup instructions.
 
 ### Removed
-
 - **CustomTkinter Startup Window** -- All settings now in Web UI.
 - **`eel` dependency** -- Replaced by Flask + Socket.IO.
-- **`customtkinter` dependency** -- No longer required.
 
 ---
 
-## [1.0.0] - 2024-12-01
+## [1.0.0] - 2026-06-20
 
 ### Added
-
 - Initial release with Eel-based Web UI.
 - Support for Rule34, Safebooru, Zerochan, Waifu.im, and Nekos.best.
 - CustomTkinter startup configuration window.

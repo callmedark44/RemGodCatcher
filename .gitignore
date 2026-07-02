@@ -1,5 +1,5 @@
 # ========================
-# 📂 Downloaded Content (NEVER UPLOAD)
+# Downloaded Content & User Data (NEVER UPLOAD)
 # ========================
 Rem God/
 Safebooru/
@@ -7,16 +7,20 @@ Rule34/
 Zerochan/
 Waifu.im/
 Nekos.best/
-*.json
+
+# User History and Favorites Databases
+tag_history.json
+fav_tags.json
+image_history.json
 
 # ========================
-# 🖼️ Personal Wallpapers Filter
+# Personal Wallpapers Filter
 # ========================
 # هر عکسی که در این پوشه فرعی بگذاری آپلود نخواهد شد
 web/wallpaper/personal/
 
 # ========================
-# 🐍 Python & Virtual Environments
+# Python & Virtual Environments
 # ========================
 __pycache__/
 *.pyc
@@ -26,7 +30,7 @@ env/
 .env
 
 # ========================
-# 🛠️ Build & Executable Files
+# Build & Executable Files
 # ========================
 build/
 dist/

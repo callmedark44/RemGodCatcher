@@ -4,6 +4,7 @@ import threading
 import random
 import re
 
+import shared
 from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
 
 def worker_safebooru(tag, amount, exclusions, net_config):
@@ -72,10 +73,6 @@ def worker_safebooru(tag, amount, exclusions, net_config):
             if not url: continue
             if url.startswith("https://"): url = url.replace("https://", "http://")
 
-            # --- استخراج تگهای عکس ---
-            tags_raw = post.get("tags", "")
-            tags_str = (tags_raw[:120] + "...") if len(tags_raw) > 120 else tags_raw
-
             ext = (post.get("file_ext") or "").lower()
             
             # --- VIDEO/IMAGE FILTERING LOGIC ---
@@ -104,7 +101,13 @@ def worker_safebooru(tag, amount, exclusions, net_config):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
-                log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
+                # Safebooru API returns tags inside "tag_string" instead of "tags"
+                tags_raw = post.get("tag_string", post.get("tags", ""))
+                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+                artists = [t.strip() for t in post.get("tag_string_artist", "").split() if t.strip()]
+
+                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                shared.send_tags(name, filename, tags_list, artists)
                 time.sleep(random.uniform(0.5, 2.0))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}: {e}")

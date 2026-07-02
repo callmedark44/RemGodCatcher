@@ -12,6 +12,10 @@ socket.on("python_log", function (data) {
     logToConsole(data.worker, data.msg);
 });
 
+socket.on("update_history", function () {
+    loadTagsData();
+});
+
 window.onload = async function () {
     try {
         let resp = await fetch("/api/config");
@@ -376,6 +380,7 @@ async function fetchGelbooru(val) {
 // ==========================================
 let historyTags = [];
 let favoriteTags = [];
+let imageHistory = [];
 
 async function loadTagsData() {
     try {
@@ -384,9 +389,13 @@ async function loadTagsData() {
         
         let resFav = await fetch("/api/favorites");
         favoriteTags = await resFav.json();
+
+        let resImgHist = await fetch("/api/image_history");
+        imageHistory = await resImgHist.json();
         
         renderHistory();
         renderFavorites();
+        renderImageHistory();
     } catch(e) { console.error("Error loading tags", e); }
 }
 
@@ -397,29 +406,35 @@ function isFavorite(site, tag) {
 function renderHistory() {
     let ui = document.getElementById("historyListUI");
     if(!ui) return;
-    ui.innerHTML = "";
+
+    let currentScroll = ui.parentElement.scrollTop;
+
+    let htmlStr = "";
     if (historyTags.length === 0) {
-        ui.innerHTML = "<p style='color: gray; font-size: 13px;'>No search history yet.</p>";
-        return;
+        htmlStr = "<p style='color: gray; font-size: 13px;'>No search history yet.</p>";
+    } else {
+        historyTags.forEach(item => {
+            let isFav = isFavorite(item.site, item.tag);
+            let heartIcon = isFav ? "💖" : "🤍";
+
+            htmlStr += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div>
+                        <span style="color: #ff9ff3; font-size: 11px; text-transform: uppercase; border: 1px solid #ff9ff3; padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
+                        <span style="font-size: 14px; color: white;">${item.tag}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
+                        <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
+                    </div>
+                </div>
+            `;
+        });
     }
 
-    historyTags.forEach(item => {
-        let isFav = isFavorite(item.site, item.tag);
-        let heartIcon = isFav ? "💖" : "🤍";
-        
-        ui.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
-                    <span style="color: #ff9ff3; font-size: 11px; text-transform: uppercase; border: 1px solid #ff9ff3; padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
-                    <span style="font-size: 14px; color: white;">${item.tag}</span>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
-                    <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
-                </div>
-            </div>
-        `;
-    });
+    ui.innerHTML = htmlStr;
+
+    ui.parentElement.scrollTop = currentScroll;
 }
 
 function renderFavorites() {
@@ -482,4 +497,71 @@ function jumpToSite(site, tag) {
     // پر کردن اینپوت جستجو
     let inputEl = document.getElementById(inputId);
     if(inputEl) inputEl.value = tag;
+}
+
+function renderImageHistory() {
+    let ui = document.getElementById("imageHistoryUI");
+    if(!ui) return;
+    
+    let currentScroll = ui.parentElement.scrollTop;
+    let htmlStr = "";
+    
+    if (imageHistory.length === 0) {
+        htmlStr = "<p style='color: gray; font-size: 13px;'>No images downloaded yet.</p>";
+    } else {
+        imageHistory.forEach(img => {
+            let tagsHtml = img.tags.map(t => {
+                let isFav = isFavorite(img.site, t);
+                let bgColor = isFav ? "rgba(255, 159, 243, 0.2)" : "rgba(255,255,255,0.1)";
+                let borderColor = isFav ? "#ff9ff3" : "transparent";
+                return `<span onclick="addFavoriteFromImage('${img.site}', '${t}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${t}</span>`;
+            }).join('');
+
+            let artistHtml = img.artists && img.artists.length > 0 
+                ? `<div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+                       <span style="color: #00d2d3; font-size: 12px; font-weight: bold;">Artists:</span> 
+                       <span style="font-size: 12px; color: #ccc;">${img.artists.join(', ')}</span>
+                   </div>` 
+                : "";
+
+            htmlStr += `
+                <div style="background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
+                    <button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&#10060;</button>
+                    <h3 style="color: white; font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: #ff9ff3; border: 1px solid #ff9ff3; padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3>
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding-right: 5px;">
+                        ${tagsHtml}
+                    </div>
+                    ${artistHtml}
+                </div>
+            `;
+        });
+    }
+    ui.innerHTML = htmlStr;
+    ui.parentElement.scrollTop = currentScroll;
+}
+
+async function addFavoriteFromImage(site, tag) {
+    if(isFavorite(site, tag)) return;
+    
+    await fetch("/api/favorites", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: site, tag: tag, action: "add" })
+    });
+    await loadTagsData();
+}
+
+async function removeImageHistory(filename) {
+    await fetch("/api/image_history/remove", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: filename })
+    });
+    await loadTagsData();
+}
+
+async function clearImageHistory() {
+    if(confirm("Delete all image tag history?")) {
+        await fetch("/api/image_history/clear", { method: "POST" });
+        await loadTagsData();
+    }
 }

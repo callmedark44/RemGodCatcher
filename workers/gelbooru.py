@@ -4,6 +4,7 @@ import threading
 import random
 import re
 
+import shared
 from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
 
 def worker_gelbooru(tag, amount, exclusions, net_config):
@@ -82,10 +83,6 @@ def worker_gelbooru(tag, amount, exclusions, net_config):
             file_url = post.get("file_url", "")
             if not file_url: continue
 
-            # --- استخراج تگهای عکس ---
-            tags_raw = post.get("tags", "")
-            tags_str = (tags_raw[:120] + "...") if len(tags_raw) > 120 else tags_raw
-
             ext = file_url.split('.')[-1].lower()
             
             # --- VIDEO/IMAGE FILTERING LOGIC ---
@@ -117,7 +114,11 @@ def worker_gelbooru(tag, amount, exclusions, net_config):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
-                log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
+                tags_raw = post.get("tags", "")
+                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+
+                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                shared.send_tags(name, filename, tags_list, [])
                 time.sleep(random.uniform(0.5, 1.5))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}: {e}")

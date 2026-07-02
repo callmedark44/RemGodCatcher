@@ -88,6 +88,24 @@ def log_msg(worker_name, msg):
     except Exception: print(f"[{worker_name.upper()}] {msg}")
 
 shared.log_callback = log_msg
+
+def socketio_tag_handler(worker_name, filename, tags_list, artist_list):
+    try:
+        hist = load_json_db(IMAGE_HISTORY_FILE)
+        entry = {
+            "site": worker_name,
+            "filename": filename,
+            "tags": [t.strip() for t in tags_list if t.strip()],
+            "artists": [a.strip() for a in artist_list if a.strip()]
+        }
+        hist.insert(0, entry)
+        hist = hist[:100]
+        save_json_db(IMAGE_HISTORY_FILE, hist)
+        socketio.emit("update_history")
+    except Exception as e:
+        print("Image Tag Save Error:", e)
+
+shared.tag_callback = socketio_tag_handler
 # ❌ خط بازنویسی STOP_EVENTS را کاملاً حذف کردیم تا ارتباط قطع نشود!
 shared.MASTER_FOLDER = MASTER_FOLDER
 
@@ -314,6 +332,7 @@ def get_rule34_suggestions():
 # --- TAG HISTORY & FAVORITES API ---
 TAG_HISTORY_FILE = os.path.join(BASE_DIR, "tag_history.json")
 FAV_TAGS_FILE = os.path.join(BASE_DIR, "fav_tags.json")
+IMAGE_HISTORY_FILE = os.path.join(BASE_DIR, "image_history.json")
 
 def load_json_db(filepath):
     if os.path.exists(filepath):
@@ -339,6 +358,21 @@ def remove_tag_history():
     hist = load_json_db(TAG_HISTORY_FILE)
     hist = [x for x in hist if not (x["site"] == data["site"] and x["tag"] == data["tag"])]
     save_json_db(TAG_HISTORY_FILE, hist)
+    return jsonify({"success": True})
+
+@app.route("/api/image_history", methods=["GET"])
+def get_image_history(): return jsonify(load_json_db(IMAGE_HISTORY_FILE))
+
+@app.route("/api/image_history/clear", methods=["POST"])
+def clear_image_history():
+    save_json_db(IMAGE_HISTORY_FILE, [])
+    return jsonify({"success": True})
+
+@app.route("/api/image_history/remove", methods=["POST"])
+def remove_image_history():
+    data = request.json
+    hist = [x for x in load_json_db(IMAGE_HISTORY_FILE) if x.get("filename") != data.get("filename")]
+    save_json_db(IMAGE_HISTORY_FILE, hist)
     return jsonify({"success": True})
 
 @app.route("/api/favorites", methods=["GET", "POST"])

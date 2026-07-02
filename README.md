@@ -2,13 +2,14 @@
 
 # Rem God Catcher
 
-**A modern, cross-platform image downloader with a glass-morphism web UI.**
+**A modern, cross-platform image & video downloader with a glass-morphism web UI.**
 
-Supports Rule34, Safebooru, Zerochan, Waifu.im, and Nekos.best with real-time logging, advanced tag filtering, and anti-ban protections.
+Supports Rule34, Safebooru, Zerochan, Waifu.im, and Nekos.best with real-time logging, a built-in discovery engine, advanced tag filtering, and anti-ban protections.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
+[![Version](https://img.shields.io/badge/Version-3.0.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md)
 
@@ -20,6 +21,9 @@ Supports Rule34, Safebooru, Zerochan, Waifu.im, and Nekos.best with real-time lo
 
 - **Multi-Platform** -- Built-in modules for 5 imageboard APIs
 - **Modern Web UI** -- Glass-morphism dark theme, opens in your default browser
+- **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
+- **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
+- **Video Support** -- Exclusively target and download `.mp4` and `.webm` files via backend format filtering.
 - **Real-Time Logs** -- Live console output via WebSocket (Socket.IO)
 - **Advanced Search** -- AND/OR tag queries, exclusions (`-video`, `-gif`), custom sorting
 - **Anti-Ban Engine** -- Tactical delays, retry loops, rate-limit handling
@@ -27,12 +31,6 @@ Supports Rule34, Safebooru, Zerochan, Waifu.im, and Nekos.best with real-time lo
 - **API Key Management** -- Manage Rule34 credentials directly from the Web UI
 - **Tag Auto-Suggest** -- Live autocomplete for all platforms
 - **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
-
----
-
-## Screenshots
-
-> The UI features a glass-morphism dark panel with tabbed navigation for each platform, a real-time console log, and a settings panel for API keys and proxy configuration.
 
 ---
 
@@ -81,8 +79,13 @@ The Web UI opens automatically at `http://127.0.0.1:5000`.
 ```
 Rem God Catcher/
 ├── Rem_catcher.py          # Python backend (Flask + Socket.IO)
-├── tags.json               # Waifu.im tag database (name → slug mapping)
+├── shared.py               # Core utilities, tag handler, and logging bridge
+├── workers/                # API-specific download modules
+├── tags.json               # Waifu.im tag database (name -> slug mapping)
 ├── safe_tag_names.json     # Safebooru offline tag database
+├── tag_history.json        # Search history database (git-ignored)
+├── fav_tags.json           # User favorites database (git-ignored)
+├── image_history.json      # Per-image tag archive (git-ignored)
 ├── .env                    # API keys & proxy config (git-ignored)
 ├── .gitignore
 ├── LICENSE
@@ -90,17 +93,11 @@ Rem God Catcher/
 ├── README_fa.md            # Persian documentation
 ├── CHANGELOG.md
 └── web/
-    ├── index.html           # Main HTML (tabs, forms, settings)
+    ├── index.html           # Main HTML (tabs, forms, archives, settings)
     ├── script.js            # Frontend logic (Socket.IO + fetch API)
     ├── style.css            # Glass-morphism dark theme (Inter font)
     ├── Fonts/               # Offline fonts (Playfair, MonoLisa)
     └── wallpaper/           # Background images per tab
-        ├── Rem_main.png
-        ├── Rem_neko.jpg
-        ├── Rem_zero.jpg
-        ├── Rem_waifu.png
-        ├── Rem_safe.jpg
-        └── Rem_rule34.jpg
 ```
 
 ---
@@ -109,32 +106,12 @@ Rem God Catcher/
 
 | Platform | Tags | NSFW | Notes |
 |----------|------|------|-------|
-| **Rule34** | Full search with AND/OR, exclusions, sorting | Yes | Requires API key for best results |
-| **Safebooru** | Standard tag search | No | May require proxy (Cloudflare) |
+| **Rule34** | Full search with AND/OR, exclusions, sorting, video format support | Yes | Requires API key for best results |
+| **Safebooru** | Standard tag search, video format support, artist extraction | No | May require proxy (Cloudflare) |
+| **Gelbooru** | Full search, format exclusions, video format support | Yes | Requires API key for best results |
 | **Zerochan** | Tag search with live suggestions | No | Built-in retry & rate limiting |
 | **Waifu.im** | Name-to-slug conversion, NSFW toggle | Yes | Uses local `tags.json` for suggestions |
 | **Nekos.best** | Category-based (PNG / GIF) | No | Multiple format support |
-
----
-
-## Customization
-
-### Wallpapers
-
-Replace images in `web/wallpaper/` keeping the exact filenames:
-
-| File | Tab |
-|------|-----|
-| `Rem_main.png` | Main / System Setup |
-| `Rem_neko.jpg` | Nekos.best |
-| `Rem_zero.jpg` | Zerochan |
-| `Rem_waifu.png` | Waifu.im |
-| `Rem_safe.jpg` | Safebooru |
-| `Rem_rule34.jpg` | Rule34 |
-
-### Fonts
-
-The UI uses **Inter** (Google Fonts) for the interface and **Source Code Pro** for the console log. Fonts are loaded from CDN with local fallbacks in `web/Fonts/`.
 
 ---
 
@@ -147,19 +124,6 @@ The UI uses **Inter** (Google Fonts) for the interface and **Source Code Pro** f
 5. Enter both in the **Options** tab of the Web UI
 
 > Never share your API keys publicly.
-
----
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `flask` | 3.x | Web server |
-| `flask-socketio` | 5.x | WebSocket real-time communication |
-| `requests` | 2.x | HTTP client |
-| `urllib3` | 2.x | Retry strategies |
-| `python-dotenv` | 1.x | `.env` file loading |
-| `rule34Py` | latest | Rule34 API wrapper |
 
 ---
 

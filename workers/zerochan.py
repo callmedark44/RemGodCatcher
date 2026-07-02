@@ -5,6 +5,7 @@ import random
 import re
 import urllib.parse
 
+import shared
 from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
 
 def worker_zerochan(tag, amount, net_config):
@@ -61,8 +62,8 @@ def worker_zerochan(tag, amount, net_config):
                 
                 # --- استخراج تگهای عکس ---
                 tags_raw = json_data.get("tags", [])
-                tags_str = ", ".join(tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
-                tags_str = (tags_str[:120] + "...") if len(tags_str) > 120 else tags_str
+                if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split(',') if t.strip()]
+                else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
             except Exception: continue
             
             if not img_url: continue
@@ -84,10 +85,15 @@ def worker_zerochan(tag, amount, net_config):
                     break
 
                 downloaded += 1
+                tags_raw = det_resp.json().get("tags", []) if 'det_resp' in locals() else []
+                if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split(',') if t.strip()]
+                else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
 
-                log_msg(name, f"[SUCCESS] {filename} ({downloaded}/{amount}) | Tags: {tags_str}")
+                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                shared.send_tags(name, filename, tags_list, [])
                 time.sleep(random.uniform(0.3, 1.2))
             except Exception as e:
                 log_msg(name, f"[FAILED] {filename}")
