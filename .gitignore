@@ -19,6 +19,7 @@ image_history.json
 # ========================
 # هر عکسی که در این پوشه فرعی بگذاری آپلود نخواهد شد
 web/wallpaper/personal/
+web/wallpaper/new/
 
 # ========================
 # Python & Virtual Environments

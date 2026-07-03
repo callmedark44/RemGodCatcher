@@ -65,7 +65,10 @@ STARTUP_CONFIG = {
 }
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# متغیر کنترل‌کننده زمان بسته شدن
+shutdown_timer = None
 
 def load_history(site_root):
     hist_path = os.path.join(site_root, "download_history.json")
@@ -388,6 +391,30 @@ def manage_favorites():
         return jsonify({"success": True, "favorites": favs})
     return jsonify(favs)
 
+
+# ==========================================
+# === AUTO-SHUTDOWN SYSTEM ===
+# ==========================================
+@socketio.on("connect")
+def handle_connect():
+    global shutdown_timer
+    if shutdown_timer:
+        shutdown_timer.cancel()
+        shutdown_timer = None
+    print("Browser Tab Connected!")
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    global shutdown_timer
+    print("Browser Tab Closed! Shutting down in 3 seconds if not reconnected...")
+
+    def shutdown_server():
+        print(">>> No active tabs. Killing Rem God Catcher Server... <<<")
+        os._exit(0)  # این دستور کل فرآیند پایتون را بلافاصله نابود می‌کند
+
+    shutdown_timer = threading.Timer(3.0, shutdown_server)
+    shutdown_timer.start()
+# ==========================================
 
 @socketio.on("start_worker")
 def handle_start_worker(data):
