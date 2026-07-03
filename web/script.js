@@ -2,7 +2,7 @@ let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false
 let globalWallpapers = {
     "Main": "Rem_main.png", "Neko": "Rem_neko.jpg", "Zero": "Rem_zero.jpg",
     "Waifu": "Rem_waifu.png", "Safe": "Rem_safe.jpg", "Rule34": "Rem_rule34.jpg",
-    "Gelbooru": "Rem_gelbooru.jpg", "NekosLife": "Rem_nekos_life.jpg", "ApiSettings": "Rem_option.jpg",
+    "Gelbooru": "Rem_gelbooru.jpg", "NekosLife": "Rem_nekos_life.jpg", "Yande": "Rem_yande.jpg", "ApiSettings": "Rem_option.jpg",
     "History": "Rem_history.jpg"
 };
 
@@ -27,6 +27,7 @@ window.onload = async function () {
             document.getElementById("apiTimeout").value = config.api_timeout || 10;
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
+            document.getElementById("downloadRetries").value = config.download_retries || 3;
 
             Object.keys(globalWallpapers).forEach(key => {
                 let confKey = key === "ApiSettings" ? "wp_options" : 
@@ -49,6 +50,7 @@ window.onload = async function () {
 
     // Initialize Nekos.best dropdown
     updateNekoDropdown();
+    updateNekosLifeType();
 
     try {
         let resp = await fetch("/api/tags/waifu", {
@@ -83,6 +85,41 @@ function updateNekoDropdown() {
         opt.textContent = t;
         sel.appendChild(opt);
     });
+}
+
+function toggleGifExclusion(formatId, checkboxId) {
+    let format = document.getElementById(formatId).value;
+    let checkbox = document.getElementById(checkboxId);
+    let label = checkbox.nextElementSibling;
+    if (format === 'gifs') {
+        checkbox.style.display = 'none';
+        label.style.display = 'none';
+    } else {
+        checkbox.style.display = '';
+        label.style.display = '';
+    }
+}
+
+function updateNekosLifeType() {
+    const gifOnly = ["ngif", "hug", "pat", "cuddle", "tickle", "feed", "slap", "kiss", "smug"];
+    const staticOnly = ["gecg", "meow", "neko", "lewd", "gasm", "8ball", "avatar", "woof", "fox_girl", "waifu"];
+    const mixed = ["goose", "wallpaper", "lizard", "span"];
+    
+    let cat = document.getElementById("nekosLifeCat").value;
+    let typeEl = document.getElementById("nekosLifeType");
+    
+    if (gifOnly.includes(cat)) {
+        typeEl.textContent = "[GIF]";
+        typeEl.style.color = "#ff9ff3";
+    } else if (staticOnly.includes(cat)) {
+        typeEl.textContent = "[STATIC]";
+        typeEl.style.color = "#00d2d3";
+    } else if (mixed.includes(cat)) {
+        typeEl.textContent = "[MIXED]";
+        typeEl.style.color = "#ffd93d";
+    } else {
+        typeEl.textContent = "";
+    }
 }
 
 async function saveProxySettings() {
@@ -129,6 +166,7 @@ async function saveWallpapers() {
         "wp_waifu": document.getElementById("wp_waifu").value.trim(),
         "wp_safe": document.getElementById("wp_safe").value.trim(),
         "wp_rule34": document.getElementById("wp_rule34").value.trim(),
+        "wp_yande": document.getElementById("wp_yande").value.trim(),
         "wp_gelbooru": document.getElementById("wp_gelbooru").value.trim(),
         "wp_options": document.getElementById("wp_options").value.trim(),
         "wp_history": document.getElementById("wp_history").value.trim()
@@ -144,6 +182,7 @@ async function saveWallpapers() {
         globalWallpapers["Safe"] = wpConfig.wp_safe;
         globalWallpapers["Rule34"] = wpConfig.wp_rule34;
         globalWallpapers["Gelbooru"] = wpConfig.wp_gelbooru;
+        globalWallpapers["Yande"] = wpConfig.wp_yande;
         globalWallpapers["ApiSettings"] = wpConfig.wp_options;
         globalWallpapers["History"] = wpConfig.wp_history;
 
@@ -161,6 +200,7 @@ async function resetWallpapers() {
     document.getElementById('wp_safe').value = 'Rem_safe.jpg';
     document.getElementById('wp_rule34').value = 'Rem_rule34.jpg';
     document.getElementById('wp_gelbooru').value = 'Rem_gelbooru.jpg';
+    document.getElementById('wp_yande').value = 'Rem_yande.jpg';
     document.getElementById('wp_options').value = 'Rem_option.jpg';
     document.getElementById('wp_history').value = 'Rem_history.jpg';
     
@@ -202,7 +242,7 @@ function logToConsole(tabID, msg) {
     let boxMap = {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
-        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru"
+        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -214,7 +254,10 @@ function logToConsole(tabID, msg) {
 }
 
 function startWorker(workerName) {
-    let payload = { worker: workerName, net_config: globalNetConfig };
+    let payload = { worker: workerName, net_config: { ...globalNetConfig } };
+    payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
+    payload.net_config.retry_wait = document.getElementById("retryWait").value;
+    payload.net_config.anti_ban_pause = document.getElementById("antiBanPause").value;
     
     if (workerName === 'zero') {
         payload.tag = document.getElementById('zeroTag').value;
@@ -233,31 +276,33 @@ function startWorker(workerName) {
         payload.tag = document.getElementById('safeTag').value;
         payload.limit = document.getElementById('safeLimit').value;
         
-        // --- SAFEBOORU FORMAT LOGIC ---
         let format = document.getElementById('safeFormat').value;
         let ex = [];
         if (format === 'images') ex.push('-video');
         else if (format === 'videos') {
             ex.push('-image');
-            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
+            payload.tag += " video";
         }
-        if (document.getElementById('safeExGif').checked) ex.push('-gif');
         payload.exclusions = ex;
 
     } else if (workerName === 'gelbooru') {
         payload.tag = document.getElementById('gelbooruTag').value;
         payload.limit = document.getElementById('gelbooruLimit').value;
         
-        // --- GELBOORU FORMAT LOGIC ---
         let format = document.getElementById('gelFormat').value;
         let ex = [];
         if (format === 'images') ex.push('-video');
         else if (format === 'videos') {
             ex.push('-image');
-            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
+            payload.tag += " video";
         }
-        if (document.getElementById('gelExGif').checked) ex.push('-gif');
         payload.exclusions = ex;
+        if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated";
+
+    } else if (workerName === 'yande') {
+        payload.tag = document.getElementById('yandeTag').value;
+        payload.limit = document.getElementById('yandeLimit').value;
+        payload.rating = document.getElementById('yandeRating').value;
 
     } else if (workerName === 'rule34') {
         payload.tag = document.getElementById('rule34Tag').value;
@@ -266,13 +311,16 @@ function startWorker(workerName) {
         payload.sort_type = document.getElementById('rule34SortType').value;
         payload.sort_order = document.getElementById('rule34SortOrder').value;
         
-        // --- RULE34 FORMAT LOGIC ---
         let format = document.getElementById('rule34Format').value;
         let ex = [];
         if (format === 'images') ex.push('-video');
+        else if (format === 'gifs') {
+            ex.push('-video');
+            ex.push('-image');
+        }
         else if (format === 'videos') {
             ex.push('-image');
-            payload.tag += " video"; // تزریق هوشمند تگ ویدیو
+            payload.tag += " video";
         }
         
         if (document.getElementById('exGif').checked) ex.push('-gif');
@@ -318,6 +366,7 @@ async function saveDownloadSettings() {
     globalNetConfig.api_timeout = document.getElementById("apiTimeout").value;
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
+    globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
@@ -359,6 +408,19 @@ async function fetchRule34(val) {
         let dl = document.getElementById("rule34List");
         let dHtml = "";
         tags.forEach(t => dHtml += `<option value="${t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchYande(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/yande", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("yandeList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
         dl.innerHTML = dHtml;
     } catch(e) {}
 }
@@ -424,6 +486,7 @@ function renderHistory() {
                         <span style="font-size: 14px; color: white;">${item.tag}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="jumpToSite('${item.site}', '${item.tag}')">➡️</button>
                         <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
                         <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
                     </div>
@@ -447,12 +510,14 @@ function renderFavorites() {
     }
 
     favoriteTags.forEach(item => {
-        // کلیک روی فیوریت باعث باز شدن سایت و پر شدن اتوماتیک تگ میشود!
         ui.innerHTML += `
-            <div onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
-                <span>❄️</span>
-                <span style="color: #00d2d3; font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
-                <span>${item.tag}</span>
+            <div style="background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
+                <span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1;">
+                    <span>❄️</span>
+                    <span style="color: #00d2d3; font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
+                    <span>${item.tag}</span>
+                </span>
+                <button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button>
             </div>
         `;
     });
@@ -468,6 +533,7 @@ async function toggleFavorite(site, tag) {
     favoriteTags = data.favorites;
     renderHistory();
     renderFavorites();
+    renderImageHistory();
 }
 
 async function removeFromHistory(site, tag) {
@@ -487,16 +553,25 @@ async function clearHistory() {
 
 // تابع پرش از صفحه اصلی به تب سایت و پر کردن خودکار
 function jumpToSite(site, tag) {
-    let tabId = site === "rule34" ? "Rule34" : (site === "gelbooru" ? "Gelbooru" : "Safe");
-    let inputId = site === "rule34" ? "rule34Tag" : (site === "gelbooru" ? "gelbooruTag" : "safeTag");
-    
-    // باز کردن تب
-    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(tabId.toLowerCase()));
-    if(btn) openTab(tabId, btn);
-    
-    // پر کردن اینپوت جستجو
-    let inputEl = document.getElementById(inputId);
-    if(inputEl) inputEl.value = tag;
+    let siteMap = {
+        "zero":      { tab: "Zero",     input: "zeroTag" },
+        "waifu":     { tab: "Waifu",    input: "waifuTag" },
+        "neko":      { tab: "Neko",     input: null },
+        "nekos_life":{ tab: "NekosLife", input: null },
+        "safe":      { tab: "Safe",     input: "safeTag" },
+        "gelbooru":  { tab: "Gelbooru", input: "gelbooruTag" },
+        "yande":     { tab: "Yande",    input: "yandeTag" },
+        "rule34":    { tab: "Rule34",    input: "rule34Tag" }
+    };
+    let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
+
+    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
+    if(btn) openTab(mapping.tab, btn);
+
+    if(mapping.input) {
+        let inputEl = document.getElementById(mapping.input);
+        if(inputEl) inputEl.value = tag;
+    }
 }
 
 function renderImageHistory() {
@@ -543,7 +618,7 @@ function renderImageHistory() {
 
 async function addFavoriteFromImage(site, tag) {
     if(isFavorite(site, tag)) return;
-    
+
     await fetch("/api/favorites", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ site: site, tag: tag, action: "add" })

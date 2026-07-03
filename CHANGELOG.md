@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [3.2.0] - 2026-07-02
+
+### Added
+- **Yande.re Platform** -- New worker for yande.re (Moebooru API) with tag autocomplete, rating-based folder sorting (Safe/Moderate/NSFW), and local tag database (135k+ tags).
+- **Download Retries Configuration** -- Retry count is now configurable in Options tab, saved to `.env` as `DOWNLOAD_RETRIES`.
+- **Anti-Spam Pause** -- After 10 consecutive pages with no new downloads, a 5-second anti-spam pause triggers instead of flying through silently.
+- **Rating Filter** -- Yande.re tab has a rating dropdown (All/Safe/Moderate/NSFW) that filters server-side and sorts into per-rating subfolders.
+- **History Jump Button** -- Each search history entry now has a ➡️ button to navigate directly to the site's tab with the tag filled in.
+
+### Changed
+- **All Workers** -- Failed downloads are now retried up to N times (configurable) without stopping the queue.
+- **Anti-Ban Pause** -- Pages with 0 new downloads skip the anti-ban pause, flying through already-downloaded content instantly.
+- **Empty Page Limit Removed** -- Workers no longer stop after 3 empty pages; they continue until the API returns nothing.
+- **Yande.re Anti-Ban** -- Uses the exact configured pause value (no random jitter).
+
+---
+
+## [3.1.0] - 2026-07-02
+
+### Added
+- **Nekos.life Category Type Indicators**: Categories are now visually grouped (GIF Only, Static Only, Mixed, Other) in the UI with a live type badge showing [GIF], [STATIC], or [MIXED] next to the dropdown.
+- **Rule34 GIFs Only Filter**: New "GIFs Only" option in the Rule34 format dropdown to exclusively search for animated GIFs.
+- **Favorite Item Remove Button**: Each favorite tag now has an "✕" button to quickly remove it without navigating to the site.
+- **Jump-To-Site for All Platforms**: `jumpToSite()` now supports Zerochan, Waifu.im, Neko, and Nekos.life in addition to the original three booru sites.
+- **Live Net Config Passing**: `startWorker()` now sends fresh values from the input fields for `api_timeout`, `retry_wait`, and `anti_ban_pause` instead of relying solely on the cached `globalNetConfig` object.
+
+### Changed
+- **Nekos.life Category Reorganization**: Dropdown options are now organized into `<optgroup>` sections for clearer browsing.
+- **Tab Button Visibility**: Tab text color brightened from `rgba(255,255,255,0.7)` to `rgba(255,255,255,0.9)` and hover state improved for better readability.
+- **Favorite Tags UI**: The entire favorite card is no longer a single click target — only the tag/site text area triggers the jump, preventing accidental navigation when trying to remove a favorite.
+
+### Removed
+- **GIF Exclude Checkboxes**: Removed the separate "Exclude GIF" checkboxes from Safebooru and Gelbooru tabs. GIF filtering is now handled exclusively through the Format dropdown selector.
+
+### Fixed
+- **Image History Refresh**: `renderImageHistory()` is now called after toggling favorites, ensuring the Image Archive UI stays in sync.
+
+---
+
 ## [3.0.0] - Rem 3: The Discovery & Archive Update - 2026-07-02
 
 ### Added

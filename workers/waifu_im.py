@@ -4,8 +4,8 @@ import threading
 import random
 import re
 
-from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
-import shared # Need to access WAIFU_TAG_MAP
+from shared import log_msg, STOP_EVENTS, load_history, save_history, get_session
+import shared
 
 def waifu_name_to_slug(name):
     name_lower = name.lower().strip()
@@ -21,16 +21,18 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
     api_timeout = int(net_config.get("api_timeout", 10))
     retry_wait = int(net_config.get("retry_wait", 5))
     anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
+    dl_retries = int(net_config.get("download_retries", 3))
 
     tag = tag.lower()
     slug = waifu_name_to_slug(tag)
     log_msg(name, f"Initializing worker for tag: '{tag}' -> slug: '{slug}' (NSFW: {is_nsfw})")
 
-    site_root = os.path.join(MASTER_FOLDER, "Waifu.im")
+    site_root = os.path.join(shared.MASTER_FOLDER, "Waifu.im")
     os.makedirs(site_root, exist_ok=True)
     dl_history = load_history(site_root)
 
-    safe_tag = re.sub(r'[\\/*?:"<>|]', "", tag).replace(' ', '_')
+    clean_tag = " ".join(t for t in tag.split() if not t.startswith('-'))
+    safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag).replace(' ', '_')
     tag_dir = os.path.join(site_root, "nsfw_" + safe_tag if is_nsfw else safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
     session = get_session("waifu", net_config)
@@ -78,24 +80,34 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
 
             if filename in dl_history or os.path.exists(filepath): continue
 
-            try:
-                r = session.get(url, stream=True, timeout=api_timeout)
-                r.raise_for_status()
-                with open(filepath, 'wb') as f:
-                    for chunk in r.iter_content(8192):
-                        if stop_event.is_set(): break
-                        f.write(chunk)
-                if stop_event.is_set():
-                    os.remove(filepath)
+            success = False
+            for dl_attempt in range(dl_retries):
+                try:
+                    r = session.get(url, stream=True, timeout=api_timeout)
+                    r.raise_for_status()
+                    with open(filepath, 'wb') as f:
+                        for chunk in r.iter_content(8192):
+                            if stop_event.is_set(): break
+                            f.write(chunk)
+                    if stop_event.is_set():
+                        os.remove(filepath)
+                        break
+
+                    downloaded += 1
+                    dl_history.add(filename)
+                    save_history(site_root, dl_history)
+
+                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                    success = True
                     break
-
-                downloaded += 1
-                dl_history.add(filename)
-                save_history(site_root, dl_history)
-
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-            except Exception as e:
-                log_msg(name, f"[FAILED] {filename}: {e}")
+                except Exception as e:
+                    if dl_attempt < 2:
+                        log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
+                        time.sleep(2)
+                    else:
+                        log_msg(name, f"[FAILED] {filename}: {e}")
+            if not success:
+                continue
 
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
             time.sleep(anti_ban_pause)

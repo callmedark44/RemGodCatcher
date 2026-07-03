@@ -5,7 +5,7 @@ import random
 import re
 
 import shared
-from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
+from shared import log_msg, STOP_EVENTS, load_history, save_history, get_session
 
 def worker_gelbooru(tag, amount, exclusions, net_config):
     name = "gelbooru"
@@ -15,13 +15,15 @@ def worker_gelbooru(tag, amount, exclusions, net_config):
     tag = tag.strip().lower()
     log_msg(name, f"Initializing worker for tag: '{tag}'")
 
-    site_root = os.path.join(MASTER_FOLDER, "Gelbooru")
+    site_root = os.path.join(shared.MASTER_FOLDER, "Gelbooru")
     os.makedirs(site_root, exist_ok=True)
     dl_history = load_history(site_root)
     session = get_session("gelbooru", net_config)
     anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
+    dl_retries = int(net_config.get("download_retries", 3))
 
-    safe_tag = re.sub(r'[\\/*?:"<>|]', "", tag).replace(' ', '_')
+    clean_tag = " ".join(t for t in tag.split() if not t.startswith('-'))
+    safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag).replace(' ', '_')
     tag_dir = os.path.join(site_root, safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
 
@@ -97,31 +99,41 @@ def worker_gelbooru(tag, amount, exclusions, net_config):
                 skipped += 1
                 continue
 
-            try:
-                r = session.get(file_url, stream=True, timeout=20, headers={"Referer": "https://gelbooru.com/"})
-                r.raise_for_status()
+            success = False
+            for dl_attempt in range(dl_retries):
+                try:
+                    r = session.get(file_url, stream=True, timeout=20, headers={"Referer": "https://gelbooru.com/"})
+                    r.raise_for_status()
 
-                with open(filepath, 'wb') as f:
-                    for chunk in r.iter_content(8192):
-                        if stop_event.is_set(): break
-                        f.write(chunk)
-                if stop_event.is_set():
-                    os.remove(filepath)
+                    with open(filepath, 'wb') as f:
+                        for chunk in r.iter_content(8192):
+                            if stop_event.is_set(): break
+                            f.write(chunk)
+                    if stop_event.is_set():
+                        os.remove(filepath)
+                        break
+
+                    downloaded += 1
+                    page_downloaded += 1
+                    dl_history.add(filename)
+                    save_history(site_root, dl_history)
+
+                    tags_raw = post.get("tags", "")
+                    tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+
+                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                    shared.send_tags(name, filename, tags_list, [])
+                    time.sleep(random.uniform(0.5, 1.5))
+                    success = True
                     break
-
-                downloaded += 1
-                page_downloaded += 1
-                dl_history.add(filename)
-                save_history(site_root, dl_history)
-
-                tags_raw = post.get("tags", "")
-                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-                shared.send_tags(name, filename, tags_list, [])
-                time.sleep(random.uniform(0.5, 1.5))
-            except Exception as e:
-                log_msg(name, f"[FAILED] {filename}: {e}")
+                except Exception as e:
+                    if dl_attempt < 2:
+                        log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
+                        time.sleep(2)
+                    else:
+                        log_msg(name, f"[FAILED] {filename}: {e}")
+            if not success:
+                continue
 
         if skipped: log_msg(name, f"Skipped {skipped} images (already in history/disk)")
 

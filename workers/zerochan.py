@@ -6,7 +6,7 @@ import re
 import urllib.parse
 
 import shared
-from shared import log_msg, STOP_EVENTS, MASTER_FOLDER, load_history, save_history, get_session
+from shared import log_msg, STOP_EVENTS, load_history, save_history, get_session
 
 def worker_zerochan(tag, amount, net_config):
     name = "zero"
@@ -14,11 +14,11 @@ def worker_zerochan(tag, amount, net_config):
     stop_event = STOP_EVENTS[name]
 
     anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
-    tag = tag.split('|')[0].strip()
+    dl_retries = int(net_config.get("download_retries", 3))
+    tag = tag.strip().lower()
     log_msg(name, f"Initializing worker for tag: '{tag}'")
-    session = get_session("zero", net_config)
 
-    site_root = os.path.join(MASTER_FOLDER, "Zerochan")
+    site_root = os.path.join(shared.MASTER_FOLDER, "Zerochan")
     os.makedirs(site_root, exist_ok=True)
     dl_history = load_history(site_root)
 
@@ -32,7 +32,8 @@ def worker_zerochan(tag, amount, net_config):
     except Exception:
         pass
 
-    safe_tag = re.sub(r'[\\/*?:"<>|]', "", tag).replace(' ', '_')
+    clean_tag = " ".join(t for t in tag.split() if not t.startswith('-'))
+    safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag).replace(' ', '_')
     tag_dir = os.path.join(site_root, safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
     encoded_tag = urllib.parse.quote_plus(tag)
@@ -73,30 +74,40 @@ def worker_zerochan(tag, amount, net_config):
 
             if filename in dl_history or os.path.exists(filepath): continue
 
-            try:
-                r = session.get(img_url, stream=True, timeout=20)
-                r.raise_for_status()
-                with open(filepath, 'wb') as f:
-                    for chunk in r.iter_content(8192):
-                        if stop_event.is_set(): break
-                        f.write(chunk)
-                if stop_event.is_set():
-                    os.remove(filepath)
+            success = False
+            for dl_attempt in range(dl_retries):
+                try:
+                    r = session.get(img_url, stream=True, timeout=20)
+                    r.raise_for_status()
+                    with open(filepath, 'wb') as f:
+                        for chunk in r.iter_content(8192):
+                            if stop_event.is_set(): break
+                            f.write(chunk)
+                    if stop_event.is_set():
+                        os.remove(filepath)
+                        break
+
+                    downloaded += 1
+                    tags_raw = det_resp.json().get("tags", []) if 'det_resp' in locals() else []
+                    if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split(',') if t.strip()]
+                    else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+
+                    dl_history.add(filename)
+                    save_history(site_root, dl_history)
+
+                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                    shared.send_tags(name, filename, tags_list, [])
+                    time.sleep(random.uniform(0.3, 1.2))
+                    success = True
                     break
-
-                downloaded += 1
-                tags_raw = det_resp.json().get("tags", []) if 'det_resp' in locals() else []
-                if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split(',') if t.strip()]
-                else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
-
-                dl_history.add(filename)
-                save_history(site_root, dl_history)
-
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-                shared.send_tags(name, filename, tags_list, [])
-                time.sleep(random.uniform(0.3, 1.2))
-            except Exception as e:
-                log_msg(name, f"[FAILED] {filename}")
+                except Exception as e:
+                    if dl_attempt < 2:
+                        log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
+                        time.sleep(2)
+                    else:
+                        log_msg(name, f"[FAILED] {filename}: {e}")
+            if not success:
+                continue
 
         page += 1
         if not stop_event.is_set() and (amount == 0 or downloaded < amount):
