@@ -131,6 +131,23 @@ Rem God Catcher/
 
 ---
 
+## دریافت کلید API Gelbooru
+
+1. در [gelbooru.com](https://gelbooru.com) ثبت‌نام کن
+2. به **My Account** -> **Options** برو
+3. در بخش **Miscellaneous Options**، **API Key** رو پیدا کن و **Generate API Key** رو بزن
+4. **شناسه کاربری (User ID)** رو از آدرس پروفایل کپی کن (مثلاً `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
+5. هر دو رو در تب **Options** رابط وب وارد کن یا به فایل `.env` اضافه کن:
+
+```env
+GELBOORU_API_KEY=your_api_key_here
+GELBOORU_USER_ID=your_user_id_here
+```
+
+> بدون کلید API، گلوبوری حداکثر 100 پست در هر صفحه نشون میده. با کلید API به همه نتایج و کوئری‌های سریع‌تر دسترسی داری.
+
+---
+
 ## سلب مسئولیت
 
 این نرم‌افزار صرفاً برای **اهداف آموزشی و بایگانی** ارائه شده است. برخی از APIهای پشتیبانی شده شامل محتوای NSFW هستند -- کاربران باید در حوزه قضایی خود بزرگسال باشند. لطفاً از محدودیت نرخ APIها احترام بگذارید و درخواست‌های پرتکرار ارسال نکنید.

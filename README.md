@@ -131,6 +131,23 @@ Rem God Catcher/
 
 ---
 
+## Getting Gelbooru API Key
+
+1. Register at [gelbooru.com](https://gelbooru.com)
+2. Go to **My Account** -> **Options**
+3. Under **Miscellaneous Options**, find **API Key** and click **Generate API Key**
+4. Copy your **User ID** from the profile URL (e.g. `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
+5. Enter both in the **Options** tab of the Web UI or add to `.env`:
+
+```env
+GELBOORU_API_KEY=your_api_key_here
+GELBOORU_USER_ID=your_user_id_here
+```
+
+> Gelbooru limits results to 100 posts per page without an API key. With a key, you get access to all results and faster queries.
+
+---
+
 ## Disclaimer
 
 This software is provided for **educational and archiving purposes only**. Some supported APIs index NSFW content -- users must be of legal age in their jurisdiction. Please respect API rate limits and do not aggressively spam requests.
