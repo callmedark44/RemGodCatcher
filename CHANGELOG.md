@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [4.0.0] - Rem 4: The Theme & Visual Harmony Update - 2026-07-04
+
+### Changed
+- **Glass-Morphism Light Theme** -- Reduced opacity of `--panel-bg` and `--input-bg` in the light theme for a true frosted-glass effect.
+- **Light Theme Color Harmony** -- All hardcoded colors in History, Favorites, and Image Archive UI replaced with CSS custom properties (`--text-color`, `--accent-color`, `--border-color`, `--input-bg`, `--tab-active-bg`) for consistent theming.
+- **Light Theme Default Colors** -- New default palette: Dark teal title (`#006b6b`), dark magenta accent (`#c400a4`) replacing the previous bright pink/purple for better readability on light backgrounds.
+- **History Site Badge** -- Changed from hardcoded `#ff9ff3` to `var(--accent-color)` for theme-aware styling.
+- **History Empty State** -- Changed from hardcoded `gray` to `var(--text-color)` with opacity.
+- **Image Archive Cards** -- All hardcoded colors (`rgba(0,0,0,0.6)`, `#ff9ff3`, `#00d2d3`, `#ccc`, `white`) replaced with CSS variables for full light/dark theme support.
+- **Image Tags** -- Favorite state tags now use `var(--accent-color)` for both background and text, with `var(--input-bg)` for non-favorite state.
+
+---
+
 ## [3.2.0] - 2026-07-02
 
 ### Added

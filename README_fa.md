@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
-[![Version](https://img.shields.io/badge/Version-3.1.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.0.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md)
 
@@ -21,8 +21,8 @@
 
 ## امکانات
 
-- **چندپلتفرمه** -- ماژول‌های داخلی برای ۷ بوئورد تصویر
-- **وب رابط مدرن** -- تم تاریک شیشه‌ای، در مرورگر پیش‌فرض باز میشه
+- **چندپلتفرمه** -- ماژول‌های داخلی برای ۸ بوئورد تصویر
+- **وب رابط مدرن** -- تم شیشه‌ای تاریک و روشن، در مرورگر پیش‌فرض باز میشه
 - **موتور کشف و بایگانی** -- استخراج زنده تگ‌ها و نام هنرمندان از مدیای دانلود شده، نمایش داده شده در تب بایگانی تصاویر
 - **علاقه‌مندی‌ها و تاریخچه جستجو** -- تگ‌ها رو به لیست علاقه‌مندی اضافه کن برای جستجوی یک‌کلیکی و تاریخچه جستجو رو حفظ کن
 - **پشتیبانی ویدیو و GIF** -- فیلتر اختصاصی برای دانلود فرمت‌های `.mp4`، `.webm` و GIF
@@ -116,6 +116,7 @@ Rem God Catcher/
 | **Waifu.im** | تبدیل نام به اسلاگ، فیلتر NSFW | بله | از `tags.json` محلی برای پیشنهادات استفاده میکنه |
 | **Nekos.best** | دسته‌بندی (PNG / GIF) | خیر | پشتیبانی چند فرمت |
 | **Nekos.life** | دسته‌بندی با نشانگر نوع (GIF/Static/Mixed) | بله | نکو متحرک، هق‌هق، بغل، ناز و غیره |
+| **Yande.re** | جستجوی کامل تگ، فیلتر رتبه‌بندی، استخراج هنرمند، دیتابیس تگ محلی | بله | API موبور، فقط تصاویر، سورت به پوشه‌های Safe/Moderate/NSFW |
 
 ---
 

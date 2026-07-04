@@ -1,10 +1,205 @@
 let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
-let globalWallpapers = {
-    "Main": "Rem_main.png", "Neko": "Rem_neko.jpg", "Zero": "Rem_zero.jpg",
-    "Waifu": "Rem_waifu.png", "Safe": "Rem_safe.jpg", "Rule34": "Rem_rule34.jpg",
-    "Gelbooru": "Rem_gelbooru.jpg", "NekosLife": "Rem_nekos_life.jpg", "Yande": "Rem_yande.jpg", "ApiSettings": "Rem_option.jpg",
-    "History": "Rem_history.jpg"
-};
+let uiConfig = {};
+let currentActiveTheme = 'dark';
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (uiConfig.theme_mode === 'system') {
+        applyRenderTheme(e.matches ? 'dark' : 'light');
+    }
+});
+
+async function loadUIConfig() {
+    try {
+        let resp = await fetch("/api/ui_config");
+        uiConfig = await resp.json();
+
+        let radio = document.querySelector(`input[name="themeMode"][value="${uiConfig.theme_mode}"]`);
+        if (radio) radio.checked = true;
+
+        let resolvedTheme = uiConfig.theme_mode;
+        if (resolvedTheme === 'system') {
+            resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        applyRenderTheme(resolvedTheme);
+        renderWallpaperGrid();
+    } catch(e) { console.error("Error loading UI config", e); }
+}
+
+function applyRenderTheme(themeStr) {
+    currentActiveTheme = themeStr;
+    document.documentElement.setAttribute('data-theme', themeStr);
+
+    let colors = uiConfig.colors[themeStr];
+    if (!colors) return;
+    updateLiveColor('title', colors.title, false);
+    updateLiveColor('text', colors.text, false);
+    updateLiveColor('accent', colors.accent, false);
+    updateLiveColor('tab_text', colors.tab_text, false);
+    updateLiveColor('btn_start_bg', colors.btn_start_bg, false);
+    updateLiveColor('btn_start_text', colors.btn_start_text, false);
+    updateLiveColor('btn_stop_bg', colors.btn_stop_bg, false);
+    updateLiveColor('btn_stop_text', colors.btn_stop_text, false);
+
+    let activeTabBtn = document.querySelector(".tab-btn.active");
+    if (activeTabBtn) {
+        let tabMatch = activeTabBtn.getAttribute("onclick").match(/'([^']+)'/);
+        if (tabMatch) updateBackground(tabMatch[1]);
+    }
+}
+
+function changeThemeMode(mode) {
+    uiConfig.theme_mode = mode;
+    let resolvedTheme = mode === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
+    applyRenderTheme(resolvedTheme);
+}
+
+function updateLiveColor(key, hexVal, saveToConfig = true) {
+    let cssKey = key;
+    if (key === 'title') cssKey = 'title-color';
+    else if (key === 'text') cssKey = 'text-color';
+    else if (key === 'accent') cssKey = 'accent-color';
+    else cssKey = key.replace(/_/g, '-');
+
+    document.documentElement.style.setProperty(`--${cssKey}`, hexVal);
+
+    let colorInput = document.getElementById(`color_${key}`);
+    if (colorInput) colorInput.value = hexVal;
+
+    if (saveToConfig) uiConfig.colors[currentActiveTheme][key] = hexVal;
+}
+
+function renderWallpaperGrid() {
+    let ui = document.getElementById("wpGridUI");
+    if (!ui) return;
+    ui.innerHTML = "";
+    Object.keys(uiConfig.wallpapers).forEach(tab => {
+        let boxIdDark = `file_${tab}_dark`;
+        let boxIdLight = `file_${tab}_light`;
+
+        ui.innerHTML += `
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span style="color: var(--text-color); font-size: 13px; font-weight: bold;">${tab}</span>
+                <div style="display: flex; gap: 10px;">
+                    <div class="wp-box dark-mode" onclick="document.getElementById('${boxIdDark}').click()">
+                        Dark Mode
+                        <input type="file" id="${boxIdDark}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'dark', this)">
+                    </div>
+                    <div class="wp-box light-mode" onclick="document.getElementById('${boxIdLight}').click()">
+                        Light Mode
+                        <input type="file" id="${boxIdLight}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'light', this)">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+async function uploadWpBox(tabName, mode, fileInput) {
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    let formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    try {
+        let resp = await fetch("/api/upload_wallpaper", { method: "POST", body: formData });
+        let result = await resp.json();
+        if (result.success) {
+            uiConfig.wallpapers[tabName][mode] = result.filename;
+            fileInput.parentElement.style.border = "2px solid var(--title-color)";
+            setTimeout(() => fileInput.parentElement.style.border = "", 1000);
+
+            let activeTabBtn = document.querySelector(".tab-btn.active");
+            if (activeTabBtn && activeTabBtn.getAttribute("onclick").includes(`'${tabName}'`) && currentActiveTheme === mode) {
+                updateBackground(tabName);
+            }
+        }
+    } catch (e) { alert("Upload failed: " + e); }
+    fileInput.value = "";
+}
+
+function updateBackground(tabName) {
+    let wp = uiConfig.wallpapers && uiConfig.wallpapers[tabName];
+    if (!wp) return;
+    let filename = wp[currentActiveTheme] || wp['dark'];
+    if (filename) {
+        document.body.style.backgroundImage = `url('user_wallpapers/${filename}')`;
+    }
+}
+
+// =====================================
+// === COLOR PALETTE SAVE & RESET ===
+// =====================================
+async function saveColors() {
+    await fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
+    let status = document.getElementById("colorSaveStatus");
+    status.textContent = "Colors Saved!";
+    setTimeout(()=> status.textContent = "", 2000);
+}
+
+async function resetColors() {
+    if (!confirm("Are you sure you want to reset all COLORS to default? Wallpapers will not be changed.")) return;
+
+    uiConfig.colors = {
+        "dark": {
+            "title": "#00d2d3", "text": "#ffffff", "accent": "#ff9ff3", "tab_text": "#ffffff",
+            "btn_start_bg": "#00d2d3", "btn_start_text": "#0a0a0a",
+            "btn_stop_bg": "#ff9ff3", "btn_stop_text": "#1a0a1a"
+        },
+        "light": {
+            "title": "#006b6b",
+            "text": "#1a1a2e",
+            "accent": "#c400a4",
+            "tab_text": "#1a1a2e",
+            "btn_start_bg": "#006b6b", "btn_start_text": "#ffffff",
+            "btn_stop_bg": "#c400a4", "btn_stop_text": "#ffffff"
+        }
+    };
+
+    applyRenderTheme(currentActiveTheme);
+    await saveColors();
+
+    let status = document.getElementById("colorSaveStatus");
+    status.textContent = "Colors Reset!";
+    status.style.color = "var(--title-color)";
+    setTimeout(() => { status.textContent = ""; }, 2000);
+}
+
+
+// =====================================
+// === WALLPAPERS SAVE & RESET ===
+// =====================================
+async function saveWallpapersUI() {
+    await fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
+    let status = document.getElementById("wpSaveStatusUI");
+    status.textContent = "Wallpapers Saved!";
+    setTimeout(()=> status.textContent = "", 2000);
+}
+
+async function resetWallpapersUI() {
+    if (!confirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.")) return;
+
+    uiConfig.wallpapers = {
+        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+        "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"},
+        "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"},
+        "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"},
+        "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"},
+        "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"},
+        "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
+        "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
+        "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
+        "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
+        "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
+        "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
+    };
+
+    renderWallpaperGrid();
+    await saveWallpapersUI();
+    updateBackground("Customize");
+
+    let status = document.getElementById("wpSaveStatusUI");
+    status.textContent = "Wallpapers Reset!";
+    status.style.color = "#ff9ff3";
+    setTimeout(() => { status.textContent = ""; status.style.color = "var(--title-color)"; }, 2000);
+}
 
 const socket = io();
 
@@ -28,17 +223,6 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
-
-            Object.keys(globalWallpapers).forEach(key => {
-                let confKey = key === "ApiSettings" ? "wp_options" : 
-                             (key === "NekosLife" ? "wp_nekos_life" : `wp_${key.toLowerCase()}`);
-                if(config[confKey]) globalWallpapers[key] = config[confKey];
-                
-                let inputEl = document.getElementById(confKey);
-                if(inputEl) inputEl.value = globalWallpapers[key];
-            });
-
-            document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers["Main"]}')`;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -48,9 +232,9 @@ window.onload = async function () {
         if (data.folder) document.getElementById("folderDisplay").innerText = data.folder;
     } catch (e) {}
 
-    // Initialize Nekos.best dropdown
     updateNekoDropdown();
     updateNekosLifeType();
+    await loadUIConfig();
 
     try {
         let resp = await fetch("/api/tags/waifu", {
@@ -131,89 +315,6 @@ async function saveProxySettings() {
     } catch (e) {}
 }
 
-async function uploadWallpaper(inputId, tabName, fileInput) {
-    if (!fileInput.files || fileInput.files.length === 0) return;
-    let file = fileInput.files[0];
-    let formData = new FormData();
-    formData.append("file", file);
-
-    try {
-        let resp = await fetch("/api/upload_wallpaper", { method: "POST", body: formData });
-        let result = await resp.json();
-        if (result.success) {
-            document.getElementById(inputId).value = result.filename;
-            await saveWallpapers();
-            
-            let activeTabBtn = document.querySelector(".tab-btn.active");
-            if (activeTabBtn && activeTabBtn.getAttribute("onclick").includes(`'${tabName}'`)) {
-                document.body.style.backgroundImage = `url('user_wallpapers/${result.filename}')`;
-            }
-        } else {
-            alert("Error: " + result.error);
-        }
-    } catch (e) { alert("Upload failed: " + e); }
-
-    // این خط حافظه مرورگر را پاک میکند تا بتوانی یک عکس را چند بار پشت سر هم انتخاب کنی
-    fileInput.value = "";
-}
-
-async function saveWallpapers() {
-    let wpConfig = {
-        "wp_main": document.getElementById("wp_main").value.trim(),
-        "wp_neko": document.getElementById("wp_neko").value.trim(),
-        "wp_nekos_life": document.getElementById("wp_nekos_life").value.trim(),
-        "wp_zero": document.getElementById("wp_zero").value.trim(),
-        "wp_waifu": document.getElementById("wp_waifu").value.trim(),
-        "wp_safe": document.getElementById("wp_safe").value.trim(),
-        "wp_rule34": document.getElementById("wp_rule34").value.trim(),
-        "wp_yande": document.getElementById("wp_yande").value.trim(),
-        "wp_gelbooru": document.getElementById("wp_gelbooru").value.trim(),
-        "wp_options": document.getElementById("wp_options").value.trim(),
-        "wp_history": document.getElementById("wp_history").value.trim()
-    };
-    try {
-        await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wpConfig) });
-        
-        globalWallpapers["Main"] = wpConfig.wp_main;
-        globalWallpapers["Neko"] = wpConfig.wp_neko;
-        globalWallpapers["NekosLife"] = wpConfig.wp_nekos_life;
-        globalWallpapers["Zero"] = wpConfig.wp_zero;
-        globalWallpapers["Waifu"] = wpConfig.wp_waifu;
-        globalWallpapers["Safe"] = wpConfig.wp_safe;
-        globalWallpapers["Rule34"] = wpConfig.wp_rule34;
-        globalWallpapers["Gelbooru"] = wpConfig.wp_gelbooru;
-        globalWallpapers["Yande"] = wpConfig.wp_yande;
-        globalWallpapers["ApiSettings"] = wpConfig.wp_options;
-        globalWallpapers["History"] = wpConfig.wp_history;
-
-        document.getElementById("wpSaveStatus").textContent = "Saved!";
-        setTimeout(()=> document.getElementById("wpSaveStatus").textContent = "", 2000);
-    } catch(e){}
-}
-
-async function resetWallpapers() {
-    document.getElementById('wp_main').value = 'Rem_main.png';
-    document.getElementById('wp_neko').value = 'Rem_neko.jpg';
-    document.getElementById('wp_nekos_life').value = 'Rem_nekos_life.jpg';
-    document.getElementById('wp_zero').value = 'Rem_zero.jpg';
-    document.getElementById('wp_waifu').value = 'Rem_waifu.png';
-    document.getElementById('wp_safe').value = 'Rem_safe.jpg';
-    document.getElementById('wp_rule34').value = 'Rem_rule34.jpg';
-    document.getElementById('wp_gelbooru').value = 'Rem_gelbooru.jpg';
-    document.getElementById('wp_yande').value = 'Rem_yande.jpg';
-    document.getElementById('wp_options').value = 'Rem_option.jpg';
-    document.getElementById('wp_history').value = 'Rem_history.jpg';
-    
-    await saveWallpapers();
-    
-    let activeTabBtn = document.querySelector(".tab-btn.active");
-    if (activeTabBtn) {
-        let tabMatch = activeTabBtn.getAttribute("onclick").match(/'([^']+)'/);
-        if (tabMatch) document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers[tabMatch[1]]}')`;
-    }
-    logToConsole('main', "All wallpapers have been reset to their defaults.");
-}
-
 async function browseFolder() {
     let folder = prompt("Enter the master download folder path:");
     if (!folder) return;
@@ -235,7 +336,7 @@ function openTab(tabName, btn) {
 
     document.getElementById(tabName).style.display = "flex";
     btn.classList.add("active");
-    document.body.style.backgroundImage = `url('user_wallpapers/${globalWallpapers[tabName]}')`;
+    updateBackground(tabName);
 }
 
 function logToConsole(tabID, msg) {
@@ -468,35 +569,31 @@ function isFavorite(site, tag) {
 function renderHistory() {
     let ui = document.getElementById("historyListUI");
     if(!ui) return;
-
     let currentScroll = ui.parentElement.scrollTop;
-
     let htmlStr = "";
     if (historyTags.length === 0) {
-        htmlStr = "<p style='color: gray; font-size: 13px;'>No search history yet.</p>";
+        htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No search history yet.</p>";
     } else {
         historyTags.forEach(item => {
             let isFav = isFavorite(item.site, item.tag);
             let heartIcon = isFav ? "💖" : "🤍";
 
             htmlStr += `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <div>
-                        <span style="color: #ff9ff3; font-size: 11px; text-transform: uppercase; border: 1px solid #ff9ff3; padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
-                        <span style="font-size: 14px; color: white;">${item.tag}</span>
+                        <span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
+                        <span style="font-size: 14px; color: var(--text-color);">${item.tag}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="jumpToSite('${item.site}', '${item.tag}')">➡️</button>
-                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">➡️</button>
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
                         <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
                     </div>
                 </div>
             `;
         });
     }
-
     ui.innerHTML = htmlStr;
-
     ui.parentElement.scrollTop = currentScroll;
 }
 
@@ -505,16 +602,16 @@ function renderFavorites() {
     if(!ui) return;
     ui.innerHTML = "";
     if (favoriteTags.length === 0) {
-        ui.innerHTML = "<p style='color: gray; font-size: 12px;'>Click 🤍 in the History tab to add favorites.</p>";
+        ui.innerHTML = "<p style='color: var(--text-color); opacity: 0.7; font-size: 12px;'>Click 🤍 in the History tab to add favorites.</p>";
         return;
     }
 
     favoriteTags.forEach(item => {
         ui.innerHTML += `
-            <div style="background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
-                <span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1;">
+            <div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
+                <span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);">
                     <span>❄️</span>
-                    <span style="color: #00d2d3; font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
+                    <span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
                     <span>${item.tag}</span>
                 </span>
                 <button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button>
@@ -582,27 +679,28 @@ function renderImageHistory() {
     let htmlStr = "";
     
     if (imageHistory.length === 0) {
-        htmlStr = "<p style='color: gray; font-size: 13px;'>No images downloaded yet.</p>";
+        htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No images downloaded yet.</p>";
     } else {
         imageHistory.forEach(img => {
             let tagsHtml = img.tags.map(t => {
                 let isFav = isFavorite(img.site, t);
-                let bgColor = isFav ? "rgba(255, 159, 243, 0.2)" : "rgba(255,255,255,0.1)";
-                let borderColor = isFav ? "#ff9ff3" : "transparent";
-                return `<span onclick="addFavoriteFromImage('${img.site}', '${t}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${t}</span>`;
+                let bgColor = isFav ? "var(--tab-active-bg)" : "var(--input-bg)";
+                let borderColor = isFav ? "var(--accent-color)" : "transparent";
+                let textColor = isFav ? "var(--accent-color)" : "var(--text-color)";
+                return `<span onclick="addFavoriteFromImage('${img.site}', '${t}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${t}</span>`;
             }).join('');
 
             let artistHtml = img.artists && img.artists.length > 0 
-                ? `<div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
-                       <span style="color: #00d2d3; font-size: 12px; font-weight: bold;">Artists:</span> 
-                       <span style="font-size: 12px; color: #ccc;">${img.artists.join(', ')}</span>
+                ? `<div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+                       <span style="color: var(--title-color); font-size: 12px; font-weight: bold;">Artists:</span> 
+                       <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.join(', ')}</span>
                    </div>` 
                 : "";
 
             htmlStr += `
-                <div style="background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
+                <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); position: relative;">
                     <button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&#10060;</button>
-                    <h3 style="color: white; font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: #ff9ff3; border: 1px solid #ff9ff3; padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3>
+                    <h3 style="color: var(--text-color); font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3>
                     
                     <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding-right: 5px;">
                         ${tagsHtml}

@@ -3,6 +3,77 @@
    Font: Inter + Source Code Pro
    ========================================== */
 
+:root {
+    --title-color: #00d2d3;
+    --text-color: #ffffff;
+    --accent-color: #ff9ff3;
+    --tab-text: #ffffff;
+
+    --btn-start-bg: #00d2d3;
+    --btn-start-text: #0a0a0a;
+    --btn-stop-bg: #ff9ff3;
+    --btn-stop-text: #1a0a1a;
+
+    --panel-bg: rgba(15, 15, 20, 0.75);
+    --input-bg: rgba(0, 0, 0, 0.7);
+    --border-color: rgba(255, 255, 255, 0.2);
+    --tab-hover: rgba(255, 255, 255, 0.15);
+    --tab-active-bg: rgba(0, 210, 211, 0.3);
+
+    --text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] {
+    --panel-bg: rgba(255, 255, 255, 0.45);
+    --input-bg: rgba(255, 255, 255, 0.6);
+    --border-color: rgba(0, 0, 0, 0.15);
+    --tab-hover: rgba(0, 0, 0, 0.05);
+    --tab-active-bg: rgba(0, 122, 122, 0.12);
+
+    --tab-text: #1a1a2e;
+    --text-shadow: none;
+}
+
+select option {
+    background: var(--input-bg);
+    color: var(--text-color);
+}
+
+/* Color Picker UI */
+.color-picker-wrapper {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.color-circle {
+    appearance: none; -webkit-appearance: none; border: none; width: 40px; height: 40px;
+    border-radius: 50%; cursor: pointer; padding: 0; background: transparent;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s;
+}
+.color-circle::-webkit-color-swatch-wrapper { padding: 0; }
+.color-circle::-webkit-color-swatch { border: 2px solid var(--border-color); border-radius: 50%; }
+.color-circle:hover { transform: scale(1.1); }
+.hex-input {
+    width: 80px; font-family: 'Source Code Pro', monospace; font-size: 13px;
+    text-transform: uppercase; text-align: center;
+}
+
+/* Wallpaper Boxes */
+.wp-box {
+    width: 100px; height: 60px; border: 2px dashed var(--border-color);
+    border-radius: 8px; display: flex; justify-content: center; align-items: center;
+    cursor: pointer; font-size: 12px; font-weight: bold; background: var(--input-bg);
+    transition: all 0.2s ease-in-out; position: relative; overflow: hidden;
+}
+.wp-box.dark-mode { color: #aaa; }
+.wp-box.light-mode { color: #555; background: #e0e0e0; border-color: #aaa;}
+
+.wp-box:hover, .wp-box.light-mode:hover {
+    border-color: var(--title-color);
+    background: var(--tab-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.wp-box.light-mode { color: #555; background: #e0e0e0; border-color: #aaa; }
+
 * {
     margin: 0;
     padding: 0;
@@ -21,42 +92,47 @@ body {
     background-position: center;
     background-repeat: no-repeat;
     transition: background-image 0.4s ease-in-out;
-    color: white;
+    color: var(--text-color);
 }
 
 /* ===== GLASS PANEL ===== */
 .glass-panel {
-    width: 90%;
-    max-width: 950px;
-    height: 85vh;
+    width: 95%;
+    max-width: 1050px;
+    height: 94vh;
     padding: 20px;
-    background: rgba(15, 15, 20, 0.75);
+    background: var(--panel-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-color);
     box-shadow: 0 8px 40px 0 rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: hidden;
 }
 
 h2, label, span, button {
-    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.6);
+    text-shadow: var(--text-shadow);
     letter-spacing: 0.3px;
+}
+
+label, span {
+    color: var(--text-color);
 }
 
 h2 {
     font-size: 20px;
     font-weight: 600;
-    color: #00d2d3;
+    color: var(--title-color);
 }
 
 /* ===== TABS ===== */
 .tab-buttons {
     display: flex;
     gap: 4px;
-    border-bottom: 2px solid rgba(0, 210, 211, 0.25);
+    border-bottom: 2px solid var(--border-color);
     padding-bottom: 8px;
     flex-wrap: wrap;
     flex-shrink: 0;
@@ -65,7 +141,7 @@ h2 {
 .tab-btn {
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--tab-text);
     padding: 8px 16px;
     font-size: 13px;
     font-weight: 500;
@@ -75,13 +151,13 @@ h2 {
 }
 
 .tab-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #ffffff;
+    background: var(--tab-hover);
+}
 }
 
 .tab-btn.active {
-    background: rgba(0, 210, 211, 0.3);
-    color: #00d2d3;
+    background: var(--tab-active-bg);
+    color: var(--title-color);
     font-weight: 600;
 }
 
@@ -115,9 +191,9 @@ h2 {
 input[type="text"], input[type="number"], input[type="password"], select {
     padding: 8px 12px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-color);
     outline: none;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -138,8 +214,8 @@ input::placeholder {
     padding: 8px 20px;
     border-radius: 8px;
     border: none;
-    background: #00d2d3;
-    color: #0a0a0a;
+    background: var(--btn-start-bg);
+    color: var(--btn-start-text);
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
@@ -157,8 +233,8 @@ input::placeholder {
 }
 
 .stop-btn {
-    background: #ff9ff3;
-    color: #1a0a1a;
+    background: var(--btn-stop-bg);
+    color: var(--btn-stop-text);
 }
 
 .stop-btn:hover {
@@ -185,7 +261,7 @@ input::placeholder {
 }
 
 pre {
-    color: #00d2d3;
+    color: var(--title-color);
     white-space: pre-wrap;
     word-wrap: break-word;
     font-size: 12.5px;
@@ -202,7 +278,7 @@ pre div {
 }
 
 code {
-    color: #ff9ff3;
+    color: var(--accent-color);
     font-family: 'Source Code Pro', 'Consolas', monospace;
     font-size: 12px;
     background: rgba(0,0,0,0.4);
@@ -211,7 +287,7 @@ code {
 }
 
 a {
-    color: #00d2d3;
+    color: var(--title-color);
     text-decoration: none;
     transition: color 0.2s;
 }
@@ -223,31 +299,31 @@ a:hover {
 
 /* ===== SCROLLBARS ===== */
 .console-wrapper pre::-webkit-scrollbar,
-.options-scroll::-webkit-scrollbar {
-    width: 8px;
+.options-scroll::-webkit-scrollbar,
+.tab-container::-webkit-scrollbar {
+    width: 14px;
 }
 
 .console-wrapper pre::-webkit-scrollbar-track,
-.options-scroll::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
+.options-scroll::-webkit-scrollbar-track,
+.tab-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
 }
 
 .console-wrapper pre::-webkit-scrollbar-thumb,
-.options-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0, 210, 211, 0.35);
-    border-radius: 4px;
-    border: 1px solid rgba(0, 0, 0, 0.2);
+.options-scroll::-webkit-scrollbar-thumb,
+.tab-container::-webkit-scrollbar-thumb {
+    background: rgba(210, 210, 210, 0.5);
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
 }
 
 .console-wrapper pre::-webkit-scrollbar-thumb:hover,
-.options-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 210, 211, 0.55);
-}
-
-.console-wrapper pre::-webkit-scrollbar-corner,
-.options-scroll::-webkit-scrollbar-corner {
-    background: rgba(0, 0, 0, 0.2);
+.options-scroll::-webkit-scrollbar-thumb:hover,
+.tab-container::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(210, 210, 210, 0.9);
 }
 
 /* ===== OPTIONS TAB SCROLL ===== */
@@ -259,7 +335,7 @@ a:hover {
 
 /* ===== MISC ===== */
 input[type="checkbox"] {
-    accent-color: #00d2d3;
+    accent-color: var(--title-color);
     width: 15px;
     height: 15px;
     cursor: pointer;
