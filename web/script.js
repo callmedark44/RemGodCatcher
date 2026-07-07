@@ -35,6 +35,8 @@ function applyRenderTheme(themeStr) {
     updateLiveColor('text', colors.text, false);
     updateLiveColor('accent', colors.accent, false);
     updateLiveColor('tab_text', colors.tab_text, false);
+    updateLiveColor('tab_hover_bg', colors.tab_hover_bg, false);
+    updateLiveColor('tab_active_bg', colors.tab_active_bg, false);
     updateLiveColor('btn_start_bg', colors.btn_start_bg, false);
     updateLiveColor('btn_start_text', colors.btn_start_text, false);
     updateLiveColor('btn_stop_bg', colors.btn_stop_bg, false);
@@ -140,6 +142,7 @@ async function resetColors() {
     uiConfig.colors = {
         "dark": {
             "title": "#00d2d3", "text": "#ffffff", "accent": "#ff9ff3", "tab_text": "#ffffff",
+            "tab_hover_bg": "rgba(255, 255, 255, 0.15)", "tab_active_bg": "rgba(0, 210, 211, 0.3)",
             "btn_start_bg": "#00d2d3", "btn_start_text": "#0a0a0a",
             "btn_stop_bg": "#ff9ff3", "btn_stop_text": "#1a0a1a"
         },
@@ -148,6 +151,7 @@ async function resetColors() {
             "text": "#1a1a2e",
             "accent": "#a0008a",
             "tab_text": "#1a1a2e",
+            "tab_hover_bg": "rgba(0, 0, 0, 0.05)", "tab_active_bg": "rgba(0, 122, 122, 0.12)",
             "btn_start_bg": "#004d4d", "btn_start_text": "#ffffff",
             "btn_stop_bg": "#a0008a", "btn_stop_text": "#ffffff"
         }
@@ -186,6 +190,7 @@ async function resetWallpapersUI() {
         "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
         "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
         "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
+        "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
         "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
         "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
         "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -223,6 +228,7 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
+            document.getElementById("hydrusSidecarToggle").checked = config.write_hydrus_sidecar !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -243,11 +249,14 @@ window.onload = async function () {
             body: JSON.stringify(globalNetConfig)
         });
         let waifuTags = await resp.json();
-        let wl = document.getElementById("waifuList");
-        let wHtml = "";
-        waifuTags.forEach(t => wHtml += `<option value="${t}">`);
-        wl.innerHTML = wHtml;
-        if (waifuTags.length > 0) document.getElementById("waifuTag").value = waifuTags[0];
+        let sel = document.getElementById("waifuTag");
+        sel.innerHTML = "";
+        waifuTags.forEach(t => {
+            let opt = document.createElement("option");
+            opt.value = t;
+            opt.textContent = t;
+            sel.appendChild(opt);
+        });
     } catch (e) {}
 
     await loadTagsData();
@@ -291,19 +300,33 @@ function updateNekosLifeType() {
     
     let cat = document.getElementById("nekosLifeCat").value;
     let typeEl = document.getElementById("nekosLifeType");
+    let formatLabel = document.getElementById("nekosLifeFormatLabel");
+    let formatSelect = document.getElementById("nekosLifeFormat");
     
     if (gifOnly.includes(cat)) {
         typeEl.textContent = "[GIF]";
         typeEl.style.color = "var(--accent-color)";
+        formatLabel.style.display = "none";
+        formatSelect.style.display = "none";
     } else if (staticOnly.includes(cat)) {
         typeEl.textContent = "[STATIC]";
         typeEl.style.color = "#00d2d3";
+        formatLabel.style.display = "none";
+        formatSelect.style.display = "none";
     } else if (mixed.includes(cat)) {
         typeEl.textContent = "[MIXED]";
         typeEl.style.color = "#ffd93d";
+        formatLabel.style.display = "";
+        formatSelect.style.display = "";
     } else {
         typeEl.textContent = "";
+        formatLabel.style.display = "none";
+        formatSelect.style.display = "none";
     }
+}
+
+function updateNekosLifeFormatHint() {
+    // Optional: add hint text based on format selection
 }
 
 async function saveProxySettings() {
@@ -339,11 +362,23 @@ function openTab(tabName, btn) {
     updateBackground(tabName);
 }
 
+function clearLog(tabID) {
+    let boxMap = {
+        "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
+        "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
+        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
+    };
+    let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
+    if (cb) cb.innerHTML = "";
+}
+
 function logToConsole(tabID, msg) {
     let boxMap = {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
-        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande"
+        "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -373,22 +408,20 @@ function startWorker(workerName) {
     } else if (workerName === 'nekos_life') {
         payload.category = document.getElementById('nekosLifeCat').value;
         payload.limit = document.getElementById('nekosLifeAmount').value;
+        // Add format parameter for Mixed categories
+        const mixed = ["goose", "wallpaper", "lizard", "span"];
+        if (mixed.includes(payload.category)) {
+            payload.format = document.getElementById('nekosLifeFormat').value;
+        }
     } else if (workerName === 'safe') {
         payload.tag = document.getElementById('safeTag').value;
         payload.limit = document.getElementById('safeLimit').value;
-        
-        let format = document.getElementById('safeFormat').value;
-        let ex = [];
-        if (format === 'images') ex.push('-video');
-        else if (format === 'videos') {
-            ex.push('-image');
-            payload.tag += " video";
-        }
-        payload.exclusions = ex;
+        payload.exclusions = [];
 
     } else if (workerName === 'gelbooru') {
         payload.tag = document.getElementById('gelbooruTag').value;
         payload.limit = document.getElementById('gelbooruLimit').value;
+        payload.rating = document.getElementById('gelbooruRating').value;
         
         let format = document.getElementById('gelFormat').value;
         let ex = [];
@@ -404,6 +437,36 @@ function startWorker(workerName) {
         payload.tag = document.getElementById('yandeTag').value;
         payload.limit = document.getElementById('yandeLimit').value;
         payload.rating = document.getElementById('yandeRating').value;
+
+    } else if (workerName === 'dan') {
+        payload.tag = document.getElementById('danTag').value;
+        payload.limit = document.getElementById('danLimit').value;
+        payload.rating = document.getElementById('danRating').value;
+
+        let format = document.getElementById('danFormat').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video";
+        }
+        if (document.getElementById('danExGif').checked) ex.push('-gif');
+        payload.exclusions = ex;
+
+    } else if (workerName === 'kona') {
+        payload.tag = document.getElementById('konaTag').value;
+        payload.limit = document.getElementById('konaLimit').value;
+        payload.rating = document.getElementById('konaRating').value;
+
+        let format = document.getElementById('konaFormat').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video";
+        }
+        if (document.getElementById('konaExGif').checked) ex.push('-gif');
+        payload.exclusions = ex;
 
     } else if (workerName === 'rule34') {
         payload.tag = document.getElementById('rule34Tag').value;
@@ -468,6 +531,7 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
+    globalNetConfig.write_hydrus_sidecar = document.getElementById("hydrusSidecarToggle").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
@@ -520,6 +584,32 @@ async function fetchYande(val) {
         let resp = await fetch("/api/tags/yande", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
         let tags = await resp.json();
         let dl = document.getElementById("yandeList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchKona(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/kona", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("konaList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchDan(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/dan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("danList");
         let dHtml = "";
         tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
         dl.innerHTML = dHtml;
@@ -658,6 +748,8 @@ function jumpToSite(site, tag) {
         "safe":      { tab: "Safe",     input: "safeTag" },
         "gelbooru":  { tab: "Gelbooru", input: "gelbooruTag" },
         "yande":     { tab: "Yande",    input: "yandeTag" },
+        "kona":      { tab: "Kona",     input: "konaTag" },
+        "dan":       { tab: "Danbooru", input: "danTag" },
         "rule34":    { tab: "Rule34",    input: "rule34Tag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
@@ -715,13 +807,7 @@ function renderImageHistory() {
 }
 
 async function addFavoriteFromImage(site, tag) {
-    if(isFavorite(site, tag)) return;
-
-    await fetch("/api/favorites", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site: site, tag: tag, action: "add" })
-    });
-    await loadTagsData();
+    await toggleFavorite(site, tag);
 }
 
 async function removeImageHistory(filename) {
