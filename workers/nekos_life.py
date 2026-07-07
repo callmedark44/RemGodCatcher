@@ -109,11 +109,12 @@ def worker_nekos_life(category, amount, net_config, fmt="both"):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
                 log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                shared.send_tags(name, filename, [category], [])
                 time.sleep(anti_ban_pause)
                 success = True
                 break
             except Exception as e:
-                if dl_attempt < 2:
+                if dl_attempt < dl_retries - 1:
                     log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
                     time.sleep(2)
                 else:

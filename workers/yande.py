@@ -27,12 +27,13 @@ def worker_yande(tag, amount, rating, net_config):
     dl_history = load_history(site_root)
     session = get_session("yande", net_config)
 
-    clean_tag = " ".join(t for t in original_tag.split() if not t.startswith('-'))
+    rating_map = {"s": "Safe", "q": "Moderate", "e": "NSFW"}
+
+    FORMAT_WORDS = {"video", "image"}
+    clean_tag = " ".join(t for t in original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
     safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
     tag_dir = os.path.join(site_root, safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
-
-    rating_map = {"s": "Safe", "q": "Moderate", "e": "NSFW"}
 
     collected = []
     page = 1
@@ -102,7 +103,7 @@ def worker_yande(tag, amount, rating, net_config):
                 continue
 
             rating_label = rating_map.get(post_rating, "Unknown")
-            rating_dir = os.path.join(tag_dir, rating_label)
+            rating_dir = os.path.join(tag_dir, rating_label, "images")
             filepath = os.path.join(rating_dir, filename)
             if os.path.exists(filepath):
                 continue
@@ -124,11 +125,10 @@ def worker_yande(tag, amount, rating, net_config):
                 log_msg(name, f"Anti-ban pause... ({anti_ban_pause:.1f}s)")
                 time.sleep(anti_ban_pause)
             else:
-                log_msg(name, f"All posts on page {page-1} filtered. Continuing...")
                 time.sleep(1.0)
 
     if not collected:
-        log_msg(name, "No new images to download.")
+        log_msg(name, "No new items to download.")
         log_msg(name, "--- Worker Terminated ---")
         return
 
@@ -139,7 +139,7 @@ def worker_yande(tag, amount, rating, net_config):
         if stop_event.is_set():
             break
 
-        rating_dir = os.path.join(tag_dir, rating_label)
+        rating_dir = os.path.join(tag_dir, rating_label, "images")
         os.makedirs(rating_dir, exist_ok=True)
         filepath = os.path.join(rating_dir, filename)
 

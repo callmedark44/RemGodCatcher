@@ -100,13 +100,11 @@ def worker_safebooru(tag, amount, exclusions, net_config):
     log_msg(name, f"Collected {len(collected)} new images. Starting download...")
 
     downloaded = 0
-    skipped = 0
     for file_url, filename, tags_list, artists in collected:
         if stop_event.is_set(): break
 
         filepath = os.path.join(tag_dir, filename)
         if filename in dl_history or os.path.exists(filepath):
-            skipped += 1
             continue
 
         success = False
@@ -131,7 +129,7 @@ def worker_safebooru(tag, amount, exclusions, net_config):
                 success = True
                 break
             except Exception as e:
-                if dl_attempt < 2:
+                if dl_attempt < dl_retries - 1:
                     log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
                     time.sleep(2)
                 else:
@@ -139,5 +137,4 @@ def worker_safebooru(tag, amount, exclusions, net_config):
         if not success:
             continue
 
-    if skipped: log_msg(name, f"Skipped {skipped} images (already in history/disk)")
     log_msg(name, "--- Worker Terminated ---")

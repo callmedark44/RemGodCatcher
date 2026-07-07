@@ -94,7 +94,6 @@ def worker_zerochan(tag, amount, net_config):
         filepath = os.path.join(tag_dir, filename)
 
         if filename in dl_history or os.path.exists(filepath):
-            log_msg(name, f"Skipping {filename} (already downloaded), searching for more...")
             continue
 
         success = False
@@ -119,7 +118,7 @@ def worker_zerochan(tag, amount, net_config):
                 success = True
                 break
             except Exception as e:
-                if dl_attempt < 2:
+                if dl_attempt < dl_retries - 1:
                     log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
                     time.sleep(2)
                 else:

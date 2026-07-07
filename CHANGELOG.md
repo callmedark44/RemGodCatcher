@@ -6,26 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [4.1.0] - The Collect-Then-Download Rewrite - 2026-07-06
+## [4.2.0] - The Danbooru & Hydrus Sidecar Update - 2026-07-08
 
 ### Added
-- **Two-Phase Download Engine** -- All 9 workers now follow a clean collect-then-download pattern: scan API pages to collect qualifying image metadata first, then download everything in a single pass. No more interleaved scanning and downloading competing for the event loop.
-- **Zerochan Per-Post Detail Fallback** -- New `_derive_img_url()` helper tries 7 key names (`full`, `large`, `file_url`, `source`, `src`, `url`, `image`) with thumbnail-to-full derivation as fallback, plus diagnostic key logging when no URL is found.
-- **Download History Logging** -- Skipped files (already downloaded) are now logged with a clear message instead of silently passing.
+- **Danbooru Support** -- New worker, offline tag database (`dan_tag_names.json`), tag autocomplete endpoint, and Danbooru tab in the UI. Supports full tag search, rating filter (Safe/Sensitive/Questionable/NSFW), artist extraction, and video/image separation into subdirectories.
+- **Hydrus Sidecar Files** -- New `write_hydrus_sidecar()` function auto-generates `.filename.txt` sidecar files for every downloaded image, containing tags, artists (prefixed with `creator:`), and source site. Configurable via `WRITE_HYDRUS_SIDECAR` in `.env` or the web UI config.
+- **Gelbooru Danbooru-Style Rating System** -- Gelbooru rating dropdown now uses Danbooru short codes (`g`/`s`/`q`/`e`) with labels Safe/Sensitive/Questionable/NSFW and corresponding folder names.
+- **Nekos.best & Nekos.life Hydrus Support** -- Both workers now call `send_tags()` after each download, generating Hydrus sidecar files with the category as the tag.
+- **Waifu.im Tag Database** -- New `tags.json` with all 20 tags from the waifu.im API, sorted alphabetically, so the dropdown always shows the full list without relying on live API calls.
 
 ### Changed
-- **All Workers** -- Collection phase now gathers URL, filename, and tags directly from list API responses where possible (Safebooru, Gelbooru, Konachan, Yande.re, Zerochan, Waifu.im, Nekos.best, Rule34). Download phase uses these pre-collected values without additional API calls.
-- **Zerochan** -- Removed slow initial tag-redirect check (was causing 20-second startup delay). Tag auto-redirect now handled by the list API itself.
-- **Zerochan** -- Anti-ban pause now only applies to pages that yielded valid new posts, not after empty pages.
-- **Nekos.life & Rule34** -- Download-to-download delay now uses the user-configured anti-ban pause setting instead of hardcoded `random.uniform(0.3, 1.2)` / `random.uniform(0.6, 1.2)`.
-- **Konachan & Safebooru Tag Databases** -- Cleaned up empty entries; fresh pull for Safebooru (178k+ tags).
+- **Gelbooru Folder Naming** -- Rating subdirectories changed from `General`/`Sensitive`/`Questionable`/`NSFW` to `Safe`/`Sensitive`/`Questionable`/`NSFW` to match Danbooru convention.
+- **Waifu.im Tag Dropdown** -- Removed placeholder "Select a tag" option; "Waifu" is now the first and default selected tag.
+- **Main Tab** -- Removed the console log wrapper from the Main tab (it served no purpose there).
+- **All Workers** -- Hardcoded retry limit `if dl_attempt < 2:` fixed to `if dl_attempt < dl_retries - 1:` so the user's configured `download_retries` is respected (affected 7 workers: rule34, gelbooru, waifu.im, safebooru, zerochan, nekos.best, nekos.life).
 
-### Fixed
-- **Nekos Life Console Rendering** -- Removed duplicate `<pre>` element that had the same ID as the correct `<div class="console-log">`, causing `getElementById` to return the unstyled `<pre>` and display "big white text".
-- **Zerochan Silent Skip** -- When a post's detail API returned no usable image URL, the worker silently continued without logging. Now logs the available keys and skips with a diagnostic message.
-- **Zerochan URL-Encoded Filenames** -- Filenames extracted from image URLs are now `urllib.parse.unquote()`-decoded (e.g., `Kafka.%28Honkai.Star.Rail%29` → `Kafka.(Honkai.Star.Rail)`).
-- **Zerochan Tag Parsing** -- Tags are now split on whitespace (Zerochan uses space-separated tags) instead of commas.
-- **Nekos Life Extra Cooldowns** -- Removed `time.sleep(0.5)` and `time.sleep(random.uniform(0.3, 1.2))` in format-mismatch and history-match rejection paths, so the anti-ban pause is the only delay between iterations.
+### Removed
+- **Main Tab Console** -- Removed console-wrapper (clear button + log div) from the System Setup tab.
 
 ---
 

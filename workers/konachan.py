@@ -30,7 +30,7 @@ def worker_konachan(tag, amount, rating, exclusions, net_config):
     tag_dir = os.path.join(site_root, safe_tag)
     os.makedirs(tag_dir, exist_ok=True)
 
-    rating_map = {"s": "Safe", "q": "Moderate", "e": "Explicit"}
+    rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
     collected = []
     page = 1
@@ -106,7 +106,7 @@ def worker_konachan(tag, amount, rating, exclusions, net_config):
                 continue
 
             rating_label = rating_map.get(post_rating, "Unknown")
-            rating_dir = os.path.join(tag_dir, rating_label)
+            rating_dir = os.path.join(tag_dir, rating_label, "images")
             filepath = os.path.join(rating_dir, filename)
             if os.path.exists(filepath):
                 continue
@@ -143,7 +143,7 @@ def worker_konachan(tag, amount, rating, exclusions, net_config):
         if stop_event.is_set():
             break
 
-        rating_dir = os.path.join(tag_dir, rating_label)
+        rating_dir = os.path.join(tag_dir, rating_label, "images")
         os.makedirs(rating_dir, exist_ok=True)
         filepath = os.path.join(rating_dir, filename)
 

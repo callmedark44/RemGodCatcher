@@ -22,6 +22,7 @@
             <button class="tab-btn" onclick="openTab('Rule34', this)">Rule34</button>
             <button class="tab-btn" onclick="openTab('Yande', this)">Yande.re</button>
             <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
+            <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
             <button class="tab-btn" onclick="openTab('History', this)">History</button>
             <button class="tab-btn" onclick="openTab('Options', this)">Options</button>
             <button class="tab-btn" onclick="openTab('Customize', this)">Customize</button>
@@ -55,10 +56,6 @@
                             </div>
                     </div>
 
-                    <div class="console-wrapper" style="min-height: 120px;">
-                        <button class="clear-log-btn" onclick="clearLog('main')">Clear</button>
-                        <div id="consoleLog_main" class="console-log"></div>
-                    </div>
                 </div>
             </div>
 
@@ -196,6 +193,13 @@
                     <datalist id="gelbooruList"></datalist>
                     <label>Limit:</label>
                     <input type="number" id="gelbooruLimit" value="50" style="width: 80px;">
+                    <select id="gelbooruRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
                     <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
                 </div>
@@ -317,6 +321,39 @@
                 </div>
             </div>
 
+            <div id="Danbooru" class="tab-content" style="display: none;">
+                <h2>Danbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="danTag" list="danList" oninput="fetchDan(this.value)" placeholder="e.g. rem blue_hair">
+                    <datalist id="danList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="danLimit" value="50" style="width: 80px;">
+                    <select id="danRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('dan')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="danFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
+                    <div id="consoleLog_dan" class="console-log"></div>
+                </div>
+            </div>
+
             <div id="History" class="tab-content" style="display: none;">
                 <div class="options-scroll">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -381,6 +418,10 @@
                                 <label style="min-width: 120px; font-size: 13px;">Download Retries:</label>
                                 <input type="number" id="downloadRetries" value="3" min="1" style="width: 70px;">
                             </div>
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <input type="checkbox" id="hydrusSidecarToggle">
+                            <label for="hydrusSidecarToggle">Write Hydrus sidecar (.txt) files</label>
                         </div>
                         <div style="margin-top: 12px;">
                             <button class="action-btn" onclick="saveDownloadSettings()">Save Download Settings</button>

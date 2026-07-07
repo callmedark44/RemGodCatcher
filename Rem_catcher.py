@@ -38,11 +38,13 @@ from workers.gelbooru import worker_gelbooru
 from workers.nekos_life import worker_nekos_life
 from workers.yande import worker_yande
 from workers.konachan import worker_konachan
+from workers.danbooru import worker_danbooru
 
 STOP_EVENTS = {}
 SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
+DAN_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
 MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
@@ -56,7 +58,8 @@ STARTUP_CONFIG = {
     "api_timeout": int(os.getenv("API_TIMEOUT", "10")),
     "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
     "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
-    "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3"))
+    "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
+    "write_hydrus_sidecar": os.getenv("WRITE_HYDRUS_SIDECAR", "true").lower() == "true"
 }
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
@@ -87,7 +90,29 @@ def log_msg(worker_name, msg):
 
 shared.log_callback = log_msg
 
+def write_hydrus_sidecar(worker_name, filename, tags_list, artist_list):
+    try:
+        match = None
+        for root, _, files in os.walk(MASTER_FOLDER):
+            if filename in files:
+                match = os.path.join(root, filename)
+                break
+        if not match:
+            return
+        directory = os.path.dirname(match)
+        base = os.path.basename(match)
+        sidecar_path = os.path.join(directory, f".{base}.txt")
+        lines = [t.strip() for t in tags_list if t.strip()]
+        lines += [f"creator:{a.strip()}" for a in artist_list if a.strip()]
+        lines.append(f"site:{worker_name}")
+        with open(sidecar_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception as e:
+        print("Hydrus sidecar error:", e)
+
 def socketio_tag_handler(worker_name, filename, tags_list, artist_list):
+    if STARTUP_CONFIG.get("write_hydrus_sidecar", True):
+        write_hydrus_sidecar(worker_name, filename, tags_list, artist_list)
     try:
         hist = load_json_db(IMAGE_HISTORY_FILE)
         entry = {
@@ -159,6 +184,14 @@ def load_kona_db():
             with open(db_path, "r", encoding="utf-8") as f: KONA_TAGS_DB = json.load(f)
         except Exception: pass
 
+def load_dan_db():
+    global DAN_TAGS_DB
+    db_path = os.path.join(DATABASE_DIR, "dan_tag_names.json")
+    if os.path.exists(db_path):
+        try:
+            with open(db_path, "r", encoding="utf-8") as f: DAN_TAGS_DB = json.load(f)
+        except Exception: pass
+
 @app.route("/")
 def index(): return send_from_directory(STATIC_FOLDER, "index.html")
 
@@ -208,7 +241,8 @@ def config_manager():
             "API_TIMEOUT": str(STARTUP_CONFIG['api_timeout']),
             "RETRY_WAIT": str(STARTUP_CONFIG['retry_wait']),
             "ANTI_BAN_PAUSE": str(STARTUP_CONFIG['anti_ban_pause']),
-            "DOWNLOAD_RETRIES": str(STARTUP_CONFIG['download_retries'])
+            "DOWNLOAD_RETRIES": str(STARTUP_CONFIG['download_retries']),
+            "WRITE_HYDRUS_SIDECAR": str(STARTUP_CONFIG['write_hydrus_sidecar']).lower()
         }
 
         new_lines = []
@@ -347,6 +381,12 @@ def get_kona_suggestions():
     if not KONA_TAGS_DB: return jsonify([])
     return jsonify([t for t in KONA_TAGS_DB if t.startswith(query)][:50])
 
+@app.route("/api/tags/dan", methods=["POST"])
+def get_dan_suggestions():
+    query = request.json.get("query", "").lower()
+    if not DAN_TAGS_DB: return jsonify([])
+    return jsonify([t for t in DAN_TAGS_DB if t.startswith(query)][:50])
+
 # --- TAG HISTORY & FAVORITES API ---
 TAG_HISTORY_FILE = os.path.join(DATABASE_DIR, "tag_history.json")
 FAV_TAGS_FILE = os.path.join(DATABASE_DIR, "fav_tags.json")
@@ -423,6 +463,7 @@ def manage_ui_config():
             "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
             "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
             "Kona": {"dark": "Rem_kona_d.png", "light": "Rem_kona_l.png"},
+            "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
             "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
             "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
             "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -502,10 +543,11 @@ def handle_start_worker(data):
     elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), int(data.get("limit", 20)), net_config), daemon=True).start()
     elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
     elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
 
 @socketio.on("stop_worker")
 def handle_stop_worker(data):
@@ -518,6 +560,7 @@ if __name__ == "__main__":
     load_waifu_tags()
     load_yande_db()
     load_kona_db()
+    load_dan_db()
     port = 5000
     url = f"http://127.0.0.1:{port}"
     print(f"Starting Rem God Catcher Web UI on {url} ...")

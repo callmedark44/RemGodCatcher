@@ -190,6 +190,7 @@ async function resetWallpapersUI() {
         "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
         "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
         "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
+        "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
         "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
         "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
         "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -227,6 +228,7 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
+            document.getElementById("hydrusSidecarToggle").checked = config.write_hydrus_sidecar !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -365,7 +367,7 @@ function clearLog(tabID) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona"
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
@@ -376,7 +378,7 @@ function logToConsole(tabID, msg) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona"
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -419,6 +421,7 @@ function startWorker(workerName) {
     } else if (workerName === 'gelbooru') {
         payload.tag = document.getElementById('gelbooruTag').value;
         payload.limit = document.getElementById('gelbooruLimit').value;
+        payload.rating = document.getElementById('gelbooruRating').value;
         
         let format = document.getElementById('gelFormat').value;
         let ex = [];
@@ -434,6 +437,21 @@ function startWorker(workerName) {
         payload.tag = document.getElementById('yandeTag').value;
         payload.limit = document.getElementById('yandeLimit').value;
         payload.rating = document.getElementById('yandeRating').value;
+
+    } else if (workerName === 'dan') {
+        payload.tag = document.getElementById('danTag').value;
+        payload.limit = document.getElementById('danLimit').value;
+        payload.rating = document.getElementById('danRating').value;
+
+        let format = document.getElementById('danFormat').value;
+        let ex = [];
+        if (format === 'images') ex.push('-video');
+        else if (format === 'videos') {
+            ex.push('-image');
+            payload.tag += " video";
+        }
+        if (document.getElementById('danExGif').checked) ex.push('-gif');
+        payload.exclusions = ex;
 
     } else if (workerName === 'kona') {
         payload.tag = document.getElementById('konaTag').value;
@@ -513,6 +531,7 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
+    globalNetConfig.write_hydrus_sidecar = document.getElementById("hydrusSidecarToggle").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
@@ -578,6 +597,19 @@ async function fetchKona(val) {
         let resp = await fetch("/api/tags/kona", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
         let tags = await resp.json();
         let dl = document.getElementById("konaList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchDan(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/dan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("danList");
         let dHtml = "";
         tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
         dl.innerHTML = dHtml;
@@ -717,6 +749,7 @@ function jumpToSite(site, tag) {
         "gelbooru":  { tab: "Gelbooru", input: "gelbooruTag" },
         "yande":     { tab: "Yande",    input: "yandeTag" },
         "kona":      { tab: "Kona",     input: "konaTag" },
+        "dan":       { tab: "Danbooru", input: "danTag" },
         "rule34":    { tab: "Rule34",    input: "rule34Tag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };

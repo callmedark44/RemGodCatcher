@@ -4,12 +4,12 @@
 
 **A modern, cross-platform image & video downloader with a glass-morphism web UI.**
 
-Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, and Konachan with real-time logging, a built-in discovery engine, advanced tag filtering, and anti-ban protections.
+Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, and Danbooru with real-time logging, a built-in discovery engine, advanced tag filtering, anti-ban protections, and Hydrus sidecar file support.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
-[![Version](https://img.shields.io/badge/Version-4.1.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.2.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md)
 
@@ -19,7 +19,7 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 ## Features
 
-- **Multi-Platform** -- Built-in modules for 9 imageboard APIs
+- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
 - **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
 - **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
 - **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
@@ -32,6 +32,7 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 - **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
 - **API Key Management** -- Manage Rule34 credentials directly from the Web UI
 - **Tag Auto-Suggest** -- Live autocomplete for all platforms including offline Konachan tag DB
+- **Hydrus Sidecar Files** -- Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import
 - **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
 
 ---
@@ -85,6 +86,7 @@ Rem God Catcher/
 ├── workers/                # API-specific download modules
 ├── tags.json               # Waifu.im tag database (name -> slug mapping)
 ├── database/               # Tag databases & user data
+│   ├── dan_tag_names.json      # Danbooru offline tag database
 │   ├── safe_tag_names.json     # Safebooru offline tag database
 │   ├── yande_tag_names.json    # Yande.re offline tag database
 │   ├── kona_tag_names.json     # Konachan offline tag database (82k+ tags)
@@ -114,7 +116,8 @@ Rem God Catcher/
 |----------|------|------|-------|
 | **Rule34** | Full search with AND/OR, exclusions, sorting, video format support | Yes | Requires API key for best results |
 | **Safebooru** | Standard tag search, video format support, artist extraction | No | May require proxy (Cloudflare) |
-| **Gelbooru** | Full search, format exclusions, video format support | Yes | Requires API key for best results |
+| **Gelbooru** | Full search, format exclusions, video/GIF support, artist extraction | Yes | Danbooru-style rating system (Safe/Sensitive/Questionable/NSFW) |
+| **Danbooru** | Full tag search, rating filter, artist extraction, offline tag DB, video/image separation | Yes | Sorts into Safe/Sensitive/Questionable/NSFW folders, separates videos |
 | **Zerochan** | Tag search with live suggestions | No | Built-in retry & rate limiting |
 | **Waifu.im** | Name-to-slug conversion, NSFW toggle | Yes | Uses local `tags.json` for suggestions |
 | **Nekos.best** | Category-based (PNG / GIF) | No | Multiple format support |

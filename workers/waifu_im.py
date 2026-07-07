@@ -28,8 +28,9 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
 
     clean_tag = " ".join(t for t in tag.split() if not t.startswith('-'))
     safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
-    tag_dir = os.path.join(site_root, "nsfw_" + safe_tag if is_nsfw else safe_tag)
-    os.makedirs(tag_dir, exist_ok=True)
+    tag_dir = os.path.join(site_root, safe_tag)
+    subdir = "NSFW" if is_nsfw else "Safe"
+    os.makedirs(os.path.join(tag_dir, subdir), exist_ok=True)
     session = get_session("waifu", net_config)
 
     collected = []
@@ -75,11 +76,11 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
             if filename in dl_history:
                 continue
 
-            filepath = os.path.join(tag_dir, filename)
+            filepath = os.path.join(tag_dir, subdir, filename)
             if os.path.exists(filepath):
                 continue
 
-            collected.append(url)
+            collected.append((url, subdir))
 
         page += 1
         has_next = data.get("hasNextPage", False)
@@ -95,11 +96,11 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
     log_msg(name, f"Collected {len(collected)} images. Starting download...")
 
     downloaded = 0
-    for url in collected:
+    for url, subdir in collected:
         if stop_event.is_set(): break
 
         filename = url.split('/')[-1]
-        filepath = os.path.join(tag_dir, filename)
+        filepath = os.path.join(tag_dir, subdir, filename)
 
         success = False
         for dl_attempt in range(dl_retries):
@@ -118,10 +119,11 @@ def worker_waifu(tag, amount, is_nsfw, net_config):
                 dl_history.add(filename)
                 save_history(site_root, dl_history)
                 log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
+                shared.send_tags(name, filename, [tag], [])
                 success = True
                 break
             except Exception as e:
-                if dl_attempt < 2:
+                if dl_attempt < dl_retries - 1:
                     log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
                     time.sleep(2)
                 else:

@@ -174,7 +174,7 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
                     success = True
                     break
                 except Exception as e:
-                    if dl_attempt < 2:
+                    if dl_attempt < dl_retries - 1:
                         log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
                         time.sleep(2)
                     else:
