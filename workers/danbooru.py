@@ -1,198 +1,120 @@
-import os, time, threading, random, re
-import shared
-from shared import log_msg, STOP_EVENTS, load_history, save_history, get_session
+import os, re
+import asyncio
+from shared import BaseDownloader
 
-RATE_LIMIT = 0.11
+class DanbooruWorker(BaseDownloader):
+    def __init__(self, tag, amount, rating, exclusions, net_config):
+        super().__init__("dan", "Danbooru", amount, net_config)
+        self.original_tag = tag.strip().lower()
+        self.rating = rating
+        self.exclusions = exclusions
 
-def worker_danbooru(tag, amount, rating, exclusions, net_config):
-    name = "dan"
-    if name in STOP_EVENTS and STOP_EVENTS[name] is not None:
-        STOP_EVENTS[name].set()
+        self.api_tag = self.original_tag
+        if self.rating:
+            self.api_tag = f"{self.original_tag} {self.rating}".strip()
 
-    my_stop_event = threading.Event()
-    STOP_EVENTS[name] = my_stop_event
-    stop_event = my_stop_event
+        self.rating_map = {"g": "Safe", "s": "Sensitive", "q": "Questionable", "e": "NSFW"}
+        self.video_exts = {"mp4", "webm"}
 
-    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
-    dl_retries = int(net_config.get("download_retries", 3))
-    tag = tag.strip().lower()
-    original_tag = tag
+        FORMAT_WORDS = {"video", "image"}
+        clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
+        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.tag_dir = os.path.join(self.site_root, self.safe_tag)
+        os.makedirs(self.tag_dir, exist_ok=True)
 
-    if rating:
-        tag = (tag + " " + rating).strip()
-    log_msg(name, f"Initializing worker for tag: '{tag}'")
+    async def scraper_task(self):
+        self.log(f"Initializing worker for tag: '{self.api_tag}'")
 
-    site_root = os.path.join(shared.MASTER_FOLDER, "Danbooru")
-    os.makedirs(site_root, exist_ok=True)
-    dl_history = load_history(site_root)
-    session = get_session("dan", net_config)
+        collected_count = 0
+        page = 1
 
-    FORMAT_WORDS = {"video", "image"}
-    clean_tag = " ".join(t for t in original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
-    safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
-    tag_dir = os.path.join(site_root, safe_tag)
-    os.makedirs(tag_dir, exist_ok=True)
+        while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
+            try:
+                self.log(f"Scanning API... (Page {page})")
+                limit_val = min(200, self.amount - collected_count if self.amount > 0 else 200)
 
-    rating_map = {"g": "Safe", "s": "Sensitive", "q": "Questionable", "e": "NSFW"}
+                resp = await asyncio.to_thread(self.session.get, "https://danbooru.donmai.us/posts.json", params={"tags": self.api_tag, "page": page, "limit": limit_val}, timeout=15)
+                if resp.status_code in [403, 429]:
+                    self.log(f"ERROR {resp.status_code}. Change proxy.")
+                    break
+                resp.raise_for_status()
 
-    VIDEO_EXTS = {"mp4", "webm"}
-    collected = []
-    video_count = 0
-    page = 1
+                posts = resp.json()
+                if not isinstance(posts, list):
+                    break
 
-    while not stop_event.is_set() and (amount == 0 or len(collected) < amount):
-        try:
-            log_msg(name, f"Scanning API... (Page {page})")
-            limit_val = min(200, amount - len(collected) if amount > 0 else 200)
+                if not posts:
+                    if page == 1:
+                        self.log(f"ZERO images found for '{self.api_tag}'.")
+                    else:
+                        self.log("End of database reached.")
+                    break
 
-            resp = session.get("https://danbooru.donmai.us/posts.json", params={"tags": tag, "page": page, "limit": limit_val}, timeout=15)
-            if resp.status_code in [403, 429]:
-                log_msg(name, f"ERROR {resp.status_code}. Change proxy.")
-                break
-            resp.raise_for_status()
-
-            posts = resp.json()
-            if not isinstance(posts, list):
-                break
-
-            if not posts:
-                if page == 1:
-                    log_msg(name, f"ZERO images found for '{tag}'.")
-                break
-
-        except Exception as e:
-            err_str = str(e)
-            if "403" in err_str:
-                log_msg(name, "ERROR 403: Cloudflare/ISP block. You need a proxy.")
-            else:
-                log_msg(name, f"API Error: {e}")
-            time.sleep(5)
-            continue
-
-        time.sleep(RATE_LIMIT)
-
-        had_valid = False
-        for post in posts:
-            if stop_event.is_set() or (amount > 0 and len(collected) >= amount):
-                break
-            if not isinstance(post, dict):
+            except Exception as e:
+                err_str = str(e)
+                if "403" in err_str:
+                    self.log("ERROR 403: Cloudflare/ISP block. You need a proxy.")
+                else:
+                    self.log(f"API Error: {e}")
+                await asyncio.sleep(5)
                 continue
 
-            post_rating = post.get("rating", "")
-            if rating:
-                filter_rating = rating.split(":")[-1]
-                if post_rating != filter_rating:
+            had_valid = False
+            for post in posts:
+                if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
+                    break
+                if not isinstance(post, dict):
                     continue
 
-            url = post.get("file_url") or post.get("large_file_url")
-            if not url:
-                continue
+                post_rating = post.get("rating", "")
+                if self.rating:
+                    filter_rating = self.rating.split(":")[-1]
+                    if post_rating != filter_rating:
+                        continue
 
-            ext = (post.get("file_ext") or "").lower()
-            if ext in ["mp4", "webm", "zip"] and "-video" in exclusions:
-                continue
-            if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in exclusions:
-                continue
-            if ext == "gif" and "-gif" in exclusions:
-                continue
-            if ext not in ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm"]:
-                continue
+                url = post.get("file_url") or post.get("large_file_url")
+                if not url:
+                    continue
 
-            is_video = ext in VIDEO_EXTS
-            filename = f"{post.get('id')}.{ext}"
-            if filename in dl_history:
-                continue
+                ext = (post.get("file_ext") or "").lower()
+                if ext in ["mp4", "webm", "zip"] and "-video" in self.exclusions:
+                    continue
+                if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in self.exclusions:
+                    continue
+                if ext == "gif" and "-gif" in self.exclusions:
+                    continue
+                if ext not in ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm"]:
+                    continue
 
-            rating_label = rating_map.get(post_rating, "Unknown")
-            rating_dir = os.path.join(tag_dir, rating_label)
-            if is_video:
-                filepath = os.path.join(rating_dir, "video", filename)
-            else:
-                filepath = os.path.join(rating_dir, "images", filename)
-            if os.path.exists(filepath):
-                continue
+                filename = f"{post.get('id')}.{ext}"
+                is_video = ext in self.video_exts
+                rating_label = self.rating_map.get(post_rating, "Unknown")
+                rating_dir = os.path.join(self.tag_dir, rating_label, "video" if is_video else "images")
+                os.makedirs(rating_dir, exist_ok=True)
+                filepath = os.path.join(rating_dir, filename)
 
-            tags_raw = post.get("tag_string", "")
-            tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-            artists = []
-            for t in tags_list:
-                if t.startswith("artist:"):
-                    artists.append(t.replace("artist:", "", 1))
-            tags_list = [t for t in tags_list if not t.startswith("artist:")]
+                tags_raw = post.get("tag_string", "")
+                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+                artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
+                tags_list = [t for t in tags_list if not t.startswith("artist:")]
 
-            if is_video:
-                video_count += 1
-            collected.append((url, filename, rating_label, tags_list, artists, is_video))
-            had_valid = True
+                self.enqueue_download(url, filepath, filename, tags_list, artists)
+                collected_count += 1
+                had_valid = True
 
-        page += 1
-        if not stop_event.is_set() and (amount == 0 or len(collected) < amount):
-            if had_valid:
-                log_msg(name, f"Anti-ban pause... ({anti_ban_pause:.1f}s)")
-                time.sleep(anti_ban_pause)
-            else:
-                log_msg(name, f"All posts on page {page-1} filtered or in history. Continuing...")
-                time.sleep(1.0)
+            page += 1
+            if had_valid and not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
+                await asyncio.sleep(self.anti_ban_pause)
 
-    if not collected:
-        log_msg(name, "No new items to download.")
-        log_msg(name, "--- Worker Terminated ---")
-        return
-
-    if video_count == len(collected):
-        log_msg(name, f"Collected {len(collected)} new videos. Starting download...")
-    elif video_count == 0:
-        log_msg(name, f"Collected {len(collected)} new images. Starting download...")
-    else:
-        log_msg(name, f"Collected {len(collected)} new items ({len(collected)-video_count} images, {video_count} videos). Starting download...")
-
-    downloaded = 0
-    for url, filename, rating_label, tags_list, artists, is_video in collected:
-        if stop_event.is_set():
-            break
-
-        rating_dir = os.path.join(tag_dir, rating_label)
-        if is_video:
-            rating_dir = os.path.join(rating_dir, "video")
+        if collected_count == 0:
+            self.log("No new images to download.")
         else:
-            rating_dir = os.path.join(rating_dir, "images")
-        os.makedirs(rating_dir, exist_ok=True)
-        filepath = os.path.join(rating_dir, filename)
+            self.log(f"Finished scanning. Enqueued {collected_count} items. Completing downloads in background...")
 
-        success = False
-        for dl_attempt in range(dl_retries):
-            try:
-                r = session.get(url, stream=True, timeout=60)
-                r.raise_for_status()
-                with open(filepath, 'wb') as f:
-                    for chunk in r.iter_content(8192):
-                        if stop_event.is_set():
-                            break
-                        f.write(chunk)
-                if stop_event.is_set():
-                    os.remove(filepath)
-                    break
+    def run(self):
+        asyncio.run(self.run_async_loop(self.scraper_task))
+        self.log("--- Worker Terminated ---")
 
-                downloaded += 1
-                dl_history.add(filename)
-                save_history(site_root, dl_history)
-                log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-                shared.send_tags(name, filename, tags_list, artists)
-                time.sleep(random.uniform(0.5, 2.0))
-                success = True
-                break
-            except Exception as e:
-                if stop_event.is_set():
-                    break
-                if dl_attempt < dl_retries - 1:
-                    log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
-                    for _ in range(20):
-                        if stop_event.is_set(): break
-                        time.sleep(0.1)
-                else:
-                    log_msg(name, f"[FAILED] {filename}: {e}")
-
-        if stop_event.is_set():
-            break
-
-    log_msg(name, "--- Worker Terminated ---")
+def worker_danbooru(tag, amount, rating, exclusions, net_config):
+    worker = DanbooruWorker(tag, amount, rating, exclusions, net_config)
+    worker.run()

@@ -1,54 +1,55 @@
-import os, time, threading, random, re
-import shared
-from shared import log_msg, STOP_EVENTS, load_history, save_history
+import os, re, random
+import asyncio
+from shared import BaseDownloader
 from rule34Py import rule34Py
 
-def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_config):
-    name = "rule34"
-    STOP_EVENTS[name] = threading.Event()
-    stop_event = STOP_EVENTS[name]
+class Rule34Worker(BaseDownloader):
+    def __init__(self, tag, amount, method, sort_type, sort_order, exclusions, net_config):
+        super().__init__("rule34", "Rule34", amount, net_config)
+        self.original_tag = tag.strip().lower()
+        self.method = method
+        self.sort_type = sort_type
+        self.sort_order = sort_order
+        self.exclusions = exclusions
 
-    anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
-    dl_retries = int(net_config.get("download_retries", 3))
-    log_msg(name, "Initializing worker... [RULE34PY LIBRARY MODE]")
-    tag_list = [t.strip() for t in tag.strip().lower().split() if t.strip()]
+        tag_list = [t.strip() for t in self.original_tag.split() if t.strip()]
+        if len(tag_list) > 10:
+            self.log("Warning: Max 10 tags allowed! Truncating your list...")
+            tag_list = tag_list[:10]
 
-    if len(tag_list) > 10:
-        log_msg(name, "Warning: Max 10 tags allowed! Truncating your list...")
-        tag_list = tag_list[:10]
-
-    TAGS = []
-    if method == "or":
-        if any(t.startswith('-') for t in tag_list):
-            log_msg(name, "Error: Cannot use negative (-tag) in OR method.")
-            log_msg(name, "Auto-switching to AND method...")
-            TAGS.extend(tag_list)
+        self.tag_list = tag_list
+        TAGS = []
+        if method == "or":
+            if any(t.startswith('-') for t in tag_list):
+                self.log("Error: Cannot use negative (-tag) in OR method.")
+                self.log("Auto-switching to AND method...")
+                TAGS.extend(tag_list)
+            else:
+                TAGS.append(" ~ ".join(tag_list))
         else:
-            TAGS.append(" ~ ".join(tag_list))
-    else:
-        TAGS.extend(tag_list)
+            TAGS.extend(tag_list)
 
-    if sort_order == "desc": TAGS.append(f"sort:{sort_type}")
-    else: TAGS.append(f"sort:{sort_type}:{sort_order}")
+        if sort_order == "desc":
+            TAGS.append(f"sort:{sort_type}")
+        else:
+            TAGS.append(f"sort:{sort_type}:{sort_order}")
 
-    if exclusions: TAGS.extend(exclusions)
+        if exclusions:
+            TAGS.extend(exclusions)
 
-    log_msg(name, f"Final Payload sent to rule34Py: {TAGS}")
+        self.api_tags = TAGS
+        self.log(f"Final Payload sent to rule34Py: {TAGS}")
 
-    site_root = os.path.join(shared.MASTER_FOLDER, "Rule34")
-    os.makedirs(site_root, exist_ok=True)
-    dl_history = load_history(site_root)
+        clean_folder_name = " ".join([t for t in tag_list if not t.startswith('-')])
+        self.safe_tag = re.sub(r'[\\/*?:"<>|~]', "", clean_folder_name).strip()
+        if not self.safe_tag:
+            self.safe_tag = "mixed_tags"
+        self.tag_dir = os.path.join(self.site_root, self.safe_tag)
+        os.makedirs(self.tag_dir, exist_ok=True)
 
-    clean_folder_name = " ".join([t for t in tag_list if not t.startswith('-')])
-    safe_tag_dir = re.sub(r'[\\/*?"<>|~]', "", clean_folder_name).strip()
-    if not safe_tag_dir: safe_tag_dir = "mixed_tags"
-
-    tag_dir = os.path.join(site_root, safe_tag_dir)
-    os.makedirs(tag_dir, exist_ok=True)
-
-    try:
+    def _setup_session(self):
+        session = super()._setup_session()
         client = rule34Py()
-
         api_key = os.getenv("RULE34_API_KEY", "")
         user_id_raw = os.getenv("RULE34_USER_ID", "0")
         user_id = int(user_id_raw) if user_id_raw.isdigit() else 0
@@ -56,133 +57,108 @@ def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_co
         if api_key and user_id:
             client.api_key = api_key
             client.user_id = user_id
-            log_msg(name, "API credentials loaded from .env")
+            self.log("API credentials loaded from .env")
         else:
-            log_msg(name, "No API credentials found. Running in anonymous mode.")
+            self.log("No API credentials found. Running in anonymous mode.")
 
-        if net_config.get("use_proxy"):
-            p = net_config.get("proxy_url")
+        if self.net_config.get("use_proxy"):
+            p = self.net_config.get("proxy_url")
             client.session.proxies = {"http": p, "https": p}
-            client.session.verify = net_config.get("verify_tls", False)
-            log_msg(name, f"Proxy enabled: {p}")
+            client.session.verify = self.net_config.get("verify_tls", False)
         else:
             client.session.proxies = {"http": "", "https": "", "no_proxy": "*"}
             client.session.verify = False
 
-        collected = []
+        self.client = client
+        return session
+
+    async def scraper_task(self):
+        self.log("Initializing worker... [RULE34PY LIBRARY MODE]")
+
+        collected_count = 0
         page = 0
 
-        while not stop_event.is_set() and (amount == 0 or len(collected) < amount):
-            log_msg(name, f"Scanning via rule34Py... (Page {page})")
-            chunk_limit = min(1000, amount - len(collected) if amount > 0 else 100)
+        while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
+            self.log(f"Scanning via rule34Py... (Page {page})")
+            chunk_limit = min(1000, self.amount - collected_count if self.amount > 0 else 100)
             results = None
             max_retries = 5
 
             for attempt in range(max_retries):
                 try:
-                    results = client.search(TAGS, page_id=page, limit=chunk_limit)
+                    results = await asyncio.to_thread(self.client.search, self.api_tags, page_id=page, limit=chunk_limit)
                     break
                 except TypeError as e:
                     if "string indices must be integers" in str(e):
                         results = []
                         break
-                    else: raise e
+                    else:
+                        raise e
                 except Exception as e:
                     error_msg = str(e)
                     if "timeout" in error_msg.lower() or "read timed out" in error_msg.lower():
-                        log_msg(name, f"Network Timeout (Attempt {attempt+1}/{max_retries}). Retrying in 3s...")
-                        time.sleep(3)
-                    else: raise e
+                        self.log(f"Network Timeout (Attempt {attempt+1}/{max_retries}). Retrying in 3s...")
+                        await asyncio.sleep(3)
+                    else:
+                        raise e
 
             if results is None:
-                log_msg(name, "Failed to connect to Rule34 after 5 attempts. Check your VPN/Proxy.")
+                self.log("Failed to connect to Rule34 after 5 attempts. Check your VPN/Proxy.")
                 break
 
             if not results:
-                if page == 0: log_msg(name, f"0 images found for {TAGS}.")
-                else: log_msg(name, "End of database reached.")
+                if page == 0:
+                    self.log(f"0 images found for {self.api_tags}.")
+                else:
+                    self.log("End of database reached.")
                 break
 
             had_valid = False
             for result in results:
-                if stop_event.is_set() or (amount > 0 and len(collected) >= amount): break
+                if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
+                    break
                 file_url = result.image
-                if not file_url: continue
+                if not file_url:
+                    continue
 
                 ext = file_url.split('.')[-1].lower()
 
-                if ext in ["mp4", "webm", "zip"] and "-video" in exclusions: continue
-                if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in exclusions: continue
-                if ext == "gif" and "-gif" in exclusions: continue
+                if ext in ["mp4", "webm", "zip"] and "-video" in self.exclusions:
+                    continue
+                if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in self.exclusions:
+                    continue
+                if ext == "gif" and "-gif" in self.exclusions:
+                    continue
 
                 post_id = getattr(result, 'id', random.randint(1000, 99999))
                 filename = f"{post_id}.{ext}"
-                if filename in dl_history:
-                    continue
-
-                filepath = os.path.join(tag_dir, filename)
-                if os.path.exists(filepath):
-                    continue
+                filepath = os.path.join(self.tag_dir, filename)
 
                 tags_raw = getattr(result, 'tags', "")
-                if isinstance(tags_raw, str): tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-                else: tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+                if isinstance(tags_raw, str):
+                    tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+                else:
+                    tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
 
-                collected.append((file_url, filename, tags_list))
+                self.enqueue_download(file_url, filepath, filename, tags_list, [])
+                collected_count += 1
                 had_valid = True
 
             page += 1
-            if had_valid and not stop_event.is_set() and (amount == 0 or len(collected) < amount):
-                delay = random.uniform(anti_ban_pause, anti_ban_pause + 2.0)
-                log_msg(name, f"Anti-ban pause... ({delay:.1f}s)")
-                time.sleep(delay)
+            if had_valid and not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
+                delay = random.uniform(self.anti_ban_pause, self.anti_ban_pause + 2.0)
+                self.log(f"Anti-ban pause... ({delay:.1f}s)")
+                await asyncio.sleep(delay)
 
-        if not collected:
-            log_msg(name, "No new images to download.")
-            log_msg(name, "--- Worker Terminated ---")
-            return
+        if collected_count == 0:
+            self.log("No new images to download.")
+        else:
+            self.log(f"Finished scanning. Enqueued {collected_count} items. Completing downloads in background...")
 
-        log_msg(name, f"Collected {len(collected)} images. Starting download...")
+    def run(self):
+        asyncio.run(self.run_async_loop(self.scraper_task))
+        self.log("--- Worker Terminated ---")
 
-        downloaded = 0
-        for file_url, filename, tags_list in collected:
-            if stop_event.is_set(): break
-
-            filepath = os.path.join(tag_dir, filename)
-
-            success = False
-            for dl_attempt in range(dl_retries):
-                try:
-                    resp = client.session.get(file_url, stream=True, timeout=30)
-                    resp.raise_for_status()
-                    with open(filepath, 'wb') as f:
-                        for chunk in resp.iter_content(8192):
-                            if stop_event.is_set(): break
-                            f.write(chunk)
-
-                    if stop_event.is_set():
-                        os.remove(filepath)
-                        break
-
-                    downloaded += 1
-                    dl_history.add(filename)
-                    save_history(site_root, dl_history)
-
-                    log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-                    shared.send_tags(name, filename, tags_list, [])
-                    time.sleep(anti_ban_pause)
-                    success = True
-                    break
-                except Exception as e:
-                    if dl_attempt < dl_retries - 1:
-                        log_msg(name, f"[RETRY {dl_attempt+1}/{dl_retries}] {filename}: {e}")
-                        time.sleep(2)
-                    else:
-                        log_msg(name, f"[FAILED] {filename}: {e}")
-                if not success:
-                    continue
-
-    except Exception as e:
-        log_msg(name, f"Unexpected Error: {str(e)}")
-
-    log_msg(name, "--- Worker Terminated ---")
+def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_config):
+    worker = Rule34Worker(tag, amount, method, sort_type, sort_order, exclusions, net_config)
+    worker.run()
