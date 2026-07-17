@@ -95,13 +95,14 @@ class ZerochanWorker(BaseDownloader):
             filename = urllib.parse.unquote(img_url.split('/')[-1])
             filepath = os.path.join(self.tag_dir, filename)
 
-            self.enqueue_download(img_url, filepath, filename, tags_list, [])
-            collected_count += 1
+            if await self.enqueue_download(img_url, filepath, filename, tags_list, []):
+                collected_count += 1
 
-        if collected_count == 0:
+        actual = self.download_queue.qsize() if self.download_queue else collected_count
+        if actual == 0:
             self.log("No new images to download.")
         else:
-            self.log(f"Finished scanning. Enqueued {collected_count} items. Completing downloads in background...")
+            self.log(f"Finished scanning. Enqueued {actual} item{'s' if actual != 1 else ''}. Completing downloads in the background...")
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))

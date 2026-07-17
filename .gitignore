@@ -37,3 +37,26 @@ env/
 build/
 dist/
 *.spec
+
+# Gallery DB & thumb cache
+database/
+
+# Graphify output
+graphify-out/
+
+# Cosplay downloader
+cosplay/
+cosplay_server.log
+downloaded_urls.json
+
+# ========================
+# Android Studio
+# ========================
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+*.hprof
+

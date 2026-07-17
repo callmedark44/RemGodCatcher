@@ -13,17 +13,18 @@
     <div class="glass-panel">
         <div class="tab-buttons">
             <button class="tab-btn active" onclick="openTab('Main', this)">MAIN</button>
+            <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
+            <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
+            <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
             <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
             <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
-            <button class="tab-btn" onclick="openTab('Zero', this)">Zerochan</button>
-            <button class="tab-btn" onclick="openTab('Waifu', this)">Waifu.im</button>
-            <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
-            <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
             <button class="tab-btn" onclick="openTab('Rule34', this)">Rule34</button>
+            <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
+            <button class="tab-btn" onclick="openTab('Waifu', this)">Waifu.im</button>
             <button class="tab-btn" onclick="openTab('Yande', this)">Yande.re</button>
-            <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
-            <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
+            <button class="tab-btn" onclick="openTab('Zero', this)">Zerochan</button>
             <button class="tab-btn" onclick="openTab('History', this)">History</button>
+            <button class="tab-btn" onclick="openTab('Gallery', this)">Gallery</button>
             <button class="tab-btn" onclick="openTab('Options', this)">Options</button>
             <button class="tab-btn" onclick="openTab('Customize', this)">Customize</button>
         </div>
@@ -59,6 +60,107 @@
                 </div>
             </div>
 
+            <div id="Danbooru" class="tab-content" style="display: none;">
+                <h2>Danbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="danTag" list="danList" oninput="fetchDan(this.value)" placeholder="e.g. rem blue_hair">
+                    <datalist id="danList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="danLimit" value="50" min="0" style="width: 80px;">
+                    <select id="danRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('dan')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="danFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
+                </div>
+                <div class="worker-progress" id="progressWrap_dan"><div class="worker-progress-fill" id="progress_dan"></div><span class="progress-text" id="progressText_dan">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
+                    <div id="consoleLog_dan" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Gelbooru" class="tab-content" style="display: none;">
+                <h2>Gelbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="gelbooruTag" list="gelbooruList" oninput="fetchGelbooru(this.value)" placeholder="e.g. 1girl blue_hair">
+                    <datalist id="gelbooruList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="gelbooruLimit" value="50" min="0" style="width: 80px;">
+                    <select id="gelbooruRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="gelFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="gelNoAI"> <label for="gelNoAI">Exclude AI</label>
+                </div>
+                <div class="worker-progress" id="progressWrap_gelbooru"><div class="worker-progress-fill" id="progress_gelbooru"></div><span class="progress-text" id="progressText_gelbooru">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('gelbooru')">Clear</button>
+                    <div id="consoleLog_gelbooru" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Kona" class="tab-content" style="display: none;">
+                <h2>Konachan Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="konaTag" list="konaList" oninput="fetchKona(this.value)" placeholder="e.g. rem blue_hair">
+                    <datalist id="konaList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="konaLimit" value="50" min="0" style="width: 80px;">
+                    <select id="konaRating" style="width: 110px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:s">Safe</option>
+                        <option value="rating:q">Moderate</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('kona')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="konaFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="konaExGif"> <label for="konaExGif">Exclude GIF</label>
+                </div>
+                <div class="worker-progress" id="progressWrap_kona"><div class="worker-progress-fill" id="progress_kona"></div><span class="progress-text" id="progressText_kona">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('kona')">Clear</button>
+                    <div id="consoleLog_kona" class="console-log"></div>
+                </div>
+            </div>
+
             <div id="Neko" class="tab-content" style="display: none;">
                 <h2>Nekos.best Downloader</h2>
                 <div class="input-group">
@@ -70,11 +172,11 @@
                     <label>Category:</label>
                     <select id="nekoCat" style="width: 140px;"></select>
                     <label>Amount:</label>
-                    <input type="number" id="nekoAmount" value="20" style="width: 80px;">
+                    <input type="number" id="nekoAmount" value="20" min="0" style="width: 80px;">
                     <button class="action-btn" onclick="startWorker('neko')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_neko"><div class="worker-progress-fill" id="progress_neko">0%</div></div>
+                <div class="worker-progress" id="progressWrap_neko"><div class="worker-progress-fill" id="progress_neko"></div><span class="progress-text" id="progressText_neko">0%</span></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('neko')">Clear</button>
                     <div id="consoleLog_neko" class="console-log"></div>
@@ -124,104 +226,14 @@
                         <option value="image">Image Only</option>
                     </select>
                     <label style="margin-left: 10px;">Amount:</label>
-                    <input type="number" id="nekosLifeAmount" value="20" style="width: 80px;">
+                    <input type="number" id="nekosLifeAmount" value="20" min="0" style="width: 80px;">
                     <button class="action-btn" onclick="startWorker('nekos_life')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('nekos_life')">STOP</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_nekos_life"><div class="worker-progress-fill" id="progress_nekos_life">0%</div></div>
+                <div class="worker-progress" id="progressWrap_nekos_life"><div class="worker-progress-fill" id="progress_nekos_life"></div><span class="progress-text" id="progressText_nekos_life">0%</span></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('nekos_life')">Clear</button>
                     <div id="consoleLog_nekos_life" class="console-log"></div>
-                </div>
-            </div>
-
-            <div id="Zero" class="tab-content" style="display: none;">
-                <h2>Zerochan Downloader</h2>
-                <div class="input-group">
-                    <label>Tag Name:</label>
-                    <input type="text" id="zeroTag" list="zeroList" oninput="fetchZero(this.value)" placeholder="e.g. Rem (Re:Zero)">
-                    <datalist id="zeroList"></datalist>
-                    <label>Limit:</label>
-                    <input type="number" id="zeroLimit" value="50" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('zero')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
-                </div>
-                <div class="worker-progress" id="progressWrap_zero"><div class="worker-progress-fill" id="progress_zero">0%</div></div>
-                <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('zero')">Clear</button>
-                    <div id="consoleLog_zero" class="console-log"></div>
-                </div>
-            </div>
-
-            <div id="Waifu" class="tab-content" style="display: none;">
-                <h2>Waifu.im Downloader</h2>
-                <div class="input-group">
-                    <label>Tag:</label>
-                    <select id="waifuTag" style="width: 160px;"></select>
-                    <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
-                    <label>Limit:</label>
-                    <input type="number" id="waifuLimit" value="30" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
-                </div>
-                <div class="worker-progress" id="progressWrap_waifu"><div class="worker-progress-fill" id="progress_waifu">0%</div></div>
-                <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('waifu')">Clear</button>
-                    <div id="consoleLog_waifu" class="console-log"></div>
-                </div>
-            </div>
-
-            <div id="Safe" class="tab-content" style="display: none;">
-                <h2>Safebooru Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <input type="text" id="safeTag" list="safeList" oninput="fetchSafe(this.value)" placeholder="e.g. 1girl blue_hair">
-                    <datalist id="safeList"></datalist>
-                    <label>Limit:</label>
-                    <input type="number" id="safeLimit" value="50" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('safe')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
-                </div>
-
-                <div class="worker-progress" id="progressWrap_safe"><div class="worker-progress-fill" id="progress_safe">0%</div></div>
-
-                <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('safe')">Clear</button>
-                    <div id="consoleLog_safe" class="console-log"></div>
-                </div>
-            </div>
-
-            <div id="Gelbooru" class="tab-content" style="display: none;">
-                <h2>Gelbooru Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <input type="text" id="gelbooruTag" list="gelbooruList" oninput="fetchGelbooru(this.value)" placeholder="e.g. 1girl blue_hair">
-                    <datalist id="gelbooruList"></datalist>
-                    <label>Limit:</label>
-                    <input type="number" id="gelbooruLimit" value="50" style="width: 80px;">
-                    <select id="gelbooruRating" style="width: 130px;">
-                        <option value="">All Ratings</option>
-                        <option value="rating:g">Safe</option>
-                        <option value="rating:s">Sensitive</option>
-                        <option value="rating:q">Questionable</option>
-                        <option value="rating:e">NSFW</option>
-                    </select>
-                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
-                </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
-                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
-                    <select id="gelFormat" style="margin-right: 15px;">
-                        <option value="images">Images Only</option>
-                        <option value="all">Images & Videos</option>
-                        <option value="videos">Videos Only</option>
-                    </select>
-                    <input type="checkbox" id="gelNoAI"> <label for="gelNoAI">Exclude AI</label>
-                </div>
-                <div class="worker-progress" id="progressWrap_gelbooru"><div class="worker-progress-fill" id="progress_gelbooru">0%</div></div>
-                <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('gelbooru')">Clear</button>
-                    <div id="consoleLog_gelbooru" class="console-log"></div>
                 </div>
             </div>
 
@@ -250,7 +262,7 @@
                 </div>
                 <div class="input-group" style="margin-top: 10px;">
                     <label>Limit:</label>
-                    <input type="number" id="rule34Limit" value="50" style="width: 80px;">
+                    <input type="number" id="rule34Limit" value="50" min="0" style="width: 80px;">
                     <button class="action-btn" onclick="startWorker('rule34')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('rule34')">STOP</button>
                 </div>
@@ -267,10 +279,48 @@
                     <input type="checkbox" id="exComic"> <label for="exComic" style="margin-right: 10px;">Comic</label>
                     <input type="checkbox" id="ex3D"> <label for="ex3D">3D</label>
                 </div>
-                <div class="worker-progress" id="progressWrap_rule34"><div class="worker-progress-fill" id="progress_rule34">0%</div></div>
+                <div class="worker-progress" id="progressWrap_rule34"><div class="worker-progress-fill" id="progress_rule34"></div><span class="progress-text" id="progressText_rule34">0%</span></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('rule34')">Clear</button>
                     <div id="consoleLog_rule34" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Safe" class="tab-content" style="display: none;">
+                <h2>Safebooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="safeTag" list="safeList" oninput="fetchSafe(this.value)" placeholder="e.g. 1girl blue_hair">
+                    <datalist id="safeList"></datalist>
+                    <label>Limit:</label>
+                    <input type="number" id="safeLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('safe')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
+                </div>
+
+                <div class="worker-progress" id="progressWrap_safe"><div class="worker-progress-fill" id="progress_safe"></div><span class="progress-text" id="progressText_safe">0%</span></div>
+
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('safe')">Clear</button>
+                    <div id="consoleLog_safe" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Waifu" class="tab-content" style="display: none;">
+                <h2>Waifu.im Downloader</h2>
+                <div class="input-group">
+                    <label>Tag:</label>
+                    <select id="waifuTag" style="width: 160px;"></select>
+                    <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
+                    <label>Limit:</label>
+                    <input type="number" id="waifuLimit" value="30" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
+                </div>
+                <div class="worker-progress" id="progressWrap_waifu"><div class="worker-progress-fill" id="progress_waifu"></div><span class="progress-text" id="progressText_waifu">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('waifu')">Clear</button>
+                    <div id="consoleLog_waifu" class="console-log"></div>
                 </div>
             </div>
 
@@ -281,7 +331,7 @@
                     <input type="text" id="yandeTag" list="yandeList" oninput="fetchYande(this.value)" placeholder="e.g. rem blue_hair">
                     <datalist id="yandeList"></datalist>
                     <label>Limit:</label>
-                    <input type="number" id="yandeLimit" value="50" style="width: 80px;">
+                    <input type="number" id="yandeLimit" value="50" min="0" style="width: 80px;">
                     <select id="yandeRating" style="width: 110px;">
                         <option value="">All Ratings</option>
                         <option value="rating:s">Safe</option>
@@ -291,77 +341,28 @@
                     <button class="action-btn" onclick="startWorker('yande')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('yande')">STOP</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_yande"><div class="worker-progress-fill" id="progress_yande">0%</div></div>
+                <div class="worker-progress" id="progressWrap_yande"><div class="worker-progress-fill" id="progress_yande"></div><span class="progress-text" id="progressText_yande">0%</span></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('yande')">Clear</button>
                     <div id="consoleLog_yande" class="console-log"></div>
                 </div>
             </div>
 
-            <div id="Kona" class="tab-content" style="display: none;">
-                <h2>Konachan Downloader</h2>
+            <div id="Zero" class="tab-content" style="display: none;">
+                <h2>Zerochan Downloader</h2>
                 <div class="input-group">
-                    <label>Tags:</label>
-                    <input type="text" id="konaTag" list="konaList" oninput="fetchKona(this.value)" placeholder="e.g. rem blue_hair">
-                    <datalist id="konaList"></datalist>
+                    <label>Tag Name:</label>
+                    <input type="text" id="zeroTag" list="zeroList" oninput="fetchZero(this.value)" placeholder="e.g. Rem (Re:Zero)">
+                    <datalist id="zeroList"></datalist>
                     <label>Limit:</label>
-                    <input type="number" id="konaLimit" value="50" style="width: 80px;">
-                    <select id="konaRating" style="width: 110px;">
-                        <option value="">All Ratings</option>
-                        <option value="rating:s">Safe</option>
-                        <option value="rating:q">Moderate</option>
-                        <option value="rating:e">NSFW</option>
-                    </select>
-                    <button class="action-btn" onclick="startWorker('kona')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
+                    <input type="number" id="zeroLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('zero')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
-                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
-                    <select id="konaFormat" style="margin-right: 15px;">
-                        <option value="images">Images Only</option>
-                        <option value="all">Images & Videos</option>
-                        <option value="videos">Videos Only</option>
-                    </select>
-                    <input type="checkbox" id="konaExGif"> <label for="konaExGif">Exclude GIF</label>
-                </div>
-                <div class="worker-progress" id="progressWrap_kona"><div class="worker-progress-fill" id="progress_kona">0%</div></div>
+                <div class="worker-progress" id="progressWrap_zero"><div class="worker-progress-fill" id="progress_zero"></div><span class="progress-text" id="progressText_zero">0%</span></div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('kona')">Clear</button>
-                    <div id="consoleLog_kona" class="console-log"></div>
-                </div>
-            </div>
-
-            <div id="Danbooru" class="tab-content" style="display: none;">
-                <h2>Danbooru Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <input type="text" id="danTag" list="danList" oninput="fetchDan(this.value)" placeholder="e.g. rem blue_hair">
-                    <datalist id="danList"></datalist>
-                    <label>Limit:</label>
-                    <input type="number" id="danLimit" value="50" style="width: 80px;">
-                    <select id="danRating" style="width: 130px;">
-                        <option value="">All Ratings</option>
-                        <option value="rating:g">Safe</option>
-                        <option value="rating:s">Sensitive</option>
-                        <option value="rating:q">Questionable</option>
-                        <option value="rating:e">NSFW</option>
-                    </select>
-                    <button class="action-btn" onclick="startWorker('dan')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
-                </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
-                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
-                    <select id="danFormat" style="margin-right: 15px;">
-                        <option value="images">Images Only</option>
-                        <option value="all">Images & Videos</option>
-                        <option value="videos">Videos Only</option>
-                    </select>
-                    <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
-                </div>
-                <div class="worker-progress" id="progressWrap_dan"><div class="worker-progress-fill" id="progress_dan">0%</div></div>
-                <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
-                    <div id="consoleLog_dan" class="console-log"></div>
+                    <button class="clear-log-btn" onclick="clearLog('zero')">Clear</button>
+                    <div id="consoleLog_zero" class="console-log"></div>
                 </div>
             </div>
 
@@ -380,6 +381,60 @@
                     </div>
                     <div id="imageHistoryUI" style="display: flex; flex-direction: column; gap: 15px;">
                         </div>
+                </div>
+            </div>
+
+            <div id="Gallery" class="tab-content gallery-tab" style="display: none;">
+                <div class="gallery-toolbar">
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('sourceDropdown')">All Sources ▾</button>
+                        <div id="sourceDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                        </div>
+                    </div>
+                    <input type="text" id="gallerySearch" placeholder="Search tags, filename..." onkeydown="if(event.key==='Enter')loadGallery(1)">
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('sortDropdown')">Newest First ▾</button>
+                        <div id="sortDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="selectSort(this, 'newest')"><span>Newest First</span></div>
+                            <div class="dd-item" onclick="selectSort(this, 'oldest')"><span>Oldest First</span></div>
+                        </div>
+                    </div>
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('typeDropdown')">All Types ▾</button>
+                        <div id="typeDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Images</span><input type="checkbox" value="image"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>GIFs</span><input type="checkbox" value="gif"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Videos</span><input type="checkbox" value="video"></div>
+                        </div>
+                    </div>
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('ratingDropdown')">All Ratings ▾</button>
+                        <div id="ratingDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Safe</span><input type="checkbox" value="safe"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Sensitive</span><input type="checkbox" value="sensitive"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Questionable</span><input type="checkbox" value="questionable"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Explicit</span><input type="checkbox" value="explicit"></div>
+                        </div>
+                    </div>
+                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">❤ Favorites</button>
+                    <button class="action-btn" onclick="loadGallery(currentGalleryPage)" title="Refresh">↻</button>
+                </div>
+                <div class="gallery-meta">
+                    <span id="galleryMeta"></span>
+                    <button class="action-btn" onclick="importGallery()" style="font-size: 11px; padding: 4px 10px;">Import from History</button>
+                </div>
+                <div id="galleryGrid"></div>
+                <div id="galleryPagination" class="gallery-pagination"></div>
+                <div id="galleryViewer" class="gallery-viewer" style="display: none;">
+                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">&times;</button>
+                    <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
+                    <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
+                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">‹</button>
+                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">›</button>
+                    <img id="galleryViewerImg" src="">
                 </div>
             </div>
 

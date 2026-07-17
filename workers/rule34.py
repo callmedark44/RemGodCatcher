@@ -140,9 +140,9 @@ class Rule34Worker(BaseDownloader):
                 else:
                     tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
 
-                self.enqueue_download(file_url, filepath, filename, tags_list, [])
-                collected_count += 1
-                had_valid = True
+                if await self.enqueue_download(file_url, filepath, filename, tags_list, []):
+                    collected_count += 1
+                    had_valid = True
 
             page += 1
             if had_valid and not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
@@ -150,10 +150,11 @@ class Rule34Worker(BaseDownloader):
                 self.log(f"Anti-ban pause... ({delay:.1f}s)")
                 await asyncio.sleep(delay)
 
-        if collected_count == 0:
+        actual = self.download_queue.qsize() if self.download_queue else collected_count
+        if actual == 0:
             self.log("No new images to download.")
         else:
-            self.log(f"Finished scanning. Enqueued {collected_count} items. Completing downloads in background...")
+            self.log(f"Finished scanning. Enqueued {actual} item{'s' if actual != 1 else ''}. Completing downloads in the background...")
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))

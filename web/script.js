@@ -219,23 +219,23 @@ function updateProgressBar(worker, msg) {
     if (!key) return;
     let wrap = document.getElementById("progressWrap_" + key);
     let fill = document.getElementById("progress_" + key);
-    if (!wrap || !fill) return;
+    let txt = document.getElementById("progressText_" + key);
+    if (!wrap || !fill || !txt) return;
 
     if (msg.includes("Phase 2: Starting parallel download")) {
         wrap.classList.add("active");
         fill.classList.remove("done");
         fill.style.width = "0%";
-        fill.textContent = "0%";
+        txt.textContent = "0%";
         return;
     }
 
     if (msg.includes("[SUCCESS] Downloaded")) {
-        let m = msg.match(/\((\d+)\/(\d+)\)/);
+        let m = msg.match(/\[(\d+)%\]/);
         if (m) {
-            let cur = parseInt(m[1]), tot = parseInt(m[2]);
-            let pct = tot > 0 ? Math.round((cur / tot) * 100) : 0;
+            let pct = Math.max(0, Math.min(parseInt(m[1]), 100));
             fill.style.width = pct + "%";
-            fill.textContent = pct + "%";
+            txt.textContent = pct + "%";
         }
         return;
     }
@@ -243,7 +243,7 @@ function updateProgressBar(worker, msg) {
     if (msg.includes("--- All") && msg.includes("downloads completed")) {
         fill.classList.add("done");
         fill.style.width = "100%";
-        fill.textContent = "100%";
+        txt.textContent = "100%";
         setTimeout(() => { wrap.classList.remove("active"); fill.classList.remove("done"); }, 3000);
         return;
     }
@@ -261,6 +261,8 @@ socket.on("python_log", function (data) {
 
 socket.on("update_history", function () {
     loadTagsData();
+    loadGallery();
+    populateGallerySiteFilter();
 });
 
 window.onload = async function () {
@@ -308,6 +310,8 @@ window.onload = async function () {
 
     await loadTagsData();
     await loadApiSettings();
+    loadGallery();
+    populateGallerySiteFilter();
 };
 
 const nekoImages = ["husbando", "kitsune", "neko", "waifu"];
@@ -546,11 +550,12 @@ function startWorker(workerName) {
     if (key) {
         let wrap = document.getElementById("progressWrap_" + key);
         let fill = document.getElementById("progress_" + key);
-        if (wrap && fill) {
+        let txt = document.getElementById("progressText_" + key);
+        if (wrap && fill && txt) {
             wrap.classList.add("active");
             fill.classList.remove("done");
             fill.style.width = "0%";
-            fill.textContent = "Gathering...";
+            txt.textContent = "Gathering...";
         }
     }
 
@@ -889,3 +894,467 @@ async function clearImageHistory() {
         await loadTagsData();
     }
 }
+
+// ==========================================
+// === GALLERY SYSTEM ===
+// ==========================================
+let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
+let currentGalleryPage = 1;
+let galleryFavFilter = false;
+
+function getMultiSelectValues(id) {
+    const checks = document.querySelectorAll(`#${id} input[type="checkbox"]`);
+    const vals = [];
+    let allChecked = false;
+    checks.forEach(c => { if (c.checked) { if (c.value === '') allChecked = true; else vals.push(c.value); } });
+    if (allChecked || vals.length === 0) return '';
+    return vals.join(',');
+}
+
+function getMultiLabel(id, noneLabel) {
+    const checks = document.querySelectorAll(`#${id} input[type="checkbox"]`);
+    let count = 0;
+    let allChecked = false;
+    checks.forEach(c => { if (c.checked) { if (c.value === '') allChecked = true; else count++; } });
+    if (allChecked || count === 0) return noneLabel;
+    return `${count} selected`;
+}
+
+async function loadGallery(page) {
+    if (page) currentGalleryPage = page;
+    const search = document.getElementById("gallerySearch").value;
+    const site = getMultiSelectValues('sourceDropdown');
+    const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
+    const type = getMultiSelectValues('typeDropdown');
+    const rating = getMultiSelectValues('ratingDropdown');
+    const params = new URLSearchParams({
+        search, site, sort, type, rating,
+        page: currentGalleryPage, per_page: 24
+    });
+    if (galleryFavFilter) params.set("favourites", "true");
+    try {
+        let resp = await fetch(`/api/gallery?${params}`);
+        galleryState = await resp.json();
+        renderGallery();
+    } catch (e) { console.error("Gallery load error:", e); }
+}
+
+function renderGallery() {
+    const grid = document.getElementById("galleryGrid");
+    const meta = document.getElementById("galleryMeta");
+    const pagination = document.getElementById("galleryPagination");
+    if (!grid) return;
+
+    const { images, total, page, total_pages, per_page } = galleryState;
+    const siteLabel = getMultiLabel('sourceDropdown', 'All Sources');
+    meta.textContent = `${siteLabel} | Page ${page}/${total_pages} | ${total} images`;
+
+    if (images.length === 0) {
+        grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-color);opacity:0.5;font-size:14px;">No images found.</div>';
+        pagination.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    images.forEach(img => {
+        const fp = (img.filepath || '').replace(/\\/g, '/');
+        const ext = ((img.filename || '').split('.').pop() || '').toLowerCase();
+        const isVideo = ['mp4','webm','mov','avi','mkv'].includes(ext);
+        const src = `/api/gallery/${isVideo ? 'file' : 'thumb'}/${encodeURI(fp)}`;
+        html += `
+            <div class="gallery-card" onclick="openGalleryViewer('${img.id}')">
+                ${isVideo ? '<span class="gallery-card-play">▶</span>' : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}
+                <button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${img.favourite ? '♥' : '♡'}</button>
+            </div>
+        `;
+    });
+    grid.innerHTML = html;
+
+    let pHtml = '<button onclick="loadGallery(1)" ' + (page<=1?'disabled':'') + '>«</button>';
+    pHtml += '<button onclick="loadGallery('+(page-1)+')" ' + (page<=1?'disabled':'') + '>‹</button>';
+    const range = paginationRange(page, total_pages);
+    range.forEach(p => {
+        pHtml += `<button onclick="loadGallery(${p})" ${p===page?'class="active"':''}>${p}</button>`;
+    });
+    pHtml += '<button onclick="loadGallery('+(page+1)+')" ' + (page>=total_pages?'disabled':'') + '>›</button>';
+    pHtml += '<button onclick="loadGallery('+total_pages+')" ' + (page>=total_pages?'disabled':'') + '>»</button>';
+    pHtml += `<span>${total} images</span>`;
+    pagination.innerHTML = pHtml;
+}
+
+function paginationRange(current, total) {
+    if (total <= 7) return Array.from({length: total}, (_,i)=>i+1);
+    const range = [];
+    if (current <= 4) { for (let i=1; i<=5; i++) range.push(i); range.push(0, total); }
+    else if (current >= total-3) { range.push(1, 0); for (let i=total-4; i<=total; i++) range.push(i); }
+    else { range.push(1, 0); for (let i=current-1; i<=current+1; i++) range.push(i); range.push(0, total); }
+    return range;
+}
+
+function toggleFavFilter() {
+    galleryFavFilter = !galleryFavFilter;
+    document.getElementById("galleryFavBtn").classList.toggle("active", galleryFavFilter);
+    loadGallery(1);
+}
+
+async function toggleGalleryFav(id) {
+    try {
+        let resp = await fetch("/api/gallery/favourite", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id})
+        });
+        if (resp.ok) loadGallery();
+    } catch (e) { console.error("Fav toggle error:", e); }
+}
+
+let viewerIndex = -1;
+let viewerZoom = 1;
+
+function openGalleryViewer(id) {
+    viewerIndex = galleryState.images.findIndex(i => i.id === id);
+    if (viewerIndex < 0) return;
+    viewerZoom = 1;
+    showViewerImage();
+}
+
+function showViewerImage() {
+    const viewer = document.getElementById("galleryViewer");
+    const viewerImg = document.getElementById("galleryViewerImg");
+    const img = galleryState.images[viewerIndex];
+    if (!img) return closeGalleryViewer();
+
+    viewerImg.src = '';
+    let vw = document.querySelector('.gallery-video-wrap');
+    if (vw) { vw.remove(); }
+
+    const safeFp = (img.filepath || '').replace(/\\/g, '/');
+    const fullSrc = safeFp ? `/api/gallery/file/${encodeURI(safeFp)}` : '';
+    const ext = ((img.filename || '').split('.').pop() || '').toLowerCase();
+    const isVideo = ['mp4','webm','mov','avi','mkv'].includes(ext);
+
+    viewerImg.className = '';
+    viewerImg.style.transform = '';
+    viewerDrag.active = false;
+    const zl = document.getElementById("galleryViewerZoom");
+    zl.textContent = '100%';
+    zl.classList.remove('show');
+    viewerZoom = 1;
+
+    if (isVideo) {
+        viewerImg.style.display = 'none';
+        const old = document.querySelector('.gallery-video-wrap');
+        if (old) old.remove();
+        const wrap = document.createElement('div');
+        wrap.className = 'gallery-video-wrap';
+        const video = document.createElement('video');
+        video.id = 'galleryViewerVideo';
+        video.src = fullSrc;
+        const ctrls = document.createElement('div');
+        ctrls.className = 'gallery-video-ctrls';
+        ctrls.innerHTML = `
+            <button class="gv-play-btn">▶</button>
+            <div class="gv-progress-wrap"><div class="gv-progress"><div class="gv-progress-fill"></div><div class="gv-progress-thumb"></div></div></div>
+            <span class="gv-time">0:00 / 0:00</span>
+            <button class="gv-vol-btn">🔊</button>
+            <input type="range" class="gv-vol-slider" min="0" max="1" step="0.05" value="1">
+            <button class="gv-fs-btn">⛶</button>
+        `;
+        wrap.append(video, ctrls);
+        viewer.insertBefore(wrap, viewerImg.nextSibling);
+        const playBtn = ctrls.querySelector('.gv-play-btn');
+        const progressFill = ctrls.querySelector('.gv-progress-fill');
+        const progressThumb = ctrls.querySelector('.gv-progress-thumb');
+        const progressWrap = ctrls.querySelector('.gv-progress-wrap');
+        const timeEl = ctrls.querySelector('.gv-time');
+        const volBtn = ctrls.querySelector('.gv-vol-btn');
+        const volSlider = ctrls.querySelector('.gv-vol-slider');
+        function fmt(t) { const m = Math.floor(t/60); const s = Math.floor(t%60); return m+':'+(s<10?'0':'')+s; }
+        video.addEventListener('loadedmetadata', () => { timeEl.textContent = '0:00 / '+fmt(video.duration); });
+        video.addEventListener('timeupdate', () => {
+            const pct = video.duration ? (video.currentTime/video.duration*100) : 0;
+            progressFill.style.width = pct+'%'; progressThumb.style.left = pct+'%';
+            timeEl.textContent = fmt(video.currentTime)+' / '+fmt(video.duration);
+        });
+        function togglePlay() { if (video.paused) { video.play(); playBtn.textContent='⏸'; } else { video.pause(); playBtn.textContent='▶'; } }
+        playBtn.onclick = togglePlay;
+        video.onclick = togglePlay;
+        video.addEventListener('play', () => playBtn.textContent='⏸');
+        video.addEventListener('pause', () => playBtn.textContent='▶');
+        progressWrap.onclick = (e) => {
+            const r = progressWrap.getBoundingClientRect();
+            video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
+        };
+        volSlider.oninput = () => { video.volume = volSlider.value; volBtn.textContent = volSlider.value=='0'?'🔇':volSlider.value<0.5?'🔉':'🔊'; };
+        video.addEventListener('volumechange', () => { volSlider.value = video.volume; });
+        video.addEventListener('ended', () => playBtn.textContent='▶');
+        const fsBtn = ctrls.querySelector('.gv-fs-btn');
+        fsBtn.onclick = (e) => { e.stopPropagation();
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (video.requestFullscreen) video.requestFullscreen();
+                else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        };
+        function fsIcon() { fsBtn.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '✕' : '⛶'; }
+        document.addEventListener('fullscreenchange', fsIcon);
+        document.addEventListener('webkitfullscreenchange', fsIcon);
+        video.play();
+    } else {
+        viewerImg.style.display = '';
+        viewerImg.src = fullSrc;
+    }
+
+    document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡';
+    viewer.style.display = 'flex';
+}
+
+function closeGalleryViewer() {
+    document.getElementById("galleryViewer").style.display = 'none';
+    document.getElementById("galleryViewerImg").src = '';
+    document.getElementById("galleryViewerImg").className = '';
+    document.getElementById("galleryViewerImg").style.transform = '';
+    const vw = document.querySelector('.gallery-video-wrap');
+    if (vw) { vw.remove(); }
+    viewerZoom = 1;
+    viewerIndex = -1;
+    viewerDrag.active = false;
+}
+
+function viewerNav(dir) {
+    const total = galleryState.images.length;
+    viewerIndex = (viewerIndex + dir + total) % total;
+    viewerZoom = 1;
+    showViewerImage();
+}
+
+function toggleViewerFav() {
+    const img = galleryState.images[viewerIndex];
+    if (!img) return;
+    toggleGalleryFav(img.id);
+}
+
+function getViewerTransform() {
+    const img = document.getElementById("galleryViewerImg");
+    const cur = img.style.transform;
+    const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0];
+}
+
+function setViewerTransform(tx, ty) {
+    const img = document.getElementById("galleryViewerImg");
+    const zoomed = viewerZoom > 1;
+    img.className = zoomed ? 'zoomed' : '';
+    if (zoomed) {
+        img.style.transform = `translate(${tx}px, ${ty}px) scale(${viewerZoom})`;
+    } else {
+        img.style.transform = '';
+    }
+}
+
+function zoomViewer(delta, cx, cy) {
+    const img = document.getElementById("galleryViewerImg");
+    if (img.style.display === 'none') return;
+    const old = viewerZoom;
+    viewerZoom = Math.max(0.25, Math.min(10, viewerZoom + delta));
+    const zoomed = viewerZoom > 1;
+    if (!zoomed) {
+        setViewerTransform(0, 0);
+        stopViewerDrag();
+        const label = document.getElementById("galleryViewerZoom");
+        label.textContent = Math.round(viewerZoom * 100) + '%';
+        label.classList.remove('show');
+        return;
+    }
+    const rect = img.getBoundingClientRect();
+    const [tx, ty] = getViewerTransform();
+    const ratio = viewerZoom / old;
+    let newTx, newTy;
+    if (cx != null && cy != null) {
+        const mx = cx - rect.left;
+        const my = cy - rect.top;
+        newTx = tx + mx * (1 - ratio);
+        newTy = ty + my * (1 - ratio);
+    } else {
+        newTx = tx + (rect.width / 2) * (1 - ratio);
+        newTy = ty + (rect.height / 2) * (1 - ratio);
+    }
+    setViewerTransform(newTx, newTy);
+    const label = document.getElementById("galleryViewerZoom");
+    label.textContent = Math.round(viewerZoom * 100) + '%';
+    label.classList.add('show');
+}
+
+document.addEventListener('keydown', function(e) {
+    if (document.getElementById("galleryViewer").style.display !== 'flex') return;
+    if (e.key === 'Escape') closeGalleryViewer();
+    else if (e.key === 'ArrowLeft') viewerNav(-1);
+    else if (e.key === 'ArrowRight') viewerNav(1);
+    else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
+    else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
+});
+
+let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
+
+document.getElementById("galleryViewer").addEventListener('click', function(e) {
+    if (e.target === this) closeGalleryViewer();
+});
+
+let zoomThrottle = 0;
+document.getElementById("galleryViewer").addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const now = Date.now();
+    if (now - zoomThrottle < 80) return;
+    zoomThrottle = now;
+    zoomViewer(e.deltaY < 0 ? 0.05 : -0.05, e.clientX, e.clientY);
+}, { passive: false });
+
+function stopViewerDrag() {
+    viewerDrag.active = false;
+    const img = document.getElementById("galleryViewerImg");
+    if (img) img.classList.remove('dragging');
+}
+
+document.getElementById("galleryViewerImg").addEventListener('mousedown', function(e) {
+    if (viewerZoom <= 1 || e.button !== 0) return;
+    e.preventDefault();
+    viewerDrag.active = true;
+    viewerDrag.startX = e.clientX;
+    viewerDrag.startY = e.clientY;
+    const t = getViewerTransform();
+    viewerDrag.imgX = t[0];
+    viewerDrag.imgY = t[1];
+    this.classList.add('dragging');
+});
+
+document.addEventListener('mousemove', function(e) {
+    if (!viewerDrag.active) return;
+    e.preventDefault();
+    const dx = e.clientX - viewerDrag.startX;
+    const dy = e.clientY - viewerDrag.startY;
+    setViewerTransform(viewerDrag.imgX + dx, viewerDrag.imgY + dy);
+});
+
+document.addEventListener('mouseup', stopViewerDrag);
+document.addEventListener('mouseleave', stopViewerDrag);
+
+async function importGallery() {
+    try {
+        let resp = await fetch("/api/gallery/import", {method: "POST"});
+        let data = await resp.json();
+        if (data.success) {
+            alert(`Imported ${data.imported} images from history.`);
+            loadGallery(1);
+            populateGallerySiteFilter();
+        }
+    } catch (e) { console.error("Import error:", e); }
+}
+
+async function rescanGallery() {
+    try {
+        let resp = await fetch("/api/gallery/rescan", {method: "POST"});
+        let data = await resp.json();
+        if (data.success) {
+            alert(`Rescan complete. Added ${data.added} new images.`);
+            loadGallery(1);
+            populateGallerySiteFilter();
+        }
+    } catch (e) { console.error("Rescan error:", e); }
+}
+
+function toggleCheck(el) {
+    const cb = el.querySelector('input[type="checkbox"]');
+    const menu = el.closest('.gallery-dropdown-menu');
+    if (cb.value !== '') {
+        const allCheck = menu.querySelector('input[value=""]');
+        if (allCheck && allCheck.checked) allCheck.checked = false;
+    }
+    cb.checked = !cb.checked;
+    if (menu.id === 'sourceDropdown') onSourceChange();
+    else if (menu.id === 'ratingDropdown') onRatingChange();
+    else if (menu.id === 'typeDropdown') onTypeChange();
+}
+
+async function populateGallerySiteFilter() {
+    const container = document.getElementById("sourceDropdown");
+    container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>';
+    try {
+        let resp = await fetch("/api/gallery/sources");
+        const counts = await resp.json();
+        const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
+        sorted.forEach(([site, count]) => {
+            const div = document.createElement("div");
+            div.className = "dd-item";
+            div.onclick = function() { toggleCheck(this); };
+            div.innerHTML = `<span>${site} (${count})</span><input type="checkbox" value="${site}">`;
+            container.appendChild(div);
+        });
+    } catch (e) {}
+}
+
+function toggleDropdown(id) {
+    const menu = document.getElementById(id);
+    document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); });
+    menu.classList.toggle('open');
+}
+
+function onSourceChange() {
+    const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]');
+    const allCheck = checks[0];
+    if (allCheck.checked) {
+        for (let i = 1; i < checks.length; i++) checks[i].checked = false;
+    } else {
+        let anyChecked = false;
+        for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } }
+        if (!anyChecked) allCheck.checked = true;
+    }
+    const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]');
+    if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾';
+    loadGallery(1);
+}
+
+function onRatingChange() {
+    const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]');
+    const allCheck = checks[0];
+    if (allCheck.checked) {
+        for (let i = 1; i < checks.length; i++) checks[i].checked = false;
+    } else {
+        let anyChecked = false;
+        for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } }
+        if (!anyChecked) allCheck.checked = true;
+    }
+    const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]');
+    if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾';
+    loadGallery(1);
+}
+
+function onTypeChange() {
+    const checks = document.querySelectorAll('#typeDropdown input[type="checkbox"]');
+    const allCheck = checks[0];
+    if (allCheck.checked) {
+        for (let i = 1; i < checks.length; i++) checks[i].checked = false;
+    } else {
+        let anyChecked = false;
+        for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } }
+        if (!anyChecked) allCheck.checked = true;
+    }
+    const btn = document.querySelector('[onclick="toggleDropdown(\'typeDropdown\')"]');
+    if (btn) btn.textContent = getMultiLabel('typeDropdown', 'All Types') + ' ▾';
+    loadGallery(1);
+}
+
+function selectSort(el, value) {
+    document.getElementById("sortDropdown").dataset.sort = value;
+    const btn = document.querySelector('[onclick="toggleDropdown(\'sortDropdown\')"]');
+    btn.textContent = el.textContent.trim() + ' ▾';
+    document.getElementById("sortDropdown").classList.remove('open');
+    loadGallery(1);
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.gallery-dropdown')) {
+        document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    }
+});

@@ -8,9 +8,12 @@ import urllib.parse
 import random
 import re
 import json
+import hashlib
+import io
 import webbrowser
+from PIL import Image
 
-from flask import Flask, send_from_directory, jsonify, request
+from flask import Flask, send_from_directory, send_file, jsonify, request
 from flask_socketio import SocketIO
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -110,9 +113,7 @@ def write_hydrus_sidecar(worker_name, filename, tags_list, artist_list):
     except Exception as e:
         print("Hydrus sidecar error:", e)
 
-def socketio_tag_handler(worker_name, filename, tags_list, artist_list):
-    if STARTUP_CONFIG.get("write_hydrus_sidecar", True):
-        write_hydrus_sidecar(worker_name, filename, tags_list, artist_list)
+def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None):
     try:
         hist = load_json_db(IMAGE_HISTORY_FILE)
         entry = {
@@ -448,6 +449,245 @@ def manage_favorites():
     return jsonify(favs)
 
 
+GALLERY_FILE = os.path.join(DATABASE_DIR, "gallery.json")
+
+EXTENSIONS_IMAGE = {'.jpg','.jpeg','.png','.webp','.gif','.bmp','.tiff','.tif'}
+EXTENSIONS_VIDEO = {'.mp4','.webm','.mov','.avi','.mkv'}
+
+def _build_filepath_cache():
+    cache = {}
+    for root, _, files in os.walk(MASTER_FOLDER):
+        for fn in files:
+            ext = os.path.splitext(fn)[1].lower()
+            if ext in EXTENSIONS_IMAGE or ext in EXTENSIONS_VIDEO:
+                cache[fn] = os.path.relpath(os.path.join(root, fn), MASTER_FOLDER)
+    return cache
+
+@app.route("/api/gallery", methods=["GET"])
+def get_gallery():
+    search = request.args.get("search", "").lower().strip()
+    site_filter_raw = request.args.get("site", "").lower().strip()
+    site_filters = [s.strip() for s in site_filter_raw.split(",") if s.strip()] if site_filter_raw else []
+    fav_only = request.args.get("favourites", "").lower() == "true"
+    sort_by = request.args.get("sort", "newest")
+    type_filter_raw = request.args.get("type", "all").lower().strip()
+    type_filters = [t.strip() for t in type_filter_raw.split(",") if t.strip()] if type_filter_raw and type_filter_raw != "all" else []
+    rating_filter_raw = request.args.get("rating", "").lower().strip()
+    rating_filters = [r.strip() for r in rating_filter_raw.split(",") if r.strip()] if rating_filter_raw else []
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(120, max(1, int(request.args.get("per_page", 24))))
+
+    gallery = shared.load_gallery()
+    images = gallery.get("images", [])
+    fp_cache = _build_filepath_cache()
+    dirty = False
+    for img in images:
+        cached = fp_cache.get(img.get("filename", ""))
+        if cached:
+            if img.get("filepath") != cached:
+                img["filepath"] = cached
+                dirty = True
+        elif img.get("filepath"):
+            del img["filepath"]
+            dirty = True
+    if dirty:
+        shared.save_gallery(gallery)
+        images = gallery.get("images", [])
+    images = [i for i in images if i.get("filepath")]
+
+    if search:
+        images = [i for i in images if any(search in t.lower() for t in i.get("tags", []))]
+    if site_filters:
+        images = [i for i in images if i.get("site", "").lower() in site_filters]
+    if fav_only:
+        images = [i for i in images if i.get("favourite")]
+    if type_filters:
+        def matches_type(img):
+            ext = os.path.splitext(img.get("filename",""))[1].lower()
+            for tf in type_filters:
+                if tf == "image" and ext in EXTENSIONS_IMAGE - {'.gif'}: return True
+                if tf == "gif" and ext == '.gif': return True
+                if tf == "video" and ext in EXTENSIONS_VIDEO: return True
+            return False
+        images = [i for i in images if matches_type(i)]
+    if rating_filters:
+        rating_aliases = {
+            "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
+            "sensitive": ["sensitive", "rating:sensitive", "rating:s"],
+            "questionable": ["questionable", "rating:questionable", "rating:q"],
+            "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw"],
+        }
+        def matches_any_rating(img):
+            fpl = img.get("filepath", "").lower()
+            for rf in rating_filters:
+                if rf == "safe" and img.get("site", "").lower() == "zerochan":
+                    return True
+                patterns = rating_aliases.get(rf, [rf])
+                for p in patterns:
+                    if any(p in t.lower() for t in img.get("tags", [])):
+                        return True
+                    if p in fpl:
+                        return True
+            return False
+        images = [i for i in images if matches_any_rating(i)]
+
+    if sort_by == "newest":
+        images.sort(key=lambda x: x.get("downloaded_at", ""), reverse=True)
+    elif sort_by == "oldest":
+        images.sort(key=lambda x: x.get("downloaded_at", ""))
+    else:
+        images.sort(key=lambda x: (not x.get("favourite"), x.get("downloaded_at", "")), reverse=False)
+
+    total = len(images)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    page_imgs = images[start:start + per_page]
+
+    return jsonify({
+        "images": page_imgs,
+        "total": total,
+        "page": page,
+        "total_pages": total_pages,
+        "per_page": per_page
+    })
+
+@app.route("/api/gallery/favourite", methods=["POST"])
+def toggle_gallery_fav():
+    data = request.json
+    img_id = data.get("id")
+    gallery = shared.load_gallery()
+    for img in gallery["images"]:
+        if img["id"] == img_id:
+            img["favourite"] = not img.get("favourite", False)
+            shared.save_gallery(gallery)
+            return jsonify({"success": True, "favourite": img["favourite"]})
+    return jsonify({"success": False, "error": "not found"}), 404
+
+@app.route("/api/gallery/tags", methods=["GET"])
+def get_gallery_tags():
+    gallery = shared.load_gallery()
+    tags = set()
+    for img in gallery.get("images", []):
+        for t in img.get("tags", []):
+            tags.add(t)
+    return jsonify(sorted(tags))
+
+@app.route("/api/gallery/file/<path:filepath>")
+def gallery_file(filepath):
+    full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
+    if not full.startswith(os.path.normpath(MASTER_FOLDER)):
+        return "Forbidden", 403
+    if os.path.isfile(full):
+        return send_file(full)
+    return "Not found", 404
+
+THUMB_CACHE = os.path.join(DATABASE_DIR, "thumb_cache")
+os.makedirs(THUMB_CACHE, exist_ok=True)
+
+@app.route("/api/gallery/thumb/<path:filepath>")
+def gallery_thumb(filepath):
+    full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
+    if not full.startswith(os.path.normpath(MASTER_FOLDER)):
+        return "Forbidden", 403
+    if not os.path.isfile(full):
+        return "Not found", 404
+    ext = os.path.splitext(full)[1].lower()
+    if ext in EXTENSIONS_VIDEO:
+        return send_file(full)
+    cache_key = hashlib.sha256(filepath.encode()).hexdigest()[:16]
+    cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
+    png_cache = os.path.join(THUMB_CACHE, cache_key + ".png")
+    if os.path.exists(cache_path):
+        return send_file(cache_path, mimetype='image/jpeg')
+    if os.path.exists(png_cache):
+        return send_file(png_cache, mimetype='image/png')
+    try:
+        img = Image.open(full)
+        img.thumbnail((300, 300))
+        use_png = ext in ('png', 'gif') or img.mode in ('RGBA', 'P', 'L', 'LA', '1')
+        is_png = use_png
+        if is_png:
+            img.save(png_cache, format='PNG')
+            return send_file(png_cache, mimetype='image/png')
+        else:
+            if img.mode in ('RGBA', 'P', 'LA'):
+                img = img.convert('RGB')
+            img.save(cache_path, format='JPEG', quality=85)
+            return send_file(cache_path, mimetype='image/jpeg')
+    except Exception:
+        return send_file(full)
+
+@app.route("/api/gallery/sources", methods=["GET"])
+def get_gallery_sources():
+    gallery = shared.load_gallery()
+    counts = {}
+    for img in gallery.get("images", []):
+        s = img.get("site", "unknown")
+        counts[s] = counts.get(s, 0) + 1
+    return jsonify(counts)
+
+@app.route("/api/gallery/rescan", methods=["POST"])
+def rescan_gallery():
+    gallery = shared.load_gallery()
+    by_fn = {i["filename"]: i for i in gallery["images"]}
+    count_added = 0
+    count_fixed = 0
+    for root, dirs, files in os.walk(MASTER_FOLDER):
+        for fn in files:
+            ext = os.path.splitext(fn)[1].lower()
+            if ext not in EXTENSIONS_IMAGE and ext not in EXTENSIONS_VIDEO:
+                continue
+            full = os.path.join(root, fn)
+            rel = os.path.relpath(full, MASTER_FOLDER)
+            parts = rel.replace('\\', '/').split('/')
+            site = parts[0] if len(parts) > 1 else "unknown"
+
+            if fn in by_fn:
+                if not by_fn[fn].get("filepath"):
+                    by_fn[fn]["filepath"] = rel
+                    count_fixed += 1
+            else:
+                gallery["images"].append({
+                    "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
+                    "filename": fn,
+                    "filepath": rel,
+                    "site": site,
+                    "tags": [],
+                    "artists": [],
+                    "favourite": False,
+                    "downloaded_at": ""
+                })
+                by_fn[fn] = gallery["images"][-1]
+                count_added += 1
+    shared.save_gallery(gallery)
+    return jsonify({"success": True, "added": count_added, "fixed": count_fixed})
+
+@app.route("/api/gallery/import", methods=["POST"])
+def import_gallery_from_history():
+    hist = load_json_db(IMAGE_HISTORY_FILE)
+    gallery = shared.load_gallery()
+    existing = {i["filename"] for i in gallery["images"]}
+    fp_cache = _build_filepath_cache()
+    count = 0
+    for entry in hist:
+        fn = entry.get("filename", "")
+        if fn and fn not in existing:
+            gallery["images"].append({
+                "id": hashlib.sha256(f"{entry.get('site','')}:{fn}".encode()).hexdigest()[:12],
+                "filename": fn,
+                "filepath": fp_cache.get(fn, ""),
+                "site": entry.get("site", ""),
+                "tags": entry.get("tags", []),
+                "artists": entry.get("artists", []),
+                "favourite": False,
+                "downloaded_at": ""
+            })
+            existing.add(fn)
+            count += 1
+    shared.save_gallery(gallery)
+    return jsonify({"success": True, "imported": count})
+
 @app.route("/api/ui_config", methods=["GET", "POST"])
 def manage_ui_config():
     default_config = {
@@ -553,7 +793,9 @@ def handle_start_worker(data):
 def handle_stop_worker(data):
     name = data.get("worker")
     shared.log_msg(name, ">>> STOP SIGNAL RECEIVED! Terminating connections... <<<")
-    if name in shared.STOP_EVENTS: shared.STOP_EVENTS[name].set()
+    if name in shared.STOP_EVENTS:
+        for evt in shared.STOP_EVENTS[name]:
+            evt.set()
 
 if __name__ == "__main__":
     load_safe_db()
