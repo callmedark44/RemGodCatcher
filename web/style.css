@@ -533,18 +533,7 @@ select option {
 }
 .gallery-fav-btn.active { background: #e040a0; color: #fff; }
 
-.gallery-meta {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 0 10px;
-    font-size: 12px;
-    color: #8899aa;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba(45, 212, 191, 0.15);
-    margin-bottom: 10px;
-}
+.gallery-grid-wrap { padding: 4px 0; }
 
 #galleryGrid {
     flex: 1;
@@ -605,26 +594,33 @@ select option {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
-    color: rgba(255,255,255,0.6);
-    text-shadow: 0 0 12px rgba(0,0,0,0.8);
     pointer-events: none;
+}
+.gallery-card-play::after {
+    content: '';
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 14px 0 14px 24px;
+    border-color: transparent transparent transparent rgba(255,255,255,0.6);
+    margin-left: 6px;
 }
 .gallery-card-heart {
     position: absolute;
     top: 6px;
     right: 6px;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.55);
     border: none;
-    font-size: 16px;
+    font-size: 20px;
     cursor: pointer;
-    color: #e04080;
-    padding: 2px 5px;
+    color: #ff4080;
+    padding: 4px 7px;
     border-radius: 4px;
     line-height: 1;
-    transition: 0.1s;
+    transition: 0.15s;
     z-index: 2;
+    text-shadow: 0 0 6px rgba(0,0,0,0.5);
 }
+.gallery-card-heart:hover { transform: scale(1.2); color: #ff6b9d; }
 .gallery-card-heart:hover { background: rgba(0,0,0,0.7); transform: scale(1.15); }
 
 .gallery-pagination {

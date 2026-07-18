@@ -12,6 +12,7 @@ import hashlib
 import io
 import webbrowser
 from PIL import Image
+from datetime import datetime
 
 from flask import Flask, send_from_directory, send_file, jsonify, request
 from flask_socketio import SocketIO
@@ -42,12 +43,16 @@ from workers.nekos_life import worker_nekos_life
 from workers.yande import worker_yande
 from workers.konachan import worker_konachan
 from workers.danbooru import worker_danbooru
+from workers.sankaku import worker_sankaku
+from workers.anime_dl import worker_anime_dl
 
 STOP_EVENTS = {}
 SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
 DAN_TAGS_DB = []
+SANKAKU_TAGS_DB = []
+ANIME_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
 MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
@@ -193,6 +198,29 @@ def load_dan_db():
             with open(db_path, "r", encoding="utf-8") as f: DAN_TAGS_DB = json.load(f)
         except Exception: pass
 
+def load_sankaku_db():
+    global SANKAKU_TAGS_DB
+    db_path = os.path.join(DATABASE_DIR, "sankaku_tag_names.json")
+    if os.path.exists(db_path):
+        try:
+            with open(db_path, "r", encoding="utf-8") as f: SANKAKU_TAGS_DB = json.load(f)
+        except Exception: pass
+
+def load_anime_dl_db():
+    global ANIME_TAGS_DB
+    db_path = os.path.join(DATABASE_DIR, "anime_tags.json")
+    if os.path.exists(db_path):
+        try:
+            tags = []
+            with open(db_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        obj = json.loads(line)
+                        tags.append(obj["tag"])
+            ANIME_TAGS_DB = tags
+        except Exception: pass
+
 @app.route("/")
 def index(): return send_from_directory(STATIC_FOLDER, "index.html")
 
@@ -282,7 +310,9 @@ def api_settings_manager():
             "RULE34_API_KEY": data.get("rule34_api_key", ""),
             "RULE34_USER_ID": data.get("rule34_user_id", ""),
             "GELBOORU_API_KEY": data.get("gelbooru_api_key", ""),
-            "GELBOORU_USER_ID": data.get("gelbooru_user_id", "")
+            "GELBOORU_USER_ID": data.get("gelbooru_user_id", ""),
+            "SANKA_LOGIN": data.get("sanka_login", ""),
+            "SANKA_PASSWORD": data.get("sanka_password", "")
         }
         lines = []
         if os.path.exists(env_path):
@@ -318,7 +348,9 @@ def api_settings_manager():
         "rule34_api_key": config.get("RULE34_API_KEY", ""),
         "rule34_user_id": config.get("RULE34_USER_ID", ""),
         "gelbooru_api_key": config.get("GELBOORU_API_KEY", ""),
-        "gelbooru_user_id": config.get("GELBOORU_USER_ID", "")
+        "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
+        "sanka_login": config.get("SANKA_LOGIN", ""),
+        "sanka_password": config.get("SANKA_PASSWORD", "")
     })
 
 @app.route("/api/tags/waifu", methods=["POST"])
@@ -387,6 +419,18 @@ def get_dan_suggestions():
     query = request.json.get("query", "").lower()
     if not DAN_TAGS_DB: return jsonify([])
     return jsonify([t for t in DAN_TAGS_DB if t.startswith(query)][:50])
+
+@app.route("/api/tags/sankaku", methods=["POST"])
+def get_sankaku_suggestions():
+    query = request.json.get("query", "").lower()
+    if not SANKAKU_TAGS_DB: return jsonify([])
+    return jsonify([t for t in SANKAKU_TAGS_DB if t.startswith(query)][:50])
+
+@app.route("/api/tags/anime_dl", methods=["POST"])
+def get_anime_dl_suggestions():
+    query = request.json.get("query", "").lower()
+    if not ANIME_TAGS_DB: return jsonify([])
+    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query)][:50])
 
 # --- TAG HISTORY & FAVORITES API ---
 TAG_HISTORY_FILE = os.path.join(DATABASE_DIR, "tag_history.json")
@@ -511,6 +555,13 @@ def get_gallery():
             return False
         images = [i for i in images if matches_type(i)]
     if rating_filters:
+        SUPPORTED_RATINGS = {
+            "dan": {"safe", "sensitive", "questionable", "explicit"},
+            "gelbooru": {"safe", "sensitive", "questionable", "explicit"},
+            "kona": {"safe", "explicit"},
+            "yande": {"safe", "explicit"},
+            "sankaku": {"safe", "questionable", "explicit"},
+        }
         rating_aliases = {
             "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
             "sensitive": ["sensitive", "rating:sensitive", "rating:s"],
@@ -518,10 +569,14 @@ def get_gallery():
             "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw"],
         }
         def matches_any_rating(img):
+            site = img.get("site", "").lower()
             fpl = img.get("filepath", "").lower()
             for rf in rating_filters:
-                if rf == "safe" and img.get("site", "").lower() == "zerochan":
-                    return True
+                supported = SUPPORTED_RATINGS.get(site)
+                if supported is None:
+                    continue
+                if rf not in supported:
+                    continue
                 patterns = rating_aliases.get(rf, [rf])
                 for p in patterns:
                     if any(p in t.lower() for t in img.get("tags", [])):
@@ -531,12 +586,31 @@ def get_gallery():
             return False
         images = [i for i in images if matches_any_rating(i)]
 
+    def _sort_key(img):
+        ts = img.get("downloaded_at", "")
+        if ts:
+            try:
+                ts = datetime.fromisoformat(ts).timestamp()
+            except Exception:
+                ts = 0
+        else:
+            fp = img.get("filepath", "")
+            if fp:
+                full = os.path.join(MASTER_FOLDER, fp)
+                if os.path.exists(full):
+                    ts = os.path.getmtime(full)
+                else:
+                    ts = 0
+            else:
+                ts = 0
+        return ts
+
     if sort_by == "newest":
-        images.sort(key=lambda x: x.get("downloaded_at", ""), reverse=True)
+        images.sort(key=_sort_key, reverse=True)
     elif sort_by == "oldest":
-        images.sort(key=lambda x: x.get("downloaded_at", ""))
+        images.sort(key=_sort_key)
     else:
-        images.sort(key=lambda x: (not x.get("favourite"), x.get("downloaded_at", "")), reverse=False)
+        images.sort(key=lambda x: (not x.get("favourite"), _sort_key(x)), reverse=False)
 
     total = len(images)
     total_pages = max(1, (total + per_page - 1) // per_page)
@@ -643,20 +717,22 @@ def rescan_gallery():
             parts = rel.replace('\\', '/').split('/')
             site = parts[0] if len(parts) > 1 else "unknown"
 
+            tag = parts[1] if len(parts) > 2 else ""
+            tags = [tag] if tag else []
             if fn in by_fn:
-                if not by_fn[fn].get("filepath"):
-                    by_fn[fn]["filepath"] = rel
+                existing = by_fn[fn]
+                if not existing.get("filepath"):
+                    existing["filepath"] = rel
+                    count_fixed += 1
+                if not existing.get("tags"):
+                    existing["tags"] = tags
                     count_fixed += 1
             else:
                 gallery["images"].append({
                     "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
-                    "filename": fn,
-                    "filepath": rel,
-                    "site": site,
-                    "tags": [],
-                    "artists": [],
-                    "favourite": False,
-                    "downloaded_at": ""
+                    "filename": fn, "filepath": rel, "site": site,
+                    "tags": tags, "artists": [], "favourite": False,
+                    "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
                 })
                 by_fn[fn] = gallery["images"][-1]
                 count_added += 1
@@ -788,6 +864,8 @@ def handle_start_worker(data):
     elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
 
 @socketio.on("stop_worker")
 def handle_stop_worker(data):
@@ -797,12 +875,48 @@ def handle_stop_worker(data):
         for evt in shared.STOP_EVENTS[name]:
             evt.set()
 
+def startup_rescan():
+    gallery = shared.load_gallery()
+    by_fn = {i["filename"]: i for i in gallery["images"]}
+    count = 0
+    for root, dirs, files in os.walk(MASTER_FOLDER):
+        for fn in files:
+            ext = os.path.splitext(fn)[1].lower()
+            if ext not in EXTENSIONS_IMAGE and ext not in EXTENSIONS_VIDEO:
+                continue
+            full = os.path.join(root, fn)
+            rel = os.path.relpath(full, MASTER_FOLDER)
+            parts = rel.replace('\\', '/').split('/')
+            site = parts[0] if len(parts) > 1 else "unknown"
+            tag = parts[1] if len(parts) > 2 else ""
+            tags = [tag] if tag else []
+            if fn in by_fn:
+                existing = by_fn[fn]
+                if not existing.get("tags"):
+                    existing["tags"] = tags
+                    count += 1
+                continue
+            gallery["images"].append({
+                "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
+                "filename": fn, "filepath": rel, "site": site,
+                "tags": tags, "artists": [], "favourite": False,
+                "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
+            })
+            by_fn[fn] = gallery["images"][-1]
+            count += 1
+    if count:
+        shared.save_gallery(gallery)
+        print(f"Rescanned {count} new images into gallery")
+
 if __name__ == "__main__":
     load_safe_db()
     load_waifu_tags()
     load_yande_db()
     load_kona_db()
     load_dan_db()
+    load_sankaku_db()
+    load_anime_dl_db()
+    startup_rescan()
     port = 5000
     url = f"http://127.0.0.1:{port}"
     print(f"Starting Rem God Catcher Web UI on {url} ...")

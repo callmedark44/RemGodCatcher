@@ -211,7 +211,7 @@ const socket = io();
 const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
-    "kona": "kona", "dan": "dan"
+    "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl"
 };
 
 function updateProgressBar(worker, msg) {
@@ -248,7 +248,7 @@ function updateProgressBar(worker, msg) {
         return;
     }
 
-    if (msg.includes("No new images") || msg.includes("Task finished")) {
+    if (msg.includes("No new") || msg.includes("No posts") || msg.includes("Task finished") || msg.includes("Worker Terminated")) {
         wrap.classList.remove("active");
         return;
     }
@@ -310,6 +310,7 @@ window.onload = async function () {
 
     await loadTagsData();
     await loadApiSettings();
+    await importGallery();
     loadGallery();
     populateGallerySiteFilter();
 };
@@ -418,7 +419,8 @@ function clearLog(tabID) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
+        "anime_dl": "consoleLog_anime_dl"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
@@ -429,7 +431,8 @@ function logToConsole(tabID, msg) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan"
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
+        "anime_dl": "consoleLog_anime_dl"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -542,6 +545,15 @@ function startWorker(workerName) {
         if (document.getElementById('exComic').checked) ex.push('-comic');
         if (document.getElementById('ex3D').checked) ex.push('-3d');
         payload.exclusions = ex;
+    } else if (workerName === 'sankaku') {
+        payload.tag = document.getElementById('sankakuTag').value;
+        payload.limit = document.getElementById('sankakuLimit').value;
+        payload.rating = document.getElementById('sankakuRating').value;
+        payload.exclusions = [];
+        payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked;
+    } else if (workerName === 'anime_dl') {
+        payload.tag = document.getElementById('animeDlTag').value;
+        payload.limit = document.getElementById('animeDlLimit').value;
     }
     
     socket.emit("start_worker", payload);
@@ -578,6 +590,8 @@ async function loadApiSettings() {
     document.getElementById("r34Uid").value = settings.rule34_user_id || "";
     document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
     document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
+    document.getElementById("sankaLogin").value = settings.sanka_login || "";
+    document.getElementById("sankaPassword").value = settings.sanka_password || "";
 }
 
 async function saveApiSettings() {
@@ -585,7 +599,9 @@ async function saveApiSettings() {
         rule34_api_key: document.getElementById("r34Key").value.trim(),
         rule34_user_id: document.getElementById("r34Uid").value.trim(),
         gelbooru_api_key: document.getElementById("gelKey").value.trim(),
-        gelbooru_user_id: document.getElementById("gelUid").value.trim()
+        gelbooru_user_id: document.getElementById("gelUid").value.trim(),
+        sanka_login: document.getElementById("sankaLogin").value.trim(),
+        sanka_password: document.getElementById("sankaPassword").value.trim()
     };
     let resp = await fetch("/api/api-settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -698,6 +714,32 @@ async function fetchGelbooru(val) {
     } catch(e) {}
 }
 
+async function fetchSankaku(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/sankaku", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("sankakuList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
+async function fetchAnimeDl(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/anime_dl", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("animeDlList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
 // ==========================================
 // === HISTORY & FAVORITES SYSTEM ===
 // ==========================================
@@ -736,7 +778,7 @@ function renderHistory() {
     } else {
         historyTags.forEach(item => {
             let isFav = isFavorite(item.site, item.tag);
-            let heartIcon = isFav ? "💖" : "🤍";
+            let heartIcon = isFav ? "★" : "☆";
 
             htmlStr += `
                 <div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -745,9 +787,9 @@ function renderHistory() {
                         <span style="font-size: 14px; color: var(--text-color);">${item.tag}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">➡️</button>
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button>
                         <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
-                        <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">❌</button>
+                        <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button>
                     </div>
                 </div>
             `;
@@ -762,7 +804,7 @@ function renderFavorites() {
     if(!ui) return;
     ui.innerHTML = "";
     if (favoriteTags.length === 0) {
-        ui.innerHTML = "<p style='color: var(--text-color); opacity: 0.7; font-size: 12px;'>Click 🤍 in the History tab to add favorites.</p>";
+        ui.innerHTML = "<p style='color: var(--text-color); opacity: 0.7; font-size: 12px;'>Click ☆ in the History tab to add favorites.</p>";
         return;
     }
 
@@ -770,7 +812,7 @@ function renderFavorites() {
         ui.innerHTML += `
             <div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
                 <span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);">
-                    <span>❄️</span>
+                    <span>✦</span>
                     <span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
                     <span>${item.tag}</span>
                 </span>
@@ -820,7 +862,9 @@ function jumpToSite(site, tag) {
         "yande":     { tab: "Yande",    input: "yandeTag" },
         "kona":      { tab: "Kona",     input: "konaTag" },
         "dan":       { tab: "Danbooru", input: "danTag" },
-        "rule34":    { tab: "Rule34",    input: "rule34Tag" }
+        "rule34":    { tab: "Rule34",    input: "rule34Tag" },
+        "sankaku":   { tab: "Sankaku",  input: "sankakuTag" },
+        "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
 
@@ -861,7 +905,7 @@ function renderImageHistory() {
 
             htmlStr += `
                 <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); position: relative;">
-                    <button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&#10060;</button>
+                    <button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&times;</button>
                     <h3 style="color: var(--text-color); font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3>
                     
                     <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding-right: 5px;">
@@ -902,6 +946,68 @@ let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
 
+const SOURCE_RATINGS = {
+    dan: ['safe', 'sensitive', 'questionable', 'explicit'],
+    gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'],
+    kona: ['safe', 'explicit'],
+    yande: ['safe', 'explicit'],
+    sankaku: ['safe', 'questionable', 'explicit'],
+};
+
+function updateRatingDropdown() {
+    const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]');
+    let selectedSources = [];
+    let allSelected = false;
+    checks.forEach(c => { if (c.checked) { if (c.value === '') allSelected = true; else selectedSources.push(c.value); } });
+    if (allSelected || selectedSources.length === 0) {
+        document.querySelectorAll('#ratingDropdown .dd-item').forEach(el => el.style.display = '');
+        return;
+    }
+    let common = null;
+    selectedSources.forEach(s => {
+        const r = SOURCE_RATINGS[s.toLowerCase()] || [];
+        if (common === null) common = new Set(r);
+        else common = new Set([...common].filter(x => r.includes(x)));
+    });
+    if (common === null) common = new Set();
+    common.add('');
+    document.querySelectorAll('#ratingDropdown .dd-item').forEach(el => {
+        const cb = el.querySelector('input[type="checkbox"]');
+        const show = common.has(cb.value);
+        el.style.display = show ? '' : 'none';
+        if (!show) cb.checked = false;
+    });
+    const firstCheck = document.querySelector('#ratingDropdown .dd-item input[type="checkbox"]');
+    if (firstCheck) {
+        const anyChecked = [...document.querySelectorAll('#ratingDropdown input[type="checkbox"]')].some(c => c.checked);
+        if (!anyChecked) firstCheck.checked = true;
+    }
+}
+
+function updateSourceDropdown() {
+    const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]');
+    let selectedRatings = [];
+    let allSelected = false;
+    checks.forEach(c => { if (c.checked) { if (c.value === '') allSelected = true; else selectedRatings.push(c.value); } });
+    if (allSelected || selectedRatings.length === 0) {
+        document.querySelectorAll('#sourceDropdown .dd-item').forEach(el => el.style.display = '');
+        return;
+    }
+    document.querySelectorAll('#sourceDropdown .dd-item').forEach(el => {
+        const cb = el.querySelector('input[type="checkbox"]');
+        if (cb.value === '') { el.style.display = ''; return; }
+        const ratings = SOURCE_RATINGS[cb.value.toLowerCase()];
+        const show = ratings && selectedRatings.every(r => ratings.includes(r));
+        el.style.display = show ? '' : 'none';
+        if (!show) cb.checked = false;
+    });
+    const firstCheck = document.querySelector('#sourceDropdown .dd-item input[type="checkbox"]');
+    if (firstCheck) {
+        const anyChecked = [...document.querySelectorAll('#sourceDropdown input[type="checkbox"]')].some(c => c.checked);
+        if (!anyChecked) firstCheck.checked = true;
+    }
+}
+
 function getMultiSelectValues(id) {
     const checks = document.querySelectorAll(`#${id} input[type="checkbox"]`);
     const vals = [];
@@ -939,15 +1045,31 @@ async function loadGallery(page) {
     } catch (e) { console.error("Gallery load error:", e); }
 }
 
+async function loadGalleryPage(page, callback) {
+    const search = document.getElementById("gallerySearch").value;
+    const site = getMultiSelectValues('sourceDropdown');
+    const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
+    const type = getMultiSelectValues('typeDropdown');
+    const rating = getMultiSelectValues('ratingDropdown');
+    const params = new URLSearchParams({
+        search, site, sort, type, rating,
+        page, per_page: 24
+    });
+    if (galleryFavFilter) params.set("favourites", "true");
+    try {
+        let resp = await fetch(`/api/gallery?${params}`);
+        galleryState = await resp.json();
+        currentGalleryPage = page;
+        if (callback) callback();
+    } catch (e) { console.error("Gallery page load error:", e); }
+}
+
 function renderGallery() {
     const grid = document.getElementById("galleryGrid");
-    const meta = document.getElementById("galleryMeta");
     const pagination = document.getElementById("galleryPagination");
     if (!grid) return;
 
     const { images, total, page, total_pages, per_page } = galleryState;
-    const siteLabel = getMultiLabel('sourceDropdown', 'All Sources');
-    meta.textContent = `${siteLabel} | Page ${page}/${total_pages} | ${total} images`;
 
     if (images.length === 0) {
         grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-color);opacity:0.5;font-size:14px;">No images found.</div>';
@@ -963,7 +1085,7 @@ function renderGallery() {
         const src = `/api/gallery/${isVideo ? 'file' : 'thumb'}/${encodeURI(fp)}`;
         html += `
             <div class="gallery-card" onclick="openGalleryViewer('${img.id}')">
-                ${isVideo ? '<span class="gallery-card-play">▶</span>' : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}
+                ${isVideo ? '<span class="gallery-card-play"></span>' : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}
                 <button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${img.favourite ? '♥' : '♡'}</button>
             </div>
         `;
@@ -1052,12 +1174,12 @@ function showViewerImage() {
         const ctrls = document.createElement('div');
         ctrls.className = 'gallery-video-ctrls';
         ctrls.innerHTML = `
-            <button class="gv-play-btn">▶</button>
+            <button class="gv-play-btn">&#9654;</button>
             <div class="gv-progress-wrap"><div class="gv-progress"><div class="gv-progress-fill"></div><div class="gv-progress-thumb"></div></div></div>
             <span class="gv-time">0:00 / 0:00</span>
-            <button class="gv-vol-btn">🔊</button>
+            <button class="gv-vol-btn">&#9835;</button>
             <input type="range" class="gv-vol-slider" min="0" max="1" step="0.05" value="1">
-            <button class="gv-fs-btn">⛶</button>
+            <button class="gv-fs-btn">&#x26F6;</button>
         `;
         wrap.append(video, ctrls);
         viewer.insertBefore(wrap, viewerImg.nextSibling);
@@ -1075,18 +1197,18 @@ function showViewerImage() {
             progressFill.style.width = pct+'%'; progressThumb.style.left = pct+'%';
             timeEl.textContent = fmt(video.currentTime)+' / '+fmt(video.duration);
         });
-        function togglePlay() { if (video.paused) { video.play(); playBtn.textContent='⏸'; } else { video.pause(); playBtn.textContent='▶'; } }
+        function togglePlay() { if (video.paused) { video.play(); playBtn.innerHTML='&#9646;&#9646;'; } else { video.pause(); playBtn.innerHTML='&#9654;'; } }
         playBtn.onclick = togglePlay;
         video.onclick = togglePlay;
-        video.addEventListener('play', () => playBtn.textContent='⏸');
-        video.addEventListener('pause', () => playBtn.textContent='▶');
+        video.addEventListener('play', () => playBtn.innerHTML='&#9646;&#9646;');
+        video.addEventListener('pause', () => playBtn.innerHTML='&#9654;');
         progressWrap.onclick = (e) => {
             const r = progressWrap.getBoundingClientRect();
             video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
         };
-        volSlider.oninput = () => { video.volume = volSlider.value; volBtn.textContent = volSlider.value=='0'?'🔇':volSlider.value<0.5?'🔉':'🔊'; };
+        volSlider.oninput = () => { video.volume = volSlider.value; volBtn.textContent = volSlider.value=='0'?'X':volSlider.value<0.5?'♪':'♫'; };
         video.addEventListener('volumechange', () => { volSlider.value = video.volume; });
-        video.addEventListener('ended', () => playBtn.textContent='▶');
+        video.addEventListener('ended', () => playBtn.innerHTML='&#9654;');
         const fsBtn = ctrls.querySelector('.gv-fs-btn');
         fsBtn.onclick = (e) => { e.stopPropagation();
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -1097,7 +1219,7 @@ function showViewerImage() {
                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
             }
         };
-        function fsIcon() { fsBtn.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '✕' : '⛶'; }
+        function fsIcon() { fsBtn.innerHTML = (document.fullscreenElement || document.webkitFullscreenElement) ? '&#x2715;' : '&#x26F6;'; }
         document.addEventListener('fullscreenchange', fsIcon);
         document.addEventListener('webkitfullscreenchange', fsIcon);
         video.play();
@@ -1124,7 +1246,21 @@ function closeGalleryViewer() {
 
 function viewerNav(dir) {
     const total = galleryState.images.length;
-    viewerIndex = (viewerIndex + dir + total) % total;
+    const newIdx = viewerIndex + dir;
+    if (newIdx < 0 && currentGalleryPage > 1) {
+        loadGalleryPage(currentGalleryPage - 1, () => { viewerIndex = galleryState.images.length - 1; showViewerImage(); });
+        return;
+    }
+    if (newIdx >= total && currentGalleryPage < galleryState.total_pages) {
+        loadGalleryPage(currentGalleryPage + 1, () => { viewerIndex = 0; showViewerImage(); });
+        return;
+    }
+    if (newIdx >= total && currentGalleryPage >= galleryState.total_pages) {
+        showToast("Last image");
+        return;
+    }
+    if (newIdx < 0 && currentGalleryPage <= 1) { return; }
+    viewerIndex = newIdx;
     viewerZoom = 1;
     showViewerImage();
 }
@@ -1132,7 +1268,12 @@ function viewerNav(dir) {
 function toggleViewerFav() {
     const img = galleryState.images[viewerIndex];
     if (!img) return;
-    toggleGalleryFav(img.id);
+    img.favourite = !img.favourite;
+    document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡';
+    fetch("/api/gallery/favourite", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: img.id})
+    }).catch(e => console.error("Fav toggle error:", e));
 }
 
 function getViewerTransform() {
@@ -1241,11 +1382,12 @@ document.addEventListener('mouseup', stopViewerDrag);
 document.addEventListener('mouseleave', stopViewerDrag);
 
 async function importGallery() {
+    if (localStorage.getItem('gallery_imported')) return;
     try {
         let resp = await fetch("/api/gallery/import", {method: "POST"});
         let data = await resp.json();
         if (data.success) {
-            alert(`Imported ${data.imported} images from history.`);
+            localStorage.setItem('gallery_imported', '1');
             loadGallery(1);
             populateGallerySiteFilter();
         }
@@ -1292,6 +1434,7 @@ async function populateGallerySiteFilter() {
             container.appendChild(div);
         });
     } catch (e) {}
+    updateSourceDropdown();
 }
 
 function toggleDropdown(id) {
@@ -1312,6 +1455,7 @@ function onSourceChange() {
     }
     const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]');
     if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾';
+    updateRatingDropdown();
     loadGallery(1);
 }
 
@@ -1327,6 +1471,7 @@ function onRatingChange() {
     }
     const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]');
     if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾';
+    updateSourceDropdown();
     loadGallery(1);
 }
 
@@ -1351,6 +1496,20 @@ function selectSort(el, value) {
     btn.textContent = el.textContent.trim() + ' ▾';
     document.getElementById("sortDropdown").classList.remove('open');
     loadGallery(1);
+}
+
+function showToast(msg) {
+    const el = document.getElementById('galleryToast') || (() => {
+        const t = document.createElement('div');
+        t.id = 'galleryToast';
+        t.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#222;color:#eee;padding:10px 24px;border-radius:8px;font-size:14px;z-index:2000;opacity:0;transition:opacity 0.3s;pointer-events:none;';
+        document.body.appendChild(t);
+        return t;
+    })();
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
 }
 
 document.addEventListener('click', function(e) {

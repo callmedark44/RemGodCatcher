@@ -17,6 +17,16 @@ SAFE_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
 
+def get_session(site, net_config):
+    session = requests.Session()
+    if net_config.get("use_proxy"):
+        p = net_config.get("proxy_url")
+        session.proxies = {"http": p, "https": p}
+    else:
+        session.proxies = {"http": "", "https": "", "no_proxy": "*"}
+    session.verify = net_config.get("verify_tls", False)
+    return session
+
 # --- LOGGING & TAG SYSTEM ---
 def default_logger(worker_name, msg): print(f"[{worker_name.upper()}] {msg}")
 log_callback = default_logger
