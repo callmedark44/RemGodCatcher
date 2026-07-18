@@ -191,6 +191,7 @@ async function resetWallpapersUI() {
         "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
         "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
         "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+        "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
         "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
         "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
         "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -211,7 +212,8 @@ const socket = io();
 const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
-    "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl"
+    "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
+    "pinterest": "pinterest"
 };
 
 function updateProgressBar(worker, msg) {
@@ -263,6 +265,17 @@ socket.on("update_history", function () {
     loadTagsData();
     loadGallery();
     populateGallerySiteFilter();
+});
+
+socket.on("pinterest_progress", function (data) {
+    let pct = Math.min(100, Math.round((data.index / data.total) * 100));
+    let wrap = document.getElementById("progressWrap_pinterest");
+    let fill = document.getElementById("progress_pinterest");
+    let txt = document.getElementById("progressText_pinterest");
+    if (wrap) wrap.classList.add("active");
+    if (fill) fill.style.width = pct + "%";
+    if (txt) txt.textContent = pct + "%";
+    if (data.alt) logToConsole("pinterest", "Scraped: " + data.alt);
 });
 
 window.onload = async function () {
@@ -420,7 +433,7 @@ function clearLog(tabID) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl"
+        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
@@ -432,7 +445,7 @@ function logToConsole(tabID, msg) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl"
+        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -554,6 +567,10 @@ function startWorker(workerName) {
     } else if (workerName === 'anime_dl') {
         payload.tag = document.getElementById('animeDlTag').value;
         payload.limit = document.getElementById('animeDlLimit').value;
+    } else if (workerName === 'pinterest') {
+        payload.tag = document.getElementById('pinterestTag').value;
+        payload.limit = document.getElementById('pinterestLimit').value;
+        payload.is_search = document.getElementById('pinterestMode').value === 'search';
     }
     
     socket.emit("start_worker", payload);
@@ -592,6 +609,7 @@ async function loadApiSettings() {
     document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
     document.getElementById("sankaLogin").value = settings.sanka_login || "";
     document.getElementById("sankaPassword").value = settings.sanka_password || "";
+    document.getElementById("pinterestCookies").value = settings.pinterest_cookies || "";
 }
 
 async function saveApiSettings() {
@@ -601,7 +619,8 @@ async function saveApiSettings() {
         gelbooru_api_key: document.getElementById("gelKey").value.trim(),
         gelbooru_user_id: document.getElementById("gelUid").value.trim(),
         sanka_login: document.getElementById("sankaLogin").value.trim(),
-        sanka_password: document.getElementById("sankaPassword").value.trim()
+        sanka_password: document.getElementById("sankaPassword").value.trim(),
+        pinterest_cookies: document.getElementById("pinterestCookies").value.trim()
     };
     let resp = await fetch("/api/api-settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -864,7 +883,8 @@ function jumpToSite(site, tag) {
         "dan":       { tab: "Danbooru", input: "danTag" },
         "rule34":    { tab: "Rule34",    input: "rule34Tag" },
         "sankaku":   { tab: "Sankaku",  input: "sankakuTag" },
-        "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" }
+        "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" },
+        "pinterest": { tab: "Pinterest", input: "pinterestTag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
 
@@ -952,6 +972,7 @@ const SOURCE_RATINGS = {
     kona: ['safe', 'explicit'],
     yande: ['safe', 'explicit'],
     sankaku: ['safe', 'questionable', 'explicit'],
+    pinterest: [],
 };
 
 function updateRatingDropdown() {

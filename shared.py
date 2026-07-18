@@ -38,6 +38,10 @@ def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None)
     if artist_list is None: artist_list = []
     tag_callback(worker_name, filename, tags_list, artist_list, filepath)
 
+def default_emit(event, data): pass
+emit_callback = default_emit
+def socketio_emit(event, data): emit_callback(event, data)
+
 GALLERY_FILE = os.path.join(BASE_DIR, "database", "gallery.json")
 
 def load_gallery():

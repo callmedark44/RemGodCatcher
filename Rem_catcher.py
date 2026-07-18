@@ -45,6 +45,7 @@ from workers.konachan import worker_konachan
 from workers.danbooru import worker_danbooru
 from workers.sankaku import worker_sankaku
 from workers.anime_dl import worker_anime_dl
+from workers.pinterest_worker import worker_pinterest
 
 STOP_EVENTS = {}
 SAFE_TAGS_DB = []
@@ -69,6 +70,10 @@ STARTUP_CONFIG = {
     "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
     "write_hydrus_sidecar": os.getenv("WRITE_HYDRUS_SIDECAR", "true").lower() == "true"
 }
+
+if STARTUP_CONFIG["use_proxy"]:
+    os.environ.setdefault("HTTP_PROXY", STARTUP_CONFIG["proxy_url"])
+    os.environ.setdefault("HTTPS_PROXY", STARTUP_CONFIG["proxy_url"])
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -137,6 +142,11 @@ def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath
 shared.tag_callback = socketio_tag_handler
 # ❌ خط بازنویسی STOP_EVENTS را کاملاً حذف کردیم تا ارتباط قطع نشود!
 shared.MASTER_FOLDER = MASTER_FOLDER
+
+def socketio_emit(event, data):
+    try: socketio.emit(event, data)
+    except Exception: print(f"[SOCKETIO] {event}: {data}")
+shared.emit_callback = socketio_emit
 
 def load_waifu_tags():
     global WAIFU_TAGS_DB, WAIFU_TAG_MAP
@@ -312,7 +322,8 @@ def api_settings_manager():
             "GELBOORU_API_KEY": data.get("gelbooru_api_key", ""),
             "GELBOORU_USER_ID": data.get("gelbooru_user_id", ""),
             "SANKA_LOGIN": data.get("sanka_login", ""),
-            "SANKA_PASSWORD": data.get("sanka_password", "")
+            "SANKA_PASSWORD": data.get("sanka_password", ""),
+            "PINTEREST_COOKIES": data.get("pinterest_cookies", "")
         }
         lines = []
         if os.path.exists(env_path):
@@ -350,7 +361,8 @@ def api_settings_manager():
         "gelbooru_api_key": config.get("GELBOORU_API_KEY", ""),
         "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
         "sanka_login": config.get("SANKA_LOGIN", ""),
-        "sanka_password": config.get("SANKA_PASSWORD", "")
+        "sanka_password": config.get("SANKA_PASSWORD", ""),
+        "pinterest_cookies": config.get("PINTEREST_COOKIES", "")
     })
 
 @app.route("/api/tags/waifu", methods=["POST"])
@@ -780,6 +792,7 @@ def manage_ui_config():
             "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
             "Kona": {"dark": "Rem_kona_d.png", "light": "Rem_kona_l.png"},
             "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+            "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
             "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
             "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
             "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -866,6 +879,9 @@ def handle_start_worker(data):
     elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+    elif worker == "pinterest":
+        net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
+        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config), daemon=True).start()
 
 @socketio.on("stop_worker")
 def handle_stop_worker(data):
