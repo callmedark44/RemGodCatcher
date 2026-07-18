@@ -323,7 +323,9 @@ def api_settings_manager():
             "GELBOORU_USER_ID": data.get("gelbooru_user_id", ""),
             "SANKA_LOGIN": data.get("sanka_login", ""),
             "SANKA_PASSWORD": data.get("sanka_password", ""),
-            "PINTEREST_COOKIES": data.get("pinterest_cookies", "")
+            "PINTEREST_COOKIES": data.get("pinterest_cookies", ""),
+            "PINTEREST_EMAIL": data.get("pinterest_email", ""),
+            "PINTEREST_PASSWORD": data.get("pinterest_password", "")
         }
         lines = []
         if os.path.exists(env_path):
@@ -362,7 +364,9 @@ def api_settings_manager():
         "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
         "sanka_login": config.get("SANKA_LOGIN", ""),
         "sanka_password": config.get("SANKA_PASSWORD", ""),
-        "pinterest_cookies": config.get("PINTEREST_COOKIES", "")
+        "pinterest_cookies": config.get("PINTEREST_COOKIES", ""),
+        "pinterest_email": config.get("PINTEREST_EMAIL", ""),
+        "pinterest_password": config.get("PINTEREST_PASSWORD", "")
     })
 
 @app.route("/api/tags/waifu", methods=["POST"])
@@ -881,6 +885,8 @@ def handle_start_worker(data):
     elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
     elif worker == "pinterest":
         net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
+        net_config["pinterest_email"] = os.getenv("PINTEREST_EMAIL", "")
+        net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
         threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config), daemon=True).start()
 
 @socketio.on("stop_worker")

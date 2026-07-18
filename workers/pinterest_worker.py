@@ -24,12 +24,42 @@ def worker_pinterest(url_or_query, amount, is_search, net_config):
     client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
 
     cookies_path = net_config.get("pinterest_cookies", "")
+    email = net_config.get("pinterest_email", "")
+    password = net_config.get("pinterest_password", "")
+    have_auth = False
+
     if cookies_path and os.path.exists(cookies_path):
         try:
             client.with_cookies_path(cookies_path)
             log_msg(name, "Loaded Pinterest cookies")
+            have_auth = True
         except Exception as e:
             log_msg(name, f"Cookie load error: {e}")
+
+    if not have_auth and email and password:
+        try:
+            from pinterest_dl import PinterestDL as PDL
+            driver = PDL.with_browser(browser_type="chromium", headless=True, verbose=False).login(email, password)
+            cookies = driver.get_cookies(after_sec=7)
+            driver.close()
+            client.with_cookies(cookies)
+            if cookies_path:
+                try:
+                    os.makedirs(os.path.dirname(cookies_path) or ".", exist_ok=True)
+                    with open(cookies_path, "w") as f:
+                        json.dump(cookies, f, indent=2)
+                    log_msg(name, f"Saved fresh cookies to {cookies_path}")
+                except Exception as e:
+                    log_msg(name, f"Could not save cookies: {e}")
+            log_msg(name, "Logged in via browser and using fresh cookies")
+            have_auth = True
+        except ImportError:
+            log_msg(name, "Browser auth unavailable (install pinterest-dl[browser] and playwright)")
+        except Exception as e:
+            log_msg(name, f"Browser login failed: {e}")
+
+    if not have_auth:
+        log_msg(name, "No auth — public content only")
 
     collected = []
     progress_lock = threading.Lock()

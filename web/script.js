@@ -610,6 +610,8 @@ async function loadApiSettings() {
     document.getElementById("sankaLogin").value = settings.sanka_login || "";
     document.getElementById("sankaPassword").value = settings.sanka_password || "";
     document.getElementById("pinterestCookies").value = settings.pinterest_cookies || "";
+    document.getElementById("pinterestEmail").value = settings.pinterest_email || "";
+    document.getElementById("pinterestPassword").value = settings.pinterest_password || "";
 }
 
 async function saveApiSettings() {
@@ -620,7 +622,9 @@ async function saveApiSettings() {
         gelbooru_user_id: document.getElementById("gelUid").value.trim(),
         sanka_login: document.getElementById("sankaLogin").value.trim(),
         sanka_password: document.getElementById("sankaPassword").value.trim(),
-        pinterest_cookies: document.getElementById("pinterestCookies").value.trim()
+        pinterest_cookies: document.getElementById("pinterestCookies").value.trim(),
+        pinterest_email: document.getElementById("pinterestEmail").value.trim(),
+        pinterest_password: document.getElementById("pinterestPassword").value.trim()
     };
     let resp = await fetch("/api/api-settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
