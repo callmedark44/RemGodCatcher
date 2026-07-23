@@ -16,7 +16,7 @@ class YandeWorker(BaseDownloader):
 
         FORMAT_WORDS = {"video", "image"}
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         os.makedirs(self.tag_dir, exist_ok=True)
 

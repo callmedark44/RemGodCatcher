@@ -5,11 +5,36 @@ from shared import log_msg, STOP_EVENTS
 
 name = "pinterest"
 
-def worker_pinterest(url_or_query, amount, is_search, net_config):
-    if name in STOP_EVENTS and STOP_EVENTS[name] is not None:
-        STOP_EVENTS[name].set()
+def browser_login(client, email, password, proxy_url, cookies_path):
+    from playwright.sync_api import BrowserType
+    from pinterest_dl import PinterestDL as PDL
+    orig_browser_launch = BrowserType.launch
+    def patched_browser_launch(self, **kw):
+        if proxy_url:
+            kw["proxy"] = {"server": proxy_url}
+        return orig_browser_launch(self, **kw)
+    BrowserType.launch = patched_browser_launch
+    scraper = PDL.with_browser(browser_type="chromium", headless=True, verbose=False)
+    driver = scraper.login(email, password)
+    cookies = driver.get_cookies(after_sec=7)
+    scraper.close()
+    client.with_cookies(cookies)
+    if cookies_path and cookies:
+        try:
+            os.makedirs(os.path.dirname(cookies_path) or ".", exist_ok=True)
+            with open(cookies_path, "w") as f:
+                json.dump(cookies, f, indent=2)
+            log_msg(name, f"Saved fresh cookies to {cookies_path}")
+        except Exception as e:
+            log_msg(name, f"Could not save cookies: {e}")
+    log_msg(name, "Logged in via browser and using fresh cookies")
+    return True
+
+def worker_pinterest(url_or_query, amount, is_search, net_config, min_w=0, min_h=0):
     my_stop_event = threading.Event()
-    STOP_EVENTS[name] = my_stop_event
+    if name not in STOP_EVENTS or not isinstance(STOP_EVENTS[name], list):
+        STOP_EVENTS[name] = []
+    STOP_EVENTS[name].append(my_stop_event)
     stop_event = my_stop_event
 
     if net_config.get("use_proxy"):
@@ -21,14 +46,51 @@ def worker_pinterest(url_or_query, amount, is_search, net_config):
 
     log_msg(name, f"Initializing Pinterest worker for: '{url_or_query[:80]}' ({'search' if is_search else 'url scrape'})")
 
-    client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
-
     cookies_path = net_config.get("pinterest_cookies", "")
     email = net_config.get("pinterest_email", "")
     password = net_config.get("pinterest_password", "")
+    proxy_url = net_config.get("proxy_url", "")
+
+    safe_name = re.sub(r'[\\/*?:"<>|]', "_", (url_or_query.strip().lower().replace("https://", "").replace("http://", "").replace("/", "_")[:60]))
+    site_root = os.path.join(shared.MASTER_FOLDER, "Pinterest", safe_name)
+    os.makedirs(site_root, exist_ok=True)
+
+    if not cookies_path:
+        cookies_path = os.path.join(site_root, "pinterest_cookies.json")
+
+    def run_search(client):
+        collected = []
+        seen_ids = set()
+        progress_lock = threading.Lock()
+
+        def on_progress(media):
+            with progress_lock:
+                if len(collected) >= amount:
+                    return
+                if media.id in seen_ids:
+                    return
+                ext = Path(media.src).suffix.lower() if media.src else ".jpg"
+                if os.path.exists(os.path.join(site_root, f"{media.id}{ext}")):
+                    return
+                seen_ids.add(media.id)
+                collected.append(media)
+
+        try:
+            existing = len([f for f in os.listdir(site_root) if re.match(r'^\d+\.[a-z]+$', f)])
+            fetch_num = amount + existing
+            if is_search:
+                client.search(query=url_or_query, num=fetch_num, min_resolution=(min_w, min_h), on_progress=on_progress)
+            else:
+                client.scrape(url=url_or_query, num=fetch_num, min_resolution=(min_w, min_h), on_progress=on_progress)
+        except Exception as e:
+            log_msg(name, f"Scrape error: {e}")
+            return None
+        return collected
+
+    client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
     have_auth = False
 
-    if cookies_path and os.path.exists(cookies_path):
+    if os.path.exists(cookies_path):
         try:
             client.with_cookies_path(cookies_path)
             log_msg(name, "Loaded Pinterest cookies")
@@ -36,64 +98,39 @@ def worker_pinterest(url_or_query, amount, is_search, net_config):
         except Exception as e:
             log_msg(name, f"Cookie load error: {e}")
 
-    if not have_auth and email and password:
+    collected = run_search(client)
+
+    if not collected and have_auth and email and password:
+        log_msg(name, "Cookies expired, refreshing via browser login...")
         try:
-            from pinterest_dl import PinterestDL as PDL
-            driver = PDL.with_browser(browser_type="chromium", headless=True, verbose=False).login(email, password)
-            cookies = driver.get_cookies(after_sec=7)
-            driver.close()
-            client.with_cookies(cookies)
-            if cookies_path:
-                try:
-                    os.makedirs(os.path.dirname(cookies_path) or ".", exist_ok=True)
-                    with open(cookies_path, "w") as f:
-                        json.dump(cookies, f, indent=2)
-                    log_msg(name, f"Saved fresh cookies to {cookies_path}")
-                except Exception as e:
-                    log_msg(name, f"Could not save cookies: {e}")
-            log_msg(name, "Logged in via browser and using fresh cookies")
-            have_auth = True
+            os.remove(cookies_path)
+        except Exception:
+            pass
+        client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
+        try:
+            browser_login(client, email, password, proxy_url, cookies_path)
+            collected = run_search(client)
+        except Exception as e:
+            log_msg(name, f"Browser login failed: {e}")
+    elif not have_auth and email and password:
+        log_msg(name, "No cookies, logging in via browser...")
+        try:
+            browser_login(client, email, password, proxy_url, cookies_path)
+            collected = run_search(client)
         except ImportError:
             log_msg(name, "Browser auth unavailable (install pinterest-dl[browser] and playwright)")
         except Exception as e:
             log_msg(name, f"Browser login failed: {e}")
 
-    if not have_auth:
-        log_msg(name, "No auth — public content only")
-
-    collected = []
-    progress_lock = threading.Lock()
-
-    def on_progress(media):
-        with progress_lock:
-            collected.append(media)
-            shared.socketio_emit("pinterest_progress", {
-                "index": len(collected),
-                "total": amount,
-                "alt": media.alt or "",
-                "id": media.id
-            })
-
-    try:
-        if is_search:
-            medias = client.search(query=url_or_query, num=amount, on_progress=on_progress)
-        else:
-            medias = client.scrape(url=url_or_query, num=amount, on_progress=on_progress)
-    except Exception as e:
-        log_msg(name, f"Scrape error: {e}")
+    if not collected:
+        log_msg(name, "No new media found.")
         log_msg(name, "--- Worker Terminated ---")
         return
 
-    if not medias:
-        log_msg(name, "No media found.")
-        log_msg(name, "--- Worker Terminated ---")
-        return
+    medias = collected[:amount]
+    log_msg(name, f"Collected {len(collected)} new items, downloading {len(medias)}.")
 
-    log_msg(name, f"Collected {len(medias)} media items. Starting download...")
-
-    safe_name = re.sub(r'[\\/*?:"<>|]', "_", (url_or_query.strip().lower().replace("https://", "").replace("http://", "").replace("/", "_")[:60]))
-    site_root = os.path.join(shared.MASTER_FOLDER, "Pinterest", safe_name)
-    os.makedirs(site_root, exist_ok=True)
+    shared.socketio_emit("pinterest_progress", {"index": 0, "total": amount})
 
     dl_retries = int(net_config.get("download_retries", 3))
     downloader = MediaDownloader(
@@ -119,11 +156,8 @@ def worker_pinterest(url_or_query, amount, is_search, net_config):
             shared.add_to_gallery(name, filename, rel, tags, artists)
             shared.send_tags(name, filename, tags, artists)
 
-            if media.alt:
-                sidecar = path.with_suffix(path.suffix + ".txt")
-                sidecar.write_text(media.alt, encoding="utf-8")
-
             downloaded += 1
+            shared.socketio_emit("pinterest_progress", {"index": downloaded, "total": amount})
             log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
         except Exception as e:
             log_msg(name, f"[FAILED] {media.id}: {e}")

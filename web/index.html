@@ -13,17 +13,18 @@
     <div class="glass-panel">
         <div class="tab-buttons">
             <button class="tab-btn active" onclick="openTab('Main', this)">MAIN</button>
-            <button class="tab-btn" onclick="openTab('AnimeDL', this)">Anime DL</button>
-            <button class="tab-btn" onclick="openTab('Customize', this)">Customize</button>
-            <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
-            <button class="tab-btn" onclick="openTab('Gallery', this)">Gallery</button>
-            <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
+            <button class="tab-btn" onclick="openTab('Options', this)">Options</button>
             <button class="tab-btn" onclick="openTab('History', this)">History</button>
+            <button class="tab-btn" onclick="openTab('Customize', this)">Customize</button>
+            <button class="tab-btn" onclick="openTab('Gallery', this)">Gallery</button>
+            <button class="tab-btn" onclick="openTab('AnimeDL', this)">Anime DL</button>
+            <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
+            <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
             <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
             <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
             <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
-            <button class="tab-btn" onclick="openTab('Options', this)">Options</button>
             <button class="tab-btn" onclick="openTab('Pinterest', this)">Pinterest</button>
+            <button class="tab-btn" onclick="openTab('Pixiv', this)">Pixiv</button>
             <button class="tab-btn" onclick="openTab('Rule34', this)">Rule34</button>
             <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
             <button class="tab-btn" onclick="openTab('Sankaku', this)">Sankaku</button>
@@ -234,12 +235,18 @@
                     </div>
                     <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">♥ Favorites</button>
                     <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images">↻</button>
+                    <span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:13px;">
+                        <button class="gallery-zoom-btn" onclick="galleryZoom(-0.2)" title="Zoom out">-</button>
+                        <span id="galleryZoomLabel">100%</span>
+                        <button class="gallery-zoom-btn" onclick="galleryZoom(0.2)" title="Zoom in">+</button>
+                    </span>
                 </div>
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
                 <div id="galleryViewer" class="gallery-viewer" style="display: none;">
                     <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">&times;</button>
                     <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
+                    <button class="gallery-viewer-top-btn" onclick="copyViewerImage(this)" title="Copy to clipboard">⧉</button>
                     <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
                     <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">‹</button>
                     <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">›</button>
@@ -412,37 +419,48 @@
                 <div class="options-scroll">
                     <h2>API & Download Settings</h2>
                     
-                    <div style="display: flex; gap: 20px;">
-                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                        <div style="padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                             <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">Rule34 Credentials</p>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 <input type="password" id="r34Key" placeholder="API Key">
                                 <input type="text" id="r34Uid" placeholder="User ID">
                             </div>
                         </div>
-
-                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <div style="padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                             <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">Gelbooru Credentials</p>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 <input type="password" id="gelKey" placeholder="API Key">
                                 <input type="text" id="gelUid" placeholder="User ID">
                             </div>
                         </div>
-
-                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <div style="padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                             <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">Sankaku Credentials</p>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 <input type="text" id="sankaLogin" placeholder="Login (email)">
                                 <input type="password" id="sankaPassword" placeholder="Password">
                             </div>
                         </div>
-
-                        <div style="flex: 1; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <div style="padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                             <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">Pinterest Login</p>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 <input type="text" id="pinterestCookies" placeholder="Cookies file path (optional)">
                                 <input type="email" id="pinterestEmail" placeholder="Email (auto-login fallback)">
                                 <input type="password" id="pinterestPassword" placeholder="Password">
+                            </div>
+                        </div>
+                        <div style="padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                            <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">Pixiv Login</p>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <input type="email" id="pixivLoginEmail" placeholder="Pixiv email">
+                                <input type="password" id="pixivLoginPassword" placeholder="Password">
+                                <input type="password" id="pixivToken" placeholder="PIXIV_REFRESH_TOKEN (auto-filled on start)">
+                                <div class="setting-row" style="margin-top: 6px;">
+                                    <input type="text" id="pixivCodeInput" placeholder="Paste the 'code' value here" style="flex: 1;">
+                                    <button class="action-btn" onclick="submitPixivCode()">Submit</button>
+                                </div>
+                                <div id="pixivCodeStatus" style="font-size: 11px; color: var(--accent-color);"></div>
+                                <span id="pixivLoginStatus" style="font-size: 11px; color: var(--accent-color);"></span>
                             </div>
                         </div>
                     </div>
@@ -472,10 +490,6 @@
                                 <input type="number" id="downloadRetries" value="3" min="1" style="width: 70px;">
                             </div>
                         </div>
-                        <div class="input-group" style="margin-top: 10px;">
-                            <input type="checkbox" id="hydrusSidecarToggle">
-                            <label for="hydrusSidecarToggle">Write Hydrus sidecar (.txt) files</label>
-                        </div>
                         <div style="margin-top: 12px;">
                             <button class="action-btn" onclick="saveDownloadSettings()">Save Download Settings</button>
                             <span id="dlSettingsStatus" style="margin-left: 10px; font-size: 12px; color: gray;"></span>
@@ -488,14 +502,18 @@
                 <h2>Pinterest Downloader</h2>
                 <div class="input-group">
                     <label>URL or Query:</label>
-                    <input type="text" id="pinterestTag" placeholder="Board URL, pin URL, or search query" style="width: 400px;">
+                    <input type="text" id="pinterestTag" placeholder="Board URL, pin URL, or search query" style="width: 220px;">
                     <label>Limit:</label>
-                    <input type="number" id="pinterestLimit" value="30" min="0" style="width: 80px;">
+                    <input type="number" id="pinterestLimit" value="30" min="0" style="width: 60px;">
                     <label>Mode:</label>
                     <select id="pinterestMode" style="width: 100px;">
                         <option value="scrape">URL Scrape</option>
-                        <option value="search">Search</option>
+                        <option value="search" selected>Search</option>
                     </select>
+                    <label>Min W:</label>
+                    <input type="number" id="pinterestMinW" value="0" min="0" style="width: 60px;">
+                    <label>Min H:</label>
+                    <input type="number" id="pinterestMinH" value="0" min="0" style="width: 60px;">
                     <button class="action-btn" onclick="startWorker('pinterest')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('pinterest')">STOP</button>
                 </div>
@@ -503,6 +521,48 @@
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('pinterest')">Clear</button>
                     <div id="consoleLog_pinterest" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Pixiv" class="tab-content" style="display: none;">
+                <h2>Pixiv Downloader</h2>
+                <div class="input-group" style="margin-bottom: 10px;">
+                    <label>Mode:</label>
+                    <select id="pixivMode" style="width: 120px;" onchange="updatePixivMode()">
+                        <option value="artworks">Artworks</option>
+                        <option value="bookmark">Bookmarks</option>
+                        <option value="search">Search</option>
+                        <option value="ranking">Ranking</option>
+                    </select>
+
+                    <select id="pixivRankingMode" style="width: 175px; display: none;">
+                        <option value="day">Daily</option>
+                        <option value="week">Weekly</option>
+                        <option value="month">Monthly</option>
+                        <option value="day_male">Popular with Male Users</option>
+                        <option value="day_female">Popular with Female Users</option>
+                        <option value="week_original">Weekly Original</option>
+                        <option value="week_rookie">Weekly Rookie</option>
+                    </select>
+
+                    <label>Value:</label>
+                    <input type="text" id="pixivTag" placeholder="User ID or Tag" style="width: 180px;">
+                    <label>Limit:</label>
+                    <input type="number" id="pixivLimit" value="50" min="0" style="width: 80px;">
+                    <select id="pixivRating" style="width: 120px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:r18">R-18</option>
+                        <option value="rating:r18g">R-18G</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('pixiv')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
+                </div>
+
+                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div><span class="progress-text" id="progressText_pixiv">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
+                    <div id="consoleLog_pixiv" class="console-log"></div>
                 </div>
             </div>
 

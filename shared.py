@@ -5,12 +5,12 @@ import time
 import requests
 import asyncio
 import hashlib
-from requests.adapters import HTTPAdapter
 from PIL import Image, PngImagePlugin
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
 HISTORY_LOCK = threading.Lock()
+GALLERY_LOCK = threading.RLock()
 STOP_EVENTS = {}
 
 SAFE_TAGS_DB = []
@@ -45,34 +45,38 @@ def socketio_emit(event, data): emit_callback(event, data)
 GALLERY_FILE = os.path.join(BASE_DIR, "database", "gallery.json")
 
 def load_gallery():
-    if os.path.exists(GALLERY_FILE):
-        try:
-            with open(GALLERY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {"images": []}
-    return {"images": []}
+    with GALLERY_LOCK:
+        if os.path.exists(GALLERY_FILE):
+            try:
+                with open(GALLERY_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {"images": []}
+        return {"images": []}
 
 def save_gallery(data):
-    with open(GALLERY_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    with GALLERY_LOCK:
+        with open(GALLERY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
 
 def add_to_gallery(site, filename, filepath, tags_list, artists):
-    gallery = load_gallery()
-    for img in gallery["images"]:
-        if img["filename"] == filename:
-            return
-    gallery["images"].insert(0, {
-        "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
-        "filename": filename,
-        "filepath": filepath,
-        "site": site,
-        "tags": [t.strip() for t in tags_list if t.strip()],
-        "artists": [a.strip() for a in artists if a.strip()],
-        "favourite": False,
-        "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%S")
-    })
-    save_gallery(gallery)
+    with GALLERY_LOCK:
+        gallery = load_gallery()
+        for img in gallery["images"]:
+            if img["filename"] == filename:
+                return
+
+        gallery["images"].insert(0, {
+            "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
+            "filename": filename,
+            "filepath": filepath,
+            "site": site,
+            "tags": [t.strip() for t in tags_list if t.strip()],
+            "artists": [a.strip() for a in artists if a.strip()],
+            "favourite": False,
+            "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%S")
+        })
+        save_gallery(gallery)
 
 def write_image_metadata(filepath, tags_list, artists, site):
     ext = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
@@ -84,7 +88,6 @@ def write_image_metadata(filepath, tags_list, artists, site):
         meta_text = "\n".join(meta_lines)
 
         if ext in ('jpg', 'jpeg'):
-            from PIL.ExifTags import Base
             exif = img.getexif()
             exif[0x9286] = meta_text
             img.save(filepath, exif=exif, quality=95, subsampling=0)
@@ -202,6 +205,9 @@ class BaseDownloader:
                     if os.path.exists(filepath): os.remove(filepath)
                     return False
 
+                if content_length > 0 and downloaded < content_length:
+                    raise IOError(f"Truncated: got {downloaded} of {content_length} bytes")
+
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded
                 self.dl_history.add(filename)
@@ -218,7 +224,9 @@ class BaseDownloader:
             except Exception as e:
                 if self.stop_event.is_set(): break
                 if attempt < self.dl_retries - 1: await asyncio.sleep(2)
-                else: self.log(f"[FAILED] {filename}: {e}")
+                else:
+                    if os.path.exists(filepath): os.remove(filepath)
+                    self.log(f"[FAILED] {filename}: {e}")
         return False
 
     async def _download_worker(self):

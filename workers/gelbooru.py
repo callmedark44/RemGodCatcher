@@ -19,7 +19,7 @@ class GelbooruWorker(BaseDownloader):
         self.rating_label_map = {"general": "Safe", "sensitive": "Sensitive", "questionable": "Questionable", "explicit": "NSFW"}
         
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag_name = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag_name = re.sub(r'[\\/*?"<>|]', "", clean_tag)
         self.tag_dir = os.path.join(self.site_root, self.safe_tag_name)
         os.makedirs(self.tag_dir, exist_ok=True)
 

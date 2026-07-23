@@ -1,15 +1,12 @@
 import os
 import sys
-import time
 import threading
 import requests
 import urllib3
 import urllib.parse
 import random
-import re
 import json
 import hashlib
-import io
 import webbrowser
 from PIL import Image
 from datetime import datetime
@@ -46,8 +43,8 @@ from workers.danbooru import worker_danbooru
 from workers.sankaku import worker_sankaku
 from workers.anime_dl import worker_anime_dl
 from workers.pinterest_worker import worker_pinterest
+from workers.pixiv import worker_pixiv, get_refresh_token, submit_pixiv_code
 
-STOP_EVENTS = {}
 SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
@@ -67,8 +64,7 @@ STARTUP_CONFIG = {
     "api_timeout": int(os.getenv("API_TIMEOUT", "10")),
     "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
     "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
-    "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
-    "write_hydrus_sidecar": os.getenv("WRITE_HYDRUS_SIDECAR", "true").lower() == "true"
+    "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3"))
 }
 
 if STARTUP_CONFIG["use_proxy"]:
@@ -76,7 +72,7 @@ if STARTUP_CONFIG["use_proxy"]:
     os.environ.setdefault("HTTPS_PROXY", STARTUP_CONFIG["proxy_url"])
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # متغیر کنترل‌کننده زمان بسته شدن
 shutdown_timer = None
@@ -102,26 +98,6 @@ def log_msg(worker_name, msg):
     except Exception: print(f"[{worker_name.upper()}] {msg}")
 
 shared.log_callback = log_msg
-
-def write_hydrus_sidecar(worker_name, filename, tags_list, artist_list):
-    try:
-        match = None
-        for root, _, files in os.walk(MASTER_FOLDER):
-            if filename in files:
-                match = os.path.join(root, filename)
-                break
-        if not match:
-            return
-        directory = os.path.dirname(match)
-        base = os.path.basename(match)
-        sidecar_path = os.path.join(directory, f".{base}.txt")
-        lines = [t.strip() for t in tags_list if t.strip()]
-        lines += [f"creator:{a.strip()}" for a in artist_list if a.strip()]
-        lines.append(f"site:{worker_name}")
-        with open(sidecar_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
-    except Exception as e:
-        print("Hydrus sidecar error:", e)
 
 def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None):
     try:
@@ -261,7 +237,6 @@ def static_files(path): return send_from_directory(STATIC_FOLDER, path)
 
 @app.route("/api/config", methods=["GET", "POST"])
 def config_manager():
-    global STARTUP_CONFIG
     if request.method == "POST":
         data = request.json
         for key in data:
@@ -280,8 +255,7 @@ def config_manager():
             "API_TIMEOUT": str(STARTUP_CONFIG['api_timeout']),
             "RETRY_WAIT": str(STARTUP_CONFIG['retry_wait']),
             "ANTI_BAN_PAUSE": str(STARTUP_CONFIG['anti_ban_pause']),
-            "DOWNLOAD_RETRIES": str(STARTUP_CONFIG['download_retries']),
-            "WRITE_HYDRUS_SIDECAR": str(STARTUP_CONFIG['write_hydrus_sidecar']).lower()
+            "DOWNLOAD_RETRIES": str(STARTUP_CONFIG['download_retries'])
         }
 
         new_lines = []
@@ -325,7 +299,10 @@ def api_settings_manager():
             "SANKA_PASSWORD": data.get("sanka_password", ""),
             "PINTEREST_COOKIES": data.get("pinterest_cookies", ""),
             "PINTEREST_EMAIL": data.get("pinterest_email", ""),
-            "PINTEREST_PASSWORD": data.get("pinterest_password", "")
+            "PINTEREST_PASSWORD": data.get("pinterest_password", ""),
+            "PIXIV_LOGIN_EMAIL": data.get("pixiv_login_email", ""),
+            "PIXIV_LOGIN_PASSWORD": data.get("pixiv_login_password", ""),
+            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", "")
         }
         lines = []
         if os.path.exists(env_path):
@@ -366,8 +343,60 @@ def api_settings_manager():
         "sanka_password": config.get("SANKA_PASSWORD", ""),
         "pinterest_cookies": config.get("PINTEREST_COOKIES", ""),
         "pinterest_email": config.get("PINTEREST_EMAIL", ""),
-        "pinterest_password": config.get("PINTEREST_PASSWORD", "")
+        "pinterest_password": config.get("PINTEREST_PASSWORD", ""),
+        "pixiv_login_email": config.get("PIXIV_LOGIN_EMAIL", ""),
+        "pixiv_login_password": config.get("PIXIV_LOGIN_PASSWORD", ""),
+        "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", "")
     })
+
+@app.route("/api/pixiv/get_token", methods=["POST"])
+def pixiv_get_token():
+    data = request.json
+    username = (data.get("username") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not username or not password:
+        return jsonify({"success": False, "error": "Email and password required"}), 400
+    try:
+        proxy = STARTUP_CONFIG.get("proxy_url") if STARTUP_CONFIG.get("use_proxy") else None
+        token, name, account = get_refresh_token(username, password, proxy)
+        env_path = os.path.join(BASE_DIR, ".env")
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        found = False
+        for i, line in enumerate(lines):
+            if line.strip().startswith("PIXIV_REFRESH_TOKEN="):
+                lines[i] = f"PIXIV_REFRESH_TOKEN={token}\n"
+                found = True
+                break
+        if not found:
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.append(f"PIXIV_REFRESH_TOKEN={token}\n")
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        os.environ["PIXIV_REFRESH_TOKEN"] = token
+        return jsonify({
+            "success": True,
+            "token": token,
+            "name": name,
+            "account": account,
+            "message": f"Logged in as {name} ({account}). Refresh token saved to .env"
+        })
+    except ImportError as e:
+        return jsonify({"success": False, "error": str(e), "needs_playwright": True}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route("/api/pixiv/submit_code", methods=["POST"])
+def pixiv_submit_code():
+    data = request.json
+    code = (data.get("code") or "").strip()
+    if not code:
+        return jsonify({"success": False, "error": "Code required"}), 400
+    submit_pixiv_code(code)
+    return jsonify({"success": True})
 
 @app.route("/api/tags/waifu", methods=["POST"])
 def get_waifu_tags():
@@ -458,7 +487,7 @@ def load_json_db(filepath):
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             try: return json.load(f)
-            except: return []
+            except Exception: return []
     return []
 
 def save_json_db(filepath, data):
@@ -577,6 +606,7 @@ def get_gallery():
             "kona": {"safe", "explicit"},
             "yande": {"safe", "explicit"},
             "sankaku": {"safe", "questionable", "explicit"},
+            "pixiv": {"safe", "explicit"},
         }
         rating_aliases = {
             "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
@@ -713,6 +743,8 @@ def get_gallery_sources():
     gallery = shared.load_gallery()
     counts = {}
     for img in gallery.get("images", []):
+        if not img.get("filepath"):
+            continue
         s = img.get("site", "unknown")
         counts[s] = counts.get(s, 0) + 1
     return jsonify(counts)
@@ -752,8 +784,22 @@ def rescan_gallery():
                 })
                 by_fn[fn] = gallery["images"][-1]
                 count_added += 1
+    before = len(gallery["images"])
+    kept = []
+    for img in gallery["images"]:
+        fp = img.get("filepath", "")
+        if os.path.exists(os.path.join(MASTER_FOLDER, fp)):
+            kept.append(img)
+        else:
+            key = hashlib.sha256(fp.encode()).hexdigest()[:16]
+            for ext in ('.jpg', '.png'):
+                p = os.path.join(THUMB_CACHE, key + ext)
+                if os.path.exists(p):
+                    os.remove(p)
+    gallery["images"] = kept
+    count_removed = before - len(gallery["images"])
     shared.save_gallery(gallery)
-    return jsonify({"success": True, "added": count_added, "fixed": count_fixed})
+    return jsonify({"success": True, "added": count_added, "fixed": count_fixed, "removed": count_removed})
 
 @app.route("/api/gallery/import", methods=["POST"])
 def import_gallery_from_history():
@@ -797,6 +843,7 @@ def manage_ui_config():
             "Kona": {"dark": "Rem_kona_d.png", "light": "Rem_kona_l.png"},
             "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
             "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+            "Pixiv": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
             "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
             "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
             "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -845,49 +892,110 @@ def handle_disconnect():
 
     def shutdown_server():
         print(">>> No active tabs. Killing Rem God Catcher Server... <<<")
-        os._exit(0)  # این دستور کل فرآیند پایتون را بلافاصله نابود می‌کند
+        os._exit(0)
 
     shutdown_timer = threading.Timer(3.0, shutdown_server)
     shutdown_timer.start()
+# === Multi-tag concurrent dispatch ===
+_TAG_TASKS = {}  # (api, full_query) -> {"thread": Thread}
+_TAG_TASKS_LOCK = threading.Lock()
+MAX_CONCURRENT_TAGS = int(os.getenv("MAX_CONCURRENT_TAGS", "10"))
+_TAG_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_TAGS)
+
+def _task_key(data):
+    tag = data.get("tag", data.get("category", "")).strip()
+    parts = [tag]
+    for k in sorted(data.keys()):
+        if k in ("worker", "net_config", "tag", "category", "limit", "min_w", "min_h"):
+            continue
+        v = data[k]
+        if v is None or v == "" or (isinstance(v, (list, dict)) and not v):
+            continue
+        if isinstance(v, bool):
+            parts.append(f"{k}:{'1' if v else '0'}")
+        elif isinstance(v, (list, tuple)):
+            parts.append(f"{k}:" + ",".join(str(x) for x in sorted(v)))
+        else:
+            v_str = str(v)
+            if v_str.startswith(f"{k}:"):
+                parts.append(v_str)
+            else:
+                parts.append(f"{k}:{v_str}")
+    return " ".join(parts)
+
+_TAG_DISPATCH = {
+    "zero":     (worker_zerochan,     lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("net_config", {}))),
+    "waifu":    (worker_waifu,        lambda d: (d.get("tag", ""), int(d.get("limit", 30)), d.get("nsfw", False), d.get("net_config", {}))),
+    "neko":     (worker_nekos_best,   lambda d: (d.get("category", ""), int(d.get("limit", 20)), d.get("net_config", {}))),
+    "safe":     (worker_safebooru,    lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("exclusions", []), d.get("net_config", {}))),
+    "rule34":   (worker_rule34,       lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("method", "and"), d.get("sort_type", "id"), d.get("sort_order", "desc"), d.get("exclusions", []), d.get("net_config", {}))),
+    "gelbooru": (worker_gelbooru,    lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d.get("net_config", {}))),
+    "nekos_life": (worker_nekos_life, lambda d: (d.get("category", ""), int(d.get("limit", 20)), d.get("net_config", {}), d.get("format", "both"))),
+    "yande":    (worker_yande,        lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("net_config", {}))),
+    "kona":     (worker_konachan,     lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d.get("net_config", {}))),
+    "dan":      (worker_danbooru,     lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d.get("net_config", {}))),
+    "sankaku":  (worker_sankaku,      lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d.get("net_config", {}))),
+    "anime_dl": (worker_anime_dl,     lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("net_config", {}))),
+    "pixiv":    (worker_pixiv,        lambda d: (d.get("tag", ""), int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d.get("net_config", {}))),
+}
+
+def _run_tag_task(api, task_tag, fn, args):
+    try:
+        _TAG_SEMAPHORE.acquire()
+        fn(*args)
+    except Exception as e:
+        shared.log_msg(api, f"[{task_tag}] Error: {e}")
+    finally:
+        _TAG_SEMAPHORE.release()
+        with _TAG_TASKS_LOCK:
+            _TAG_TASKS.pop((api, task_tag), None)
+            shared.log_msg(api, f"[{task_tag}] Task finished.")
+
 # ==========================================
 
 @socketio.on("start_worker")
 def handle_start_worker(data):
     worker = data.get("worker")
-    net_config = data.get("net_config", {})
-    
-    # گرفتن تگ (در بعضی سایتها اسمش tag است و در بعضی category)
     tag = data.get("tag", data.get("category", "")).strip()
 
-    # ذخیره اتوماتیک هیستوری برای *همه* سایتها (بدون استثنا)
     if tag:
         try:
             hist = load_json_db(TAG_HISTORY_FILE)
             entry = {"site": worker, "tag": tag}
             if entry not in hist:
-                hist.insert(0, entry) # اضافه کردن به اول لیست
+                hist.insert(0, entry)
                 save_json_db(TAG_HISTORY_FILE, hist)
         except Exception as e:
             print("History Save Error:", e)
 
-    # استارت کارگرها
-    if worker == "zero": threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
-    elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), int(data.get("limit", 30)), data.get("nsfw", False), net_config), daemon=True).start()
-    elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), int(data.get("limit", 20)), net_config), daemon=True).start()
-    elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
-    elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
-    elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
-    elif worker == "pinterest":
+    if worker == "pinterest":
+        net_config = data.get("net_config", {})
         net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
         net_config["pinterest_email"] = os.getenv("PINTEREST_EMAIL", "")
         net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
-        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config), daemon=True).start()
+        t = threading.Thread(target=worker_pinterest, args=(
+            data.get("tag", ""), int(data.get("limit", 50)),
+            data.get("is_search", False), net_config,
+            int(data.get("min_w", 0)), int(data.get("min_h", 0))), daemon=True)
+        t.start()
+        return
+
+    entry = _TAG_DISPATCH.get(worker)
+    if not entry:
+        return
+    fn, arg_fn = entry
+    args = arg_fn(data)
+    task_tag = _task_key(data)
+
+    with _TAG_TASKS_LOCK:
+        if (worker, task_tag) in _TAG_TASKS:
+            shared.log_msg(worker, f"[{task_tag}] Already running.")
+            return
+
+    t = threading.Thread(target=_run_tag_task, args=(worker, task_tag, fn, args), daemon=True)
+    with _TAG_TASKS_LOCK:
+        _TAG_TASKS[(worker, task_tag)] = {"thread": t}
+    t.start()
 
 @socketio.on("stop_worker")
 def handle_stop_worker(data):
@@ -898,37 +1006,38 @@ def handle_stop_worker(data):
             evt.set()
 
 def startup_rescan():
-    gallery = shared.load_gallery()
-    by_fn = {i["filename"]: i for i in gallery["images"]}
-    count = 0
-    for root, dirs, files in os.walk(MASTER_FOLDER):
-        for fn in files:
-            ext = os.path.splitext(fn)[1].lower()
-            if ext not in EXTENSIONS_IMAGE and ext not in EXTENSIONS_VIDEO:
-                continue
-            full = os.path.join(root, fn)
-            rel = os.path.relpath(full, MASTER_FOLDER)
-            parts = rel.replace('\\', '/').split('/')
-            site = parts[0] if len(parts) > 1 else "unknown"
-            tag = parts[1] if len(parts) > 2 else ""
-            tags = [tag] if tag else []
-            if fn in by_fn:
-                existing = by_fn[fn]
-                if not existing.get("tags"):
-                    existing["tags"] = tags
-                    count += 1
-                continue
-            gallery["images"].append({
-                "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
-                "filename": fn, "filepath": rel, "site": site,
-                "tags": tags, "artists": [], "favourite": False,
-                "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
-            })
-            by_fn[fn] = gallery["images"][-1]
-            count += 1
-    if count:
-        shared.save_gallery(gallery)
-        print(f"Rescanned {count} new images into gallery")
+    with shared.GALLERY_LOCK:
+        gallery = shared.load_gallery()
+        by_fn = {i["filename"]: i for i in gallery["images"]}
+        count = 0
+        for root, dirs, files in os.walk(MASTER_FOLDER):
+            for fn in files:
+                ext = os.path.splitext(fn)[1].lower()
+                if ext not in EXTENSIONS_IMAGE and ext not in EXTENSIONS_VIDEO:
+                    continue
+                full = os.path.join(root, fn)
+                rel = os.path.relpath(full, MASTER_FOLDER)
+                parts = rel.replace('\\', '/').split('/')
+                site = parts[0] if len(parts) > 1 else "unknown"
+                tag = parts[1] if len(parts) > 2 else ""
+                tags = [tag] if tag else []
+                if fn in by_fn:
+                    existing = by_fn[fn]
+                    if not existing.get("tags"):
+                        existing["tags"] = tags
+                        count += 1
+                    continue
+                gallery["images"].append({
+                    "id": hashlib.md5(f"{site}:{fn}".encode()).hexdigest()[:12],
+                    "filename": fn, "filepath": rel, "site": site,
+                    "tags": tags, "artists": [], "favourite": False,
+                    "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
+                })
+                by_fn[fn] = gallery["images"][-1]
+                count += 1
+        if count:
+            shared.save_gallery(gallery)
+            print(f"Rescanned {count} new images into gallery")
 
 if __name__ == "__main__":
     load_safe_db()

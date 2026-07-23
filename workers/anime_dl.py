@@ -33,7 +33,7 @@ Example Selenium snippet (runs as-is with Firefox):
     driver.quit()
 """
 
-import sys, os, time, json, threading, random
+import sys, os, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from curl_cffi import requests
 import shared
@@ -44,11 +44,10 @@ PER_PAGE = 80
 
 def worker_anime_dl(tag, amount, net_config):
     name = "anime_dl"
-    if name in shared.STOP_EVENTS and shared.STOP_EVENTS[name] is not None:
-        shared.STOP_EVENTS[name].set()
-
     my_stop_event = threading.Event()
-    shared.STOP_EVENTS[name] = my_stop_event
+    if name not in shared.STOP_EVENTS or not isinstance(shared.STOP_EVENTS[name], list):
+        shared.STOP_EVENTS[name] = []
+    shared.STOP_EVENTS[name].append(my_stop_event)
     stop_event = my_stop_event
 
     tag = tag.strip().lower()

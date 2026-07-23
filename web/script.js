@@ -192,6 +192,7 @@ async function resetWallpapersUI() {
         "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
         "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
         "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+        "Pixiv": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
         "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
         "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
         "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -213,7 +214,8 @@ const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
     "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
-    "pinterest": "pinterest"
+    "pinterest": "pinterest",
+    "pixiv": "pixiv"
 };
 
 function updateProgressBar(worker, msg) {
@@ -275,7 +277,7 @@ socket.on("pinterest_progress", function (data) {
     if (wrap) wrap.classList.add("active");
     if (fill) fill.style.width = pct + "%";
     if (txt) txt.textContent = pct + "%";
-    if (data.alt) logToConsole("pinterest", "Scraped: " + data.alt);
+
 });
 
 window.onload = async function () {
@@ -290,7 +292,6 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
-            document.getElementById("hydrusSidecarToggle").checked = config.write_hydrus_sidecar !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -433,7 +434,8 @@ function clearLog(tabID) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest"
+        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
+        "pixiv": "consoleLog_pixiv"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
@@ -445,7 +447,8 @@ function logToConsole(tabID, msg) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest"
+        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
+        "pixiv": "consoleLog_pixiv"
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -456,7 +459,7 @@ function logToConsole(tabID, msg) {
     }
 }
 
-function startWorker(workerName) {
+async function startWorker(workerName) {
     let payload = { worker: workerName, net_config: { ...globalNetConfig } };
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
     payload.net_config.retry_wait = document.getElementById("retryWait").value;
@@ -571,6 +574,56 @@ function startWorker(workerName) {
         payload.tag = document.getElementById('pinterestTag').value;
         payload.limit = document.getElementById('pinterestLimit').value;
         payload.is_search = document.getElementById('pinterestMode').value === 'search';
+        payload.min_w = +document.getElementById('pinterestMinW').value || 0;
+        payload.min_h = +document.getElementById('pinterestMinH').value || 0;
+    } else if (workerName === 'pixiv') {
+        let mode = document.getElementById('pixivMode').value;
+        let ranking = document.getElementById('pixivRankingMode').value;
+
+        if (mode === 'ranking') {
+            payload.tag = 'ranking:' + ranking;
+        } else {
+            let val = document.getElementById('pixivTag').value.trim();
+            if (!val) { logToConsole('pixiv', 'Error: Please enter a user ID or search term'); return; }
+            payload.tag = mode + ':' + val;
+        }
+
+        payload.limit = document.getElementById('pixivLimit').value;
+        payload.rating = document.getElementById('pixivRating').value;
+
+        payload.exclusions = [];
+
+        let existingToken = document.getElementById('pixivToken').value.trim();
+        let pixivEmail = document.getElementById('pixivLoginEmail').value.trim();
+        let pixivPassword = document.getElementById('pixivLoginPassword').value.trim();
+
+        if (!existingToken && pixivEmail && pixivPassword) {
+            let statusEl = document.getElementById('pixivLoginStatus');
+            statusEl.textContent = 'Logging in...';
+            try {
+                let resp = await fetch('/api/pixiv/get_token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: pixivEmail, password: pixivPassword})
+                });
+                let result = await resp.json();
+                if (result.success) {
+                    document.getElementById('pixivToken').value = result.token;
+                } else {
+                    let msg = result.error || result.message || 'Login failed';
+                    statusEl.textContent = '✗ ' + msg;
+                    logToConsole('pixiv', 'Auth failed: ' + msg);
+                    return;
+                }
+            } catch (e) {
+                statusEl.textContent = '✗ Network error';
+                logToConsole('pixiv', 'Auth error: network request failed');
+                return;
+            }
+        } else if (!existingToken) {
+            logToConsole('pixiv', 'Auth error: enter Pixiv email/password in Options tab or provide a refresh token');
+            return;
+        }
     }
     
     socket.emit("start_worker", payload);
@@ -588,7 +641,7 @@ function startWorker(workerName) {
         }
     }
 
-    setTimeout(loadTagsData, 1000); // آپدیت خودکار لیست هیستوری بعد از یک ثانیه
+    setTimeout(loadTagsData, 1000);
 }
 
 function stopWorker(workerName) {
@@ -612,6 +665,9 @@ async function loadApiSettings() {
     document.getElementById("pinterestCookies").value = settings.pinterest_cookies || "";
     document.getElementById("pinterestEmail").value = settings.pinterest_email || "";
     document.getElementById("pinterestPassword").value = settings.pinterest_password || "";
+    document.getElementById("pixivLoginEmail").value = settings.pixiv_login_email || "";
+    document.getElementById("pixivLoginPassword").value = settings.pixiv_login_password || "";
+    document.getElementById("pixivToken").value = settings.pixiv_refresh_token || "";
 }
 
 async function saveApiSettings() {
@@ -624,7 +680,10 @@ async function saveApiSettings() {
         sanka_password: document.getElementById("sankaPassword").value.trim(),
         pinterest_cookies: document.getElementById("pinterestCookies").value.trim(),
         pinterest_email: document.getElementById("pinterestEmail").value.trim(),
-        pinterest_password: document.getElementById("pinterestPassword").value.trim()
+        pinterest_password: document.getElementById("pinterestPassword").value.trim(),
+        pixiv_login_email: document.getElementById("pixivLoginEmail").value.trim(),
+        pixiv_login_password: document.getElementById("pixivLoginPassword").value.trim(),
+        pixiv_refresh_token: document.getElementById("pixivToken").value.trim()
     };
     let resp = await fetch("/api/api-settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -640,7 +699,6 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
-    globalNetConfig.write_hydrus_sidecar = document.getElementById("hydrusSidecarToggle").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
@@ -888,7 +946,8 @@ function jumpToSite(site, tag) {
         "rule34":    { tab: "Rule34",    input: "rule34Tag" },
         "sankaku":   { tab: "Sankaku",  input: "sankakuTag" },
         "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" },
-        "pinterest": { tab: "Pinterest", input: "pinterestTag" }
+        "pinterest": { tab: "Pinterest", input: "pinterestTag" },
+        "pixiv": { tab: "Pixiv", input: null }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
 
@@ -969,6 +1028,7 @@ async function clearImageHistory() {
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
+let galleryGridSize = 140;
 
 const SOURCE_RATINGS = {
     dan: ['safe', 'sensitive', 'questionable', 'explicit'],
@@ -977,6 +1037,7 @@ const SOURCE_RATINGS = {
     yande: ['safe', 'explicit'],
     sankaku: ['safe', 'questionable', 'explicit'],
     pinterest: [],
+    pixiv: ['safe', 'explicit'],
 };
 
 function updateRatingDropdown() {
@@ -1089,6 +1150,18 @@ async function loadGalleryPage(page, callback) {
     } catch (e) { console.error("Gallery page load error:", e); }
 }
 
+function applyGalleryZoom() {
+    const grid = document.getElementById("galleryGrid");
+    if (grid) grid.style.setProperty("grid-template-columns", `repeat(auto-fill, minmax(${galleryGridSize}px, 1fr))`);
+    const label = document.getElementById("galleryZoomLabel");
+    if (label) label.textContent = Math.round(galleryGridSize / 140 * 100) + "%";
+}
+
+function galleryZoom(delta) {
+    galleryGridSize = Math.max(80, Math.min(300, galleryGridSize + delta * 140));
+    applyGalleryZoom();
+}
+
 function renderGallery() {
     const grid = document.getElementById("galleryGrid");
     const pagination = document.getElementById("galleryPagination");
@@ -1110,7 +1183,7 @@ function renderGallery() {
         const src = `/api/gallery/${isVideo ? 'file' : 'thumb'}/${encodeURI(fp)}`;
         html += `
             <div class="gallery-card" onclick="openGalleryViewer('${img.id}')">
-                ${isVideo ? '<span class="gallery-card-play"></span>' : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}
+                 ${isVideo ? '<span class="gallery-card-play"></span>' : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}
                 <button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${img.favourite ? '♥' : '♡'}</button>
             </div>
         `;
@@ -1127,6 +1200,50 @@ function renderGallery() {
     pHtml += '<button onclick="loadGallery('+total_pages+')" ' + (page>=total_pages?'disabled':'') + '>»</button>';
     pHtml += `<span>${total} images</span>`;
     pagination.innerHTML = pHtml;
+    applyGalleryZoom();
+}
+
+async function copyImageToClipboard(fp, btn) {
+    btn.textContent = '...';
+    try {
+        const resp = await fetch(window.location.origin + '/api/gallery/file/' + fp);
+        const blob = await resp.blob();
+        const item = {};
+        item[blob.type] = blob;
+        try {
+            await navigator.clipboard.write([new ClipboardItem(item)]);
+        } catch (_) {
+            const png = await toPngBlob(blob);
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+        }
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+    } catch (err) {
+        console.error('Copy failed:', err);
+        btn.textContent = '⧉';
+    }
+}
+
+function toPngBlob(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            c.toBlob(b => { URL.revokeObjectURL(url); b ? resolve(b) : reject(); }, 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+        img.src = url;
+    });
+}
+
+function copyViewerImage(el) {
+    const img = galleryState.images[viewerIndex];
+    if (!img) return;
+    const fp = (img.filepath || '').replace(/\\/g, '/');
+    copyImageToClipboard(encodeURI(fp), el);
 }
 
 function paginationRange(current, total) {
@@ -1353,12 +1470,17 @@ function zoomViewer(delta, cx, cy) {
 }
 
 document.addEventListener('keydown', function(e) {
-    if (document.getElementById("galleryViewer").style.display !== 'flex') return;
-    if (e.key === 'Escape') closeGalleryViewer();
-    else if (e.key === 'ArrowLeft') viewerNav(-1);
-    else if (e.key === 'ArrowRight') viewerNav(1);
-    else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
-    else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
+    const viewer = document.getElementById("galleryViewer");
+    if (viewer && viewer.style.display === 'flex') {
+        if (e.key === 'Escape') closeGalleryViewer();
+        else if (e.key === 'ArrowLeft') viewerNav(-1);
+        else if (e.key === 'ArrowRight') viewerNav(1);
+        else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
+        else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
+    } else if (document.getElementById("Gallery") && document.getElementById("Gallery").style.display !== 'none') {
+        if (e.key === '+' || e.key === '=') galleryZoom(0.2);
+        else if (e.key === '-') galleryZoom(-0.2);
+    }
 });
 
 let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
@@ -1424,7 +1546,7 @@ async function rescanGallery() {
         let resp = await fetch("/api/gallery/rescan", {method: "POST"});
         let data = await resp.json();
         if (data.success) {
-            alert(`Rescan complete. Added ${data.added} new images.`);
+            alert(`Rescan complete. Added ${data.added} new images, removed ${data.removed} missing entries.`);
             loadGallery(1);
             populateGallerySiteFilter();
         }
@@ -1521,6 +1643,49 @@ function selectSort(el, value) {
     btn.textContent = el.textContent.trim() + ' ▾';
     document.getElementById("sortDropdown").classList.remove('open');
     loadGallery(1);
+}
+
+function updatePixivMode() {
+    let mode = document.getElementById("pixivMode").value;
+    let rankingDropdown = document.getElementById("pixivRankingMode");
+    let tagInput = document.getElementById("pixivTag");
+
+    if (mode === "ranking") {
+        rankingDropdown.style.display = "inline-block";
+        tagInput.placeholder = "Ranking mode ignores value field";
+        tagInput.style.display = "none";
+    } else {
+        rankingDropdown.style.display = "none";
+        tagInput.style.display = "inline-block";
+        if (mode === "search") tagInput.placeholder = "tag name (e.g. blue_hair)";
+        else if (mode === "bookmark") tagInput.placeholder = "user ID";
+        else tagInput.placeholder = "user ID";
+    }
+}
+
+async function submitPixivCode() {
+    let code = document.getElementById('pixivCodeInput').value.trim();
+    let statusEl = document.getElementById('pixivCodeStatus');
+    if (!code) {
+        statusEl.textContent = 'Enter the code first.';
+        return;
+    }
+    try {
+        let resp = await fetch('/api/pixiv/submit_code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code: code})
+        });
+        let result = await resp.json();
+        if (result.success) {
+            statusEl.textContent = 'Code submitted - waiting for login to complete...';
+            document.getElementById('pixivCodeInput').value = '';
+        } else {
+            statusEl.textContent = '✗ ' + (result.error || 'Submit failed');
+        }
+    } catch (e) {
+        statusEl.textContent = '✗ Network error';
+    }
 }
 
 function showToast(msg) {

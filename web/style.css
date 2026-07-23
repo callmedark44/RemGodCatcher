@@ -196,7 +196,7 @@ h2 {
     margin-top: 8px;
 }
 
-input[type="text"], input[type="number"], input[type="password"], select {
+input[type="text"], input[type="number"], input[type="email"], input[type="password"], select {
     padding: 8px 12px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -208,7 +208,7 @@ input[type="text"], input[type="number"], input[type="password"], select {
     transition: border-color 0.2s;
 }
 
-input[type="text"]:focus, input[type="number"]:focus, input[type="password"]:focus, select:focus {
+input[type="text"]:focus, input[type="number"]:focus, input[type="email"]:focus, input[type="password"]:focus, select:focus {
     border-color: rgba(0, 210, 211, 0.6);
     box-shadow: 0 0 0 2px rgba(0, 210, 211, 0.1);
 }
@@ -827,3 +827,23 @@ select option {
     display: none;
 }
 .gallery-viewer-top-btn.zoom-label.show { display: flex; }
+.gallery-zoom-btn {
+    background: rgba(45,212,191,0.15);
+    border: 1px solid rgba(45,212,191,0.3);
+    color: var(--accent-color);
+    width: 26px; height: 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.gallery-zoom-btn:hover { background: rgba(45,212,191,0.3); }
+#galleryZoomLabel {
+    color: var(--text-color);
+    font-size: 12px;
+    min-width: 36px;
+    text-align: center;
+}

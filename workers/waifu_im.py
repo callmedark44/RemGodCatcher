@@ -19,7 +19,7 @@ class WaifuImWorker(BaseDownloader):
         self.retry_wait = int(net_config.get("retry_wait", 5))
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         self.subdir = "NSFW" if is_nsfw else "Safe"
         os.makedirs(os.path.join(self.tag_dir, self.subdir), exist_ok=True)

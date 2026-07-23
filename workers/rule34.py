@@ -41,7 +41,7 @@ class Rule34Worker(BaseDownloader):
         self.log(f"Final Payload sent to rule34Py: {TAGS}")
 
         clean_folder_name = " ".join([t for t in tag_list if not t.startswith('-')])
-        self.safe_tag = re.sub(r'[\\/*?:"<>|~]', "", clean_folder_name).strip()
+        self.safe_tag = re.sub(r'[\\/*?"<>|~]', "", clean_folder_name).strip()
         if not self.safe_tag:
             self.safe_tag = "mixed_tags"
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)

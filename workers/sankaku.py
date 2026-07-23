@@ -1,4 +1,4 @@
-import os, re, time, threading, random, json
+import os, re, time, threading, random
 import shared
 from shared import log_msg, STOP_EVENTS, load_history, save_history, get_session
 
@@ -6,11 +6,10 @@ API_BASE = "https://sankakuapi.com"
 
 def worker_sankaku(tag, amount, rating, exclusions, net_config):
     name = "sankaku"
-    if name in STOP_EVENTS and STOP_EVENTS[name] is not None:
-        STOP_EVENTS[name].set()
-
     my_stop_event = threading.Event()
-    STOP_EVENTS[name] = my_stop_event
+    if name not in STOP_EVENTS or not isinstance(STOP_EVENTS[name], list):
+        STOP_EVENTS[name] = []
+    STOP_EVENTS[name].append(my_stop_event)
     stop_event = my_stop_event
 
     dl_retries = int(net_config.get("download_retries", 3))
@@ -46,7 +45,7 @@ def worker_sankaku(tag, amount, rating, exclusions, net_config):
                     if access_token:
                         log_msg(name, "Logged in via credentials")
                         break
-                    log_msg(name, f"Login response missing token")
+                    log_msg(name, "Login response missing token")
                 else:
                     try:
                         err_body = r.json()
@@ -133,7 +132,6 @@ def worker_sankaku(tag, amount, rating, exclusions, net_config):
 
         time.sleep(0.25)
 
-        had_valid = False
         for post in posts:
             if stop_event.is_set() or (amount > 0 and len(collected) >= amount):
                 break
@@ -183,7 +181,6 @@ def worker_sankaku(tag, amount, rating, exclusions, net_config):
             if is_video:
                 video_count += 1
             collected.append((url, filename, rating_label, tags_list, artists, is_video))
-            had_valid = True
 
         page += 1
         if not stop_event.is_set() and (amount == 0 or len(collected) < amount):
