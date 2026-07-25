@@ -1,0 +1,10 @@
+flask
+flask-socketio
+requests
+urllib3
+python-dotenv
+Pillow
+rule34Py
+curl_cffi
+pinterest-dl
+playwright

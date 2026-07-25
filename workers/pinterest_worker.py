@@ -1,168 +1,174 @@
-import os, re, time, threading, json, random
+"""Pinterest worker — async BaseDownloader subclass."""
+import os, re, json, threading
+import asyncio
 from pathlib import Path
-import shared
-from shared import log_msg, STOP_EVENTS
+from shared import BaseDownloader
 
-name = "pinterest"
 
-def browser_login(client, email, password, proxy_url, cookies_path):
-    from playwright.sync_api import BrowserType
-    from pinterest_dl import PinterestDL as PDL
-    orig_browser_launch = BrowserType.launch
-    def patched_browser_launch(self, **kw):
-        if proxy_url:
-            kw["proxy"] = {"server": proxy_url}
-        return orig_browser_launch(self, **kw)
-    BrowserType.launch = patched_browser_launch
-    scraper = PDL.with_browser(browser_type="chromium", headless=True, verbose=False)
-    driver = scraper.login(email, password)
-    cookies = driver.get_cookies(after_sec=7)
-    scraper.close()
-    client.with_cookies(cookies)
-    if cookies_path and cookies:
-        try:
-            os.makedirs(os.path.dirname(cookies_path) or ".", exist_ok=True)
-            with open(cookies_path, "w") as f:
+class PinterestWorker(BaseDownloader):
+    def __init__(self, url_or_query, amount, is_search, net_config, min_w=0, min_h=0):
+        super().__init__("pinterest", "Pinterest", amount, net_config)
+        self.query = url_or_query
+        self.is_search = is_search
+        self.min_w = min_w
+        self.min_h = min_h
+
+        safe_name = re.sub(r'[\\/*?:"<>|]', "_",
+            (url_or_query.strip().lower().replace("https://", "").replace("http://", "").replace("/", "_")[:60]))
+        self.tag_dir = os.path.join(self.site_root, safe_name)
+        os.makedirs(self.tag_dir, exist_ok=True)
+
+        self.cookies_path = net_config.get("pinterest_cookies", "") or os.path.join(self.tag_dir, "pinterest_cookies.json")
+        self.email = net_config.get("pinterest_email", "")
+        self.password = net_config.get("pinterest_password", "")
+        self.proxy_url = net_config.get("proxy_url", "")
+
+        # override session for async compat
+        self.session = None
+        self._client = None
+
+    def _make_api_client(self):
+        from pinterest_dl import PinterestDL
+        return PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
+
+    def _browser_login(self):
+        from playwright.sync_api import BrowserType
+        from pinterest_dl import PinterestDL as PDL
+
+        orig = BrowserType.launch
+        def patched_launch(self, **kw):
+            if self.proxy_url:
+                kw["proxy"] = {"server": self.proxy_url}
+            return orig(self, **kw)
+        BrowserType.launch = patched_launch
+
+        scraper = PDL.with_browser(browser_type="chromium", headless=True, verbose=False)
+        driver = scraper.login(self.email, self.password)
+        cookies = driver.get_cookies(after_sec=7)
+        scraper.close()
+        self._client.with_cookies(cookies)
+        if self.cookies_path and cookies:
+            os.makedirs(os.path.dirname(self.cookies_path) or ".", exist_ok=True)
+            with open(self.cookies_path, "w") as f:
                 json.dump(cookies, f, indent=2)
-            log_msg(name, f"Saved fresh cookies to {cookies_path}")
-        except Exception as e:
-            log_msg(name, f"Could not save cookies: {e}")
-    log_msg(name, "Logged in via browser and using fresh cookies")
-    return True
+        self.log("Logged in via browser with fresh cookies")
+        return True
 
-def worker_pinterest(url_or_query, amount, is_search, net_config, min_w=0, min_h=0):
-    my_stop_event = threading.Event()
-    if name not in STOP_EVENTS or not isinstance(STOP_EVENTS[name], list):
-        STOP_EVENTS[name] = []
-    STOP_EVENTS[name].append(my_stop_event)
-    stop_event = my_stop_event
-
-    if net_config.get("use_proxy"):
-        os.environ.setdefault("HTTP_PROXY", net_config["proxy_url"])
-        os.environ.setdefault("HTTPS_PROXY", net_config["proxy_url"])
-
-    from pinterest_dl import PinterestDL
-    from pinterest_dl.download import MediaDownloader
-
-    log_msg(name, f"Initializing Pinterest worker for: '{url_or_query[:80]}' ({'search' if is_search else 'url scrape'})")
-
-    cookies_path = net_config.get("pinterest_cookies", "")
-    email = net_config.get("pinterest_email", "")
-    password = net_config.get("pinterest_password", "")
-    proxy_url = net_config.get("proxy_url", "")
-
-    safe_name = re.sub(r'[\\/*?:"<>|]', "_", (url_or_query.strip().lower().replace("https://", "").replace("http://", "").replace("/", "_")[:60]))
-    site_root = os.path.join(shared.MASTER_FOLDER, "Pinterest", safe_name)
-    os.makedirs(site_root, exist_ok=True)
-
-    if not cookies_path:
-        cookies_path = os.path.join(site_root, "pinterest_cookies.json")
-
-    def run_search(client):
-        collected = []
-        seen_ids = set()
-        progress_lock = threading.Lock()
+    def _run_search(self, collected, seen_ids, lock):
+        existing = len([f for f in os.listdir(self.tag_dir) if re.match(r'^\d+\.[a-z]+$', f)])
+        fetch_num = self.amount + existing
 
         def on_progress(media):
-            with progress_lock:
-                if len(collected) >= amount:
+            with lock:
+                if len(collected) >= self.amount:
                     return
                 if media.id in seen_ids:
                     return
                 ext = Path(media.src).suffix.lower() if media.src else ".jpg"
-                if os.path.exists(os.path.join(site_root, f"{media.id}{ext}")):
+                if os.path.exists(os.path.join(self.tag_dir, f"{media.id}{ext}")):
                     return
                 seen_ids.add(media.id)
                 collected.append(media)
 
         try:
-            existing = len([f for f in os.listdir(site_root) if re.match(r'^\d+\.[a-z]+$', f)])
-            fetch_num = amount + existing
-            if is_search:
-                client.search(query=url_or_query, num=fetch_num, min_resolution=(min_w, min_h), on_progress=on_progress)
+            if self.is_search:
+                self._client.search(query=self.query, num=fetch_num,
+                    min_resolution=(self.min_w, self.min_h), on_progress=on_progress)
             else:
-                client.scrape(url=url_or_query, num=fetch_num, min_resolution=(min_w, min_h), on_progress=on_progress)
+                self._client.scrape(url=self.query, num=fetch_num,
+                    min_resolution=(self.min_w, self.min_h), on_progress=on_progress)
         except Exception as e:
-            log_msg(name, f"Scrape error: {e}")
-            return None
-        return collected
+            self.log(f"Scrape error: {e}")
 
-    client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
-    have_auth = False
+    async def scraper_task(self):
+        self.log(f"Initializing Pinterest worker: '{self.query[:80]}'")
 
-    if os.path.exists(cookies_path):
-        try:
-            client.with_cookies_path(cookies_path)
-            log_msg(name, "Loaded Pinterest cookies")
-            have_auth = True
-        except Exception as e:
-            log_msg(name, f"Cookie load error: {e}")
+        if self.net_config.get("use_proxy"):
+            os.environ.setdefault("HTTP_PROXY", self.net_config["proxy_url"])
+            os.environ.setdefault("HTTPS_PROXY", self.net_config["proxy_url"])
 
-    collected = run_search(client)
+        from pinterest_dl.download import MediaDownloader
 
-    if not collected and have_auth and email and password:
-        log_msg(name, "Cookies expired, refreshing via browser login...")
-        try:
-            os.remove(cookies_path)
-        except Exception:
-            pass
-        client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
-        try:
-            browser_login(client, email, password, proxy_url, cookies_path)
-            collected = run_search(client)
-        except Exception as e:
-            log_msg(name, f"Browser login failed: {e}")
-    elif not have_auth and email and password:
-        log_msg(name, "No cookies, logging in via browser...")
-        try:
-            browser_login(client, email, password, proxy_url, cookies_path)
-            collected = run_search(client)
-        except ImportError:
-            log_msg(name, "Browser auth unavailable (install pinterest-dl[browser] and playwright)")
-        except Exception as e:
-            log_msg(name, f"Browser login failed: {e}")
+        self._client = self._make_api_client()
+        have_auth = False
 
-    if not collected:
-        log_msg(name, "No new media found.")
-        log_msg(name, "--- Worker Terminated ---")
-        return
+        if os.path.exists(self.cookies_path):
+            try:
+                self._client.with_cookies_path(self.cookies_path)
+                self.log("Loaded Pinterest cookies")
+                have_auth = True
+            except Exception as e:
+                self.log(f"Cookie load error: {e}")
 
-    medias = collected[:amount]
-    log_msg(name, f"Collected {len(collected)} new items, downloading {len(medias)}.")
+        collected = []
+        seen_ids = set()
+        lock = threading.Lock()
 
-    shared.socketio_emit("pinterest_progress", {"index": 0, "total": amount})
+        await asyncio.to_thread(self._run_search, collected, seen_ids, lock)
 
-    dl_retries = int(net_config.get("download_retries", 3))
-    downloader = MediaDownloader(
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        timeout=int(net_config.get("api_timeout", 10)),
-        max_retries=dl_retries
-    )
+        if not collected and have_auth and self.email and self.password:
+            self.log("Cookies expired, refreshing via browser login...")
+            try: os.remove(self.cookies_path)
+            except Exception: pass
+            self._client = self._make_api_client()
+            try:
+                await asyncio.to_thread(self._browser_login)
+                collected.clear(); seen_ids.clear()
+                await asyncio.to_thread(self._run_search, collected, seen_ids, lock)
+            except ImportError:
+                self.log("Browser auth unavailable (install pinterest-dl[browser] and playwright)")
+            except Exception as e:
+                self.log(f"Browser login failed: {e}")
+        elif not have_auth and self.email and self.password:
+            self.log("No cookies, logging in via browser...")
+            try:
+                await asyncio.to_thread(self._browser_login)
+                collected.clear(); seen_ids.clear()
+                await asyncio.to_thread(self._run_search, collected, seen_ids, lock)
+            except ImportError:
+                self.log("Browser auth unavailable")
+            except Exception as e:
+                self.log(f"Browser login failed: {e}")
 
-    downloaded = 0
-    for i, media in enumerate(medias):
-        if stop_event.is_set():
-            break
+        if not collected:
+            self.log("No new media found.")
+            return
 
-        try:
-            path = downloader.download(media, Path(site_root), download_streams=True)
-            filename = os.path.basename(path)
+        medias = collected[:self.amount]
+        self.log(f"Collected {len(medias)} items, downloading...")
 
-            rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
-            tags = []
-            if media.alt:
-                tags = [media.alt]
-            artists = []
-            shared.add_to_gallery(name, filename, rel, tags, artists)
-            shared.send_tags(name, filename, tags, artists)
+        from shared import socketio_emit, add_to_gallery, send_tags
 
-            downloaded += 1
-            shared.socketio_emit("pinterest_progress", {"index": downloaded, "total": amount})
-            log_msg(name, f"[SUCCESS] Downloaded {filename} ({downloaded}/{amount})")
-        except Exception as e:
-            log_msg(name, f"[FAILED] {media.id}: {e}")
+        dl_retries = int(self.net_config.get("download_retries", 3))
+        downloader = MediaDownloader(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            timeout=int(self.net_config.get("api_timeout", 10)),
+            max_retries=dl_retries)
 
-        time.sleep(random.uniform(0.5, 1.5))
+        downloaded = 0
+        for i, media in enumerate(medias):
+            if self.stop_event.is_set():
+                break
+            try:
+                path = downloader.download(media, Path(self.tag_dir), download_streams=True)
+                filename = os.path.basename(path)
+                rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
+                tags = [media.alt] if media.alt else []
+                add_to_gallery(self.name, filename, rel, tags, [])
+                send_tags(self.name, filename, tags)
+                downloaded += 1
+                socketio_emit("pinterest_progress", {"index": downloaded, "total": self.amount})
+                self.log(f"[SUCCESS] Downloaded {filename} ({downloaded}/{self.amount})")
+            except Exception as e:
+                self.log(f"[FAILED] {media.id}: {e}")
+            await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    log_msg(name, f"Downloaded {downloaded} items.")
-    log_msg(name, "--- Worker Terminated ---")
+        self.log(f"Downloaded {downloaded} items.")
+
+    def run(self):
+        asyncio.run(self.run_async_loop(self.scraper_task))
+        self.log("--- Worker Terminated ---")
+
+
+def worker_pinterest(url_or_query, amount, is_search, net_config, min_w=0, min_h=0):
+    PinterestWorker(url_or_query, amount, is_search, net_config, min_w, min_h).run()

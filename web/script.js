@@ -211,11 +211,11 @@ async function resetWallpapersUI() {
 const socket = io();
 
 const WORKER_TO_TAB = {
-    "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
+    "neko": "neko", "nekos_life": "nekos_life", "nekosia": "nekosia", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
     "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
     "pinterest": "pinterest",
-    "pixiv": "pixiv"
+    "pixiv": "pixiv",
 };
 
 function updateProgressBar(worker, msg) {
@@ -433,9 +433,9 @@ function clearLog(tabID) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
         "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
-        "pixiv": "consoleLog_pixiv"
+        "pixiv": "consoleLog_pixiv",
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
@@ -446,9 +446,9 @@ function logToConsole(tabID, msg) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
         "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
-        "pixiv": "consoleLog_pixiv"
+        "pixiv": "consoleLog_pixiv",
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) {
@@ -483,6 +483,10 @@ async function startWorker(workerName) {
         if (mixed.includes(payload.category)) {
             payload.format = document.getElementById('nekosLifeFormat').value;
         }
+    } else if (workerName === 'nekosia') {
+        payload.tag = document.getElementById('nekosiaTag').value;
+        payload.limit = document.getElementById('nekosiaLimit').value;
+        payload.net_config.rating = document.getElementById('nekosiaRating').value;
     } else if (workerName === 'safe') {
         payload.tag = document.getElementById('safeTag').value;
         payload.limit = document.getElementById('safeLimit').value;
@@ -808,6 +812,19 @@ async function fetchSankaku(val) {
     } catch(e) {}
 }
 
+async function fetchNekosia(val) {
+    if (val.length < 2) return;
+    let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/nekosia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("nekosiaList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(" ") + (words.length>1?" ":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
 async function fetchAnimeDl(val) {
     if (val.length < 2) return;
     let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
@@ -1025,7 +1042,7 @@ async function clearImageHistory() {
 // ==========================================
 // === GALLERY SYSTEM ===
 // ==========================================
-let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
+let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 48 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
 let galleryGridSize = 140;
@@ -1119,9 +1136,14 @@ async function loadGallery(page) {
     const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
+    const grid = document.getElementById('galleryGrid');
+    const cellW = galleryGridSize || 140;
+    const cols = grid ? Math.max(2, Math.floor(grid.clientWidth / cellW)) : 4;
+    const rows = Math.max(2, Math.floor(window.innerHeight * 0.6 / (cellW * 0.75)));
+    const perPage = cols * rows;
     const params = new URLSearchParams({
         search, site, sort, type, rating,
-        page: currentGalleryPage, per_page: 24
+        page: currentGalleryPage, per_page: perPage
     });
     if (galleryFavFilter) params.set("favourites", "true");
     try {
@@ -1137,9 +1159,14 @@ async function loadGalleryPage(page, callback) {
     const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
+    const grid = document.getElementById('galleryGrid');
+    const cellW = galleryGridSize || 140;
+    const cols = grid ? Math.max(2, Math.floor(grid.clientWidth / cellW)) : 4;
+    const rows = Math.max(2, Math.floor(window.innerHeight * 0.6 / (cellW * 0.75)));
+    const perPage = cols * rows;
     const params = new URLSearchParams({
         search, site, sort, type, rating,
-        page, per_page: 24
+        page, per_page: perPage
     });
     if (galleryFavFilter) params.set("favourites", "true");
     try {

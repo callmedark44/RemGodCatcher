@@ -8,7 +8,7 @@ import hashlib
 from PIL import Image, PngImagePlugin
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
+MASTER_FOLDER = os.path.normpath(os.path.join(BASE_DIR, "Rem God"))
 HISTORY_LOCK = threading.Lock()
 GALLERY_LOCK = threading.RLock()
 STOP_EVENTS = {}
@@ -62,10 +62,10 @@ def save_gallery(data):
 def add_to_gallery(site, filename, filepath, tags_list, artists):
     with GALLERY_LOCK:
         gallery = load_gallery()
-        for img in gallery["images"]:
-            if img["filename"] == filename:
-                return
-
+        # ponytail: dict-by-filename avoids O(n) scan; upgrade to DB if gallery > 10k items
+        by_fn = {i["filename"]: i for i in gallery["images"]}
+        if filename in by_fn:
+            return
         gallery["images"].insert(0, {
             "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
             "filename": filename,
@@ -261,6 +261,8 @@ class BaseDownloader:
         else:
             if not self.stop_event.is_set():
                 self.log("Task finished. No new images to download.")
+            else:
+                self.log("Stop requested. Worker terminated.")
 
         if self.name in STOP_EVENTS and self.stop_event in STOP_EVENTS[self.name]:
             STOP_EVENTS[self.name].remove(self.stop_event)

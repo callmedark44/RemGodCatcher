@@ -22,6 +22,7 @@
             <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
             <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
             <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
+            <button class="tab-btn" onclick="openTab('Nekosia', this)">Nekosia</button>
             <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
             <button class="tab-btn" onclick="openTab('Pinterest', this)">Pinterest</button>
             <button class="tab-btn" onclick="openTab('Pixiv', this)">Pixiv</button>
@@ -361,7 +362,30 @@
                 </div>
             </div>
 
-<div id="NekosLife" class="tab-content" style="display: none;">
+<div id="Nekosia" class="tab-content" style="display: none;">
+                <h2>Nekosia Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <input type="text" id="nekosiaTag" list="nekosiaList" oninput="fetchNekosia(this.value)" placeholder="e.g. Blue Archive">
+                    <datalist id="nekosiaList"></datalist>
+                    <label>Rating:</label>
+                    <select id="nekosiaRating" style="width: 120px;">
+                        <option value="safe">Safe</option>
+                        <option value="suggestive">Suggestive</option>
+                    </select>
+                    <label>Amount:</label>
+                    <input type="number" id="nekosiaLimit" value="20" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('nekosia')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('nekosia')">STOP</button>
+                </div>
+                <div class="worker-progress" id="progressWrap_nekosia"><div class="worker-progress-fill" id="progress_nekosia"></div><span class="progress-text" id="progressText_nekosia">0%</span></div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('nekosia')">Clear</button>
+                    <div id="consoleLog_nekosia" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="NekosLife" class="tab-content" style="display: none;">
                 <h2>Nekos.life Downloader</h2>
                 <div class="input-group">
                     <label>Category:</label>

@@ -4,14 +4,16 @@
 
 **A modern, cross-platform image & video downloader with a glass-morphism web UI.**
 
-Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, and Danbooru with real-time logging, a built-in discovery engine, advanced tag filtering, anti-ban protections, and Hydrus sidecar file support.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
 [![Version](https://img.shields.io/badge/Version-4.2.0-ff9ff3.svg)](CHANGELOG.md)
 
-[English](README.md) | [فارسی](README_fa.md)
+<video controls width="720" src="assets/demo.mp4" alt="Demo">
+  Your browser does not support the video tag. <a href="assets/demo.mp4">Download the demo</a>.
+</video>
+
+> **Drop `assets/demo.mp4` and `assets/demo-poster.png` in the repo root to replace the placeholder above.**
 
 </div>
 
@@ -19,61 +21,52 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 ## Features
 
-- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
-- **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
-- **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
-- **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
-- **Video & GIF Support** -- Exclusively target `.mp4`, `.webm`, or GIF files via format filtering.
-- **GIFs Only Filter** -- Rule34 supports a dedicated GIFs Only mode alongside Images/Videos/All.
-- **Real-Time Logs** -- Live console output via WebSocket (Socket.IO) with per-tab clear button
-- **Full UI Customization** -- Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode
-- **Advanced Search** -- AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, category-based browsing
-- **Anti-Ban Engine** -- Tactical delays, retry loops, rate-limit handling
-- **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
-- **API Key Management** -- Manage Rule34 credentials directly from the Web UI
-- **Tag Auto-Suggest** -- Live autocomplete for all platforms including offline Konachan tag DB
-- **Hydrus Sidecar Files** -- Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import
-- **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
+- **Multi-Platform** — Built-in modules for 15 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, Nekosia, Pixiv, Pinterest, Anime-Pictures)
+- **Modern Web UI** — Glass-morphism dark & light themes, opens in your default browser
+- **Concurrent Downloads** — Run multiple tags and APIs simultaneously, each with independent progress
+- **Discovery Engine & Archives** — Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
+- **Favorites & Search History** — Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
+- **Video & GIF Support** — Exclusively target `.mp4`, `.webm`, or GIF files via format filtering.
+- **Ugoira-to-GIF** — Pixiv ugoira (animated illustrations) are automatically converted to GIF.
+- **Real-Time Logs** — Live console output via WebSocket (Socket.IO) with per-tab clear button.
+- **Full UI Customization** — Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode.
+- **Advanced Search** — AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, rating filters.
+- **Anti-Ban Engine** — Tactical delays, retry loops, rate-limit handling.
+- **Proxy Support** — Full proxy configuration from the UI (v2rayN, Clash, etc.).
+- **Tag Auto-Suggest** — Live autocomplete for all platforms with offline tag databases.
+- **Hydrus Sidecar Files** — Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import.
+- **Pixiv OAuth** — Login via Pixiv email/password or refresh token, with fallback to browser-based code authorization.
+- **Persistent Settings** — Proxy, API keys, and download settings saved in `.env`.
+
+---
+
+## Gallery
+
+<details>
+<summary><strong>Screenshots</strong> (click to expand)</summary>
+
+| Dark Theme | Light Theme |
+|---|---|
+| ![Dark Theme](assets/screenshot-dark.png) | ![Light Theme](assets/screenshot-light.png) |
+| **Downloads Tab** | **Gallery Tab** |
+| ![Downloads](assets/screenshot-downloads.png) | ![Gallery](assets/screenshot-gallery.png) |
+
+> Drop your screenshots as `assets/screenshot-*.png` in the repo root.
+
+</details>
 
 ---
 
 ## Quick Start
 
-### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/RemLover-Dev/RemGodCatcher.git
 cd RemGodCatcher
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
-```
-
-### 3. Configure (Optional)
-
-Edit `.env` or use the **Options** tab in the Web UI:
-
-```env
-RULE34_API_KEY=your_api_key_here
-RULE34_USER_ID=your_user_id_here
-USE_PROXY=false
-PROXY_URL=http://127.0.0.1:10808
-VERIFY_TLS=false
-API_TIMEOUT=10
-RETRY_WAIT=5
-ANTI_BAN_PAUSE=3.0
-```
-
-### 4. Run
-
-```bash
+pip install -r requirements.txt
 python Rem_catcher.py
 ```
 
-The Web UI opens automatically at `http://127.0.0.1:5000`.
+Opens at `http://127.0.0.1:5000`. Most features work immediately without configuration.
 
 ---
 
@@ -81,84 +74,74 @@ The Web UI opens automatically at `http://127.0.0.1:5000`.
 
 ```
 Rem God Catcher/
-├── Rem_catcher.py          # Python backend (Flask + Socket.IO)
-├── shared.py               # Core utilities, tag handler, and logging bridge
-├── workers/                # API-specific download modules
-├── tags.json               # Waifu.im tag database (name -> slug mapping)
-├── database/               # Tag databases & user data
-│   ├── dan_tag_names.json      # Danbooru offline tag database
-│   ├── safe_tag_names.json     # Safebooru offline tag database
-│   ├── yande_tag_names.json    # Yande.re offline tag database
-│   ├── kona_tag_names.json     # Konachan offline tag database (82k+ tags)
-│   ├── tag_history.json        # Search history database (git-ignored)
-│   ├── fav_tags.json           # User favorites database (git-ignored)
-│   ├── image_history.json      # Per-image tag archive (git-ignored)
-│   └── ui_config.json          # Theme & wallpaper config (git-ignored)
-├── .env                    # API keys & proxy config (git-ignored)
-├── .gitignore
-├── LICENSE
-├── README.md
-├── README_fa.md            # Persian documentation
+├── Rem_catcher.py          # Flask + Socket.IO backend
+├── shared.py               # Core utilities, BaseDownloader, gallery
+├── workers/                # API-specific download modules (15 workers)
+├── database/               # Tag databases & user data (git-ignored)
+├── web/                    # Frontend (index.html, script.js, style.css)
+├── assets/                 # Screenshots, demos, media
+├── README.html             # Rich HTML readme (supports video/GIF)
+├── requirements.txt        # Python dependencies
+├── .env.example            # Configuration template
 ├── CHANGELOG.md
-└── web/
-    ├── index.html           # Main HTML (tabs, forms, archives, settings)
-    ├── script.js            # Frontend logic (Socket.IO + fetch API)
-    ├── style.css            # Glass-morphism dark theme (Inter font)
-    ├── Fonts/               # Offline fonts (Playfair, MonoLisa)
-    └── wallpaper/           # Background images per tab (dark/light mode)
+├── README.md
+└── LICENSE
 ```
 
 ---
 
 ## Supported Platforms
 
-| Platform | Tags | NSFW | Notes |
-|----------|------|------|-------|
-| **Rule34** | Full search with AND/OR, exclusions, sorting, video format support | Yes | Requires API key for best results |
-| **Safebooru** | Standard tag search, video format support, artist extraction | No | May require proxy (Cloudflare) |
-| **Gelbooru** | Full search, format exclusions, video/GIF support, artist extraction | Yes | Danbooru-style rating system (Safe/Sensitive/Questionable/NSFW) |
-| **Danbooru** | Full tag search, rating filter, artist extraction, offline tag DB, video/image separation | Yes | Sorts into Safe/Sensitive/Questionable/NSFW folders, separates videos |
-| **Zerochan** | Tag search with live suggestions | No | Built-in retry & rate limiting |
-| **Waifu.im** | Name-to-slug conversion, NSFW toggle | Yes | Uses local `tags.json` for suggestions |
-| **Nekos.best** | Category-based (PNG / GIF) | No | Multiple format support |
-| **Nekos.life** | Category-based with type indicators (GIF/Static/Mixed) | Yes | Animated neko, hug, pat, cuddle, and more |
-| **Yande.re** | Full tag search, rating filter, artist extraction, local tag DB | Yes | Moebooru API, images only, sorts into Safe/Moderate/NSFW folders |
-| **Konachan** | Full tag search, rating filter, artist extraction, local tag DB, video/GIF format filtering | Yes | Moebooru API, sorts into Safe/Moderate/Explicit folders |
+| Platform | Tags | NSFW | Auth | Notes |
+|---|---|---|---|---|
+| **Rule34** | AND/OR, exclusions, sorting | Yes | Optional (key) | API key unlocks full results |
+| **Safebooru** | Standard tag | No | None | May need proxy (Cloudflare) |
+| **Gelbooru** | Full search, exclusions | Yes | Optional (key) | Rating-based subfolders |
+| **Danbooru** | Full tag, rating filter | Yes | None | Offline tag DB |
+| **Yande.re** | Full tag, rating filter | Yes | None | Moebooru API |
+| **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
+| **Sankaku** | Full tag, rating, exclusions | Yes | Login | OAuth token managed automatically |
+| **Zerochan** | Tag search with live suggestions | No | None | Built-in retry & rate limiting |
+| **Waifu.im** | Name-to-slug, NSFW toggle | Yes | None | Local `tags.json` |
+| **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
+| **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
+| **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
+| **Pixiv** | Search, bookmark, ranking, user | Yes | Refresh token | Ugoira-to-GIF, 4 modes |
+| **Pinterest** | Search, board URL | Varies | Cookies/email | Board URLs and keyword search |
+| **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
 
 ---
 
-## Getting Rule34 API Key
+## Authentication Quick Reference
 
-1. Register at [rule34.xxx](https://rule34.xxx)
-2. Go to **My Account** -> **Settings**
-3. Find the **API Key** section -> **Generate API Key**
-4. Copy your **User ID** from the profile URL
-5. Enter both in the **Options** tab of the Web UI
-
-> Never share your API keys publicly.
+| Service | What to get | Where to enter |
+|---|---|---|
+| Rule34 | API Key + User ID from account settings | Options tab |
+| Gelbooru | API Key from account options; User ID from URL | Options tab |
+| Sankaku | Login email + password (auto-login) | Options tab |
+| Pinterest | Cookies from browser, or email/password | Options tab |
+| Pixiv | Email + password (auto-get token) | Options tab |
 
 ---
 
-## Getting Gelbooru API Key
+## Download Folder Structure
 
-1. Register at [gelbooru.com](https://gelbooru.com)
-2. Go to **My Account** -> **Options**
-3. Under **Miscellaneous Options**, find **API Key** and click **Generate API Key**
-4. Copy your **User ID** from the profile URL (e.g. `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
-5. Enter both in the **Options** tab of the Web UI or add to `.env`:
-
-```env
-GELBOORU_API_KEY=your_api_key_here
-GELBOORU_USER_ID=your_user_id_here
 ```
-
-> Gelbooru limits results to 100 posts per page without an API key. With a key, you get access to all results and faster queries.
+Rem God/
+├── Danbooru/tag_name/
+│   ├── Safe/images/
+│   ├── Sensitive/images/
+│   ├── Questionable/images/
+│   └── NSFW/images/
+├── Pixiv/tag_name/General/images/
+└── Pinterest/query_or_board/images/
+```
 
 ---
 
 ## Disclaimer
 
-This software is provided for **educational and archiving purposes only**. Some supported APIs index NSFW content -- users must be of legal age in their jurisdiction. Please respect API rate limits and do not aggressively spam requests.
+For **educational and archiving purposes only**. Some APIs index NSFW content — users must be of legal age. Respect API rate limits.
 
 ---
 
