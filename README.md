@@ -95,22 +95,21 @@ Rem God Catcher/
 | Platform | Tags | NSFW | Auth | Notes |
 |---|---|---|---|---|
 | **Rule34** | AND/OR, exclusions, sorting | Yes | API key + User ID from account settings | Options tab |
-|| **Safebooru** | Standard tag | No | None | May need proxy (Cloudflare) |
-|| **Gelbooru** | Full search, exclusions | Yes | API Key + User ID from account | Options tab |
-|| **Danbooru** | Full tag, rating filter | Yes | None | Offline tag DB |
-|| **Yande.re** | Full tag, rating filter | Yes | None | Moebooru API |
-|| **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
-|| **Sankaku** | Full tag, rating, exclusions | Yes | Login email + password | Options tab (auto-login) |
-|| **Zerochan** | Tag search with live suggestions | No | None | Built-in retry & rate limiting |
-|| **Waifu.im** | Name-to-slug, NSFW toggle | Yes | None | Local `tags.json` |
-|| **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
-|| **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
-|| **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
-|| **Eshuushuu** | Tag name or numeric tag ID | Suggestive | None | Tag/user ID search fields |
-|| **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |
-|| **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
-|| **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
-
+| **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
+| **Danbooru** | Full tag, rating filter | Yes | None | Offline tag DB |
+| **Eshuushuu** | Tag name or numeric tag ID | Suggestive | None | Tag/user ID search fields |
+| **Gelbooru** | Full search, exclusions | Yes | API Key + User ID from account | Options tab |
+| **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
+| **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
+| **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
+| **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
+| **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
+| **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |
+| **Safebooru** | Standard tag | No | None | May need proxy (Cloudflare) |
+| **Sankaku** | Full tag, rating, exclusions | Yes | Login email + password | Options tab (auto-login) |
+| **Waifu.im** | Name-to-slug, NSFW toggle | Yes | None | Local `tags.json` |
+| **Yande.re** | Full tag, rating filter | Yes | None | Moebooru API |
+| **Zerochan** | Tag search with live suggestions | No | None | Built-in retry & rate limiting |
 ---
 
 ## Authentication Quick Reference
