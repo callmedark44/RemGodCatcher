@@ -214,6 +214,7 @@ const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "nekosia": "nekosia", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
     "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
+    "eshuushuu": "eshuushuu",
     "pinterest": "pinterest",
     "pixiv": "pixiv",
 };
@@ -258,6 +259,17 @@ function updateProgressBar(worker, msg) {
     }
 }
 
+// persist per-worker proxy toggle
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('worker-proxy-check')) {
+        const w = e.target.dataset.worker;
+        const wp = globalNetConfig.worker_proxy || {};
+        wp[w] = e.target.checked;
+        globalNetConfig.worker_proxy = wp;
+        fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(globalNetConfig)});
+    }
+}, true);
+
 socket.on("python_log", function (data) {
     updateProgressBar(data.worker, data.msg);
     logToConsole(data.worker, data.msg);
@@ -286,12 +298,16 @@ window.onload = async function () {
         let config = await resp.json();
         if (config) {
             globalNetConfig = config;
-            document.getElementById("proxyEnabled").checked = config.use_proxy || false;
             document.getElementById("proxyUrl").value = config.proxy_url || "http://127.0.0.1:10808";
             document.getElementById("apiTimeout").value = config.api_timeout || 10;
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
+            // restore per-worker proxy checkboxes
+            const wp = config.worker_proxy || {};
+            document.querySelectorAll(".worker-proxy-check").forEach(cb => {
+                cb.checked = wp[cb.dataset.worker] || false;
+            });
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -396,7 +412,6 @@ function updateNekosLifeFormatHint() {
 }
 
 async function saveProxySettings() {
-    globalNetConfig.use_proxy = document.getElementById("proxyEnabled").checked;
     globalNetConfig.proxy_url = document.getElementById("proxyUrl").value;
     try {
         await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
@@ -426,6 +441,10 @@ function openTab(tabName, btn) {
     document.getElementById(tabName).style.display = "flex";
     btn.classList.add("active");
     updateBackground(tabName);
+    if (tabName === "Gallery" && !window._galleryFirstLoad) {
+        window._galleryFirstLoad = true;
+        setTimeout(() => loadGallery(1), 50);
+    }
 }
 
 function clearLog(tabID) {
@@ -434,7 +453,7 @@ function clearLog(tabID) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
+        "anime_dl": "consoleLog_anime_dl", "eshuushuu": "consoleLog_eshuushuu", "pinterest": "consoleLog_pinterest",
         "pixiv": "consoleLog_pixiv",
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
@@ -447,7 +466,7 @@ function logToConsole(tabID, msg) {
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
         "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
-        "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest",
+        "anime_dl": "consoleLog_anime_dl", "eshuushuu": "consoleLog_eshuushuu", "pinterest": "consoleLog_pinterest",
         "pixiv": "consoleLog_pixiv",
     };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
@@ -487,6 +506,11 @@ async function startWorker(workerName) {
         payload.tag = document.getElementById('nekosiaTag').value;
         payload.limit = document.getElementById('nekosiaLimit').value;
         payload.net_config.rating = document.getElementById('nekosiaRating').value;
+    } else if (workerName === 'eshuushuu') {
+        payload.tag = document.getElementById('eshuushuuTag').value;
+        payload.limit = document.getElementById('eshuushuuLimit').value;
+        payload.user_id = document.getElementById('eshuushuuUserId').value;
+        payload.exclusions = [];
     } else if (workerName === 'safe') {
         payload.tag = document.getElementById('safeTag').value;
         payload.limit = document.getElementById('safeLimit').value;
@@ -630,6 +654,12 @@ async function startWorker(workerName) {
         }
     }
     
+    // per-worker proxy: checkbox in the worker's tab
+    const TAB_IDS = {anime_dl:"AnimeDL",dan:"Danbooru",gelbooru:"Gelbooru",kona:"Kona",neko:"Neko",nekosia:"Nekosia",eshuushuu:"Eshuushuu",nekos_life:"NekosLife",pinterest:"Pinterest",pixiv:"Pixiv",rule34:"Rule34",safe:"Safe",sankaku:"Sankaku",waifu:"Waifu",yande:"Yande",zero:"Zero",main:"Main"};
+    const tabId = TAB_IDS[workerName] || (workerName.charAt(0).toUpperCase() + workerName.slice(1));
+    const proxyBox = document.querySelector(`#${tabId} .worker-proxy-check`);
+    payload.net_config.use_proxy = proxyBox ? proxyBox.checked : false;
+
     socket.emit("start_worker", payload);
 
     let key = WORKER_TO_TAB[workerName];
@@ -960,11 +990,12 @@ function jumpToSite(site, tag) {
         "yande":     { tab: "Yande",    input: "yandeTag" },
         "kona":      { tab: "Kona",     input: "konaTag" },
         "dan":       { tab: "Danbooru", input: "danTag" },
-        "rule34":    { tab: "Rule34",    input: "rule34Tag" },
+        "rule34":    { tab: "Rule34",   input: "rule34Tag" },
         "sankaku":   { tab: "Sankaku",  input: "sankakuTag" },
         "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" },
-        "pinterest": { tab: "Pinterest", input: "pinterestTag" },
-        "pixiv": { tab: "Pixiv", input: null }
+        "pinterest": { tab: "Pinterest",input: "pinterestTag" },
+        "pixiv":     { tab: "Pixiv",    input: null },
+        "eshuushuu": { tab: "E-Shuushuu", input: "eshuushuuTag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
 
@@ -999,7 +1030,7 @@ function renderImageHistory() {
             let artistHtml = img.artists && img.artists.length > 0 
                 ? `<div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">
                        <span style="color: var(--title-color); font-size: 12px; font-weight: bold;">Artists:</span> 
-                       <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.join(', ')}</span>
+                       <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.map(a => a.startsWith('__user__:') ? a.slice(9) : a).join(', ')}</span>
                    </div>` 
                 : "";
 
@@ -1397,6 +1428,20 @@ function showViewerImage() {
         viewerImg.src = fullSrc;
     }
 
+    // eshuushuu uploader label
+    let oldLabel = document.getElementById('galleryViewerUser');
+    if (oldLabel) oldLabel.remove();
+    if (img.artists) {
+        let user = img.artists.find(a => a.startsWith('__user__:'));
+        if (user) {
+            let name = user.replace('__user__:', '');
+            let el = document.createElement('div');
+            el.id = 'galleryViewerUser';
+            el.textContent = 'by: ' + name;
+            viewer.appendChild(el);
+        }
+    }
+
     document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡';
     viewer.style.display = 'flex';
 }
@@ -1734,3 +1779,36 @@ document.addEventListener('click', function(e) {
         document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open'));
     }
 });
+
+// E-Shuushuu tag autocomplete
+const eshuTagInput = document.getElementById('eshuushuuTag');
+const eshuTypeSpan = document.getElementById('eshuushuuType');
+const eshuDatalist = document.getElementById('eshuushuuList');
+let eshuDebounce = null;
+
+if (eshuTagInput) {
+    eshuTagInput.addEventListener('input', function() {
+        clearTimeout(eshuDebounce);
+        eshuDebounce = setTimeout(() => {
+            const q = this.value.trim();
+            if (q.length < 2) { eshuDatalist.innerHTML = ''; if (eshuTypeSpan) eshuTypeSpan.textContent = ''; return; }
+            fetch('/api/tags/eshuushuu', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({query: q})
+            }).then(r => r.json()).then(data => {
+                eshuDatalist.innerHTML = '';
+                if (eshuTypeSpan && data.length > 0) {
+                    const f = data[0];
+                    eshuTypeSpan.textContent = f.type_name ? `(${f.type_name})` : '';
+                }
+                data.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.title;
+                    opt.setAttribute('data-tag-id', item.tag_id);
+                    opt.setAttribute('data-type', item.type_name || '');
+                    eshuDatalist.appendChild(opt);
+                });
+            }).catch(() => {});
+        }, 250);
+    });
+}

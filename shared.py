@@ -154,6 +154,8 @@ class BaseDownloader:
         if self.net_config.get("use_proxy"):
             p = self.net_config.get("proxy_url")
             session.proxies = {"http": p, "https": p}
+        else:
+            session.proxies = {"http": "", "https": "", "no_proxy": "*"}
         session.verify = self.net_config.get("verify_tls", False)
 
         session.headers.update({

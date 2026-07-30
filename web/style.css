@@ -796,6 +796,20 @@ select option {
 .gallery-viewer-nav:hover { background: rgba(60,60,60,0.8); color: #fff; }
 .gallery-viewer-nav.prev { left: 12px; }
 .gallery-viewer-nav.next { right: 12px; }
+#galleryViewerUser {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 1001;
+    white-space: nowrap;
+}
 .gallery-viewer-top-btn {
     position: fixed;
     top: 14px;

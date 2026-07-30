@@ -46,6 +46,7 @@ from workers.anime_dl import worker_anime_dl
 from workers.pinterest_worker import worker_pinterest
 from workers.pixiv import worker_pixiv, get_refresh_token, submit_pixiv_code
 from workers.nekosia import worker_nekosia
+from workers.eshuushuu import worker_eshuushuu
 
 # ── Tag DB globals ──────────────────────────────────────────────
 SAFE_TAGS_DB = []
@@ -63,6 +64,7 @@ DATABASE_DIR = os.path.join(_BASE_DIR, "database")
 STARTUP_CONFIG = {
     "use_proxy": os.getenv("USE_PROXY", "false").lower() == "true",
     "proxy_url": os.getenv("PROXY_URL", "http://127.0.0.1:10808"),
+    "worker_proxy": json.loads(os.getenv("WORKER_PROXY", "{}") or "{}"),
     "verify_tls": os.getenv("VERIFY_TLS", "false").lower() == "true",
     "api_timeout": int(os.getenv("API_TIMEOUT", "10")),
     "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
@@ -292,10 +294,28 @@ class RemGodCatcherApp:
         for route, name, db in [
             ("/api/tags/safe", "safe", SAFE_TAGS_DB), ("/api/tags/yande", "yande", YANDE_TAGS_DB),
             ("/api/tags/kona", "kona", KONA_TAGS_DB), ("/api/tags/dan", "dan", DAN_TAGS_DB),
-            ("/api/tags/sankaku", "sankaku", SANKAKU_TAGS_DB), ("/api/tags/anime_dl", "anime_dl", ANIME_TAGS_DB),
+            ("/api/tags/sankaku", "sankaku", SANKAKU_TAGS_DB),
+            ("/api/tags/anime_dl", "anime_dl", ANIME_TAGS_DB),
             ("/api/tags/nekosia", "nekosia", NEKOSIA_TAGS_DB),
         ]:
             self.app.route(route, methods=["POST"])(_make(name, db))
+
+        @self.app.route("/api/tags/eshuushuu", methods=["POST"])
+        def _eshuushuu_suggest():
+            q = request.json.get("query", "").lower()
+            if not q:
+                return jsonify([])
+            results = []
+            for t in ESHUSHU_TAGS_DB:
+                if t["title"].lower().startswith(q):
+                    results.append({
+                        "title": t["title"],
+                        "tag_id": t["tag_id"],
+                        "type_name": t.get("type_name", ""),
+                    })
+                    if len(results) >= 50:
+                        break
+            return jsonify(results)
 
         @self.app.route("/api/tags/rule34", methods=["POST"])
         def _rule34_suggest():
@@ -583,6 +603,7 @@ class RemGodCatcherApp:
             "anime_dl": (worker_anime_dl,     lambda d: (d["tag"], int(d.get("limit", 50)), d["net_config"])),
             "pixiv":    (worker_pixiv,        lambda d: (d["tag"], int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d["net_config"])),
             "nekosia":  (worker_nekosia,      lambda d: (d.get("tag", "waifu"), int(d.get("limit", 50)), d["net_config"])),
+            "eshuushuu": (worker_eshuushuu, lambda d: (d["tag"], int(d.get("limit", 50)), d.get("exclusions", []), d.get("user_id", ""), d["net_config"])),
         }
 
         entry = _DISPATCH.get(worker)
@@ -599,6 +620,7 @@ class RemGodCatcherApp:
         keys = {
             "USE_PROXY": "true" if STARTUP_CONFIG.get("use_proxy") else "false",
             "PROXY_URL": STARTUP_CONFIG.get("proxy_url", ""),
+            "WORKER_PROXY": json.dumps(STARTUP_CONFIG.get("worker_proxy", {})),
             "VERIFY_TLS": "true" if STARTUP_CONFIG.get("verify_tls") else "false",
             "API_TIMEOUT": str(STARTUP_CONFIG.get("api_timeout", 10)),
             "RETRY_WAIT": str(STARTUP_CONFIG.get("retry_wait", 5)),
@@ -685,13 +707,15 @@ class RemGodCatcherApp:
         images = gallery.get("images", [])
         fp_cache = self._build_filepath_cache()
         dirty = False
-        for img in images:
+        for img in list(images):
             cached = fp_cache.get(img.get("filename", ""))
             if cached:
                 if img.get("filepath") != cached:
                     img["filepath"] = cached; dirty = True
             elif img.get("filepath"):
                 del img["filepath"]; dirty = True
+            elif not img.get("filepath"):
+                images.remove(img); dirty = True
         if dirty:
             shared.save_gallery(gallery)
             images = gallery.get("images", [])
@@ -825,6 +849,17 @@ def load_dan_db(): _load_tag_db("DAN_TAGS_DB", "dan_tag_names.json")
 def load_sankaku_db(): _load_tag_db("SANKAKU_TAGS_DB", "sankaku_tag_names.json")
 load_nekosia_db = lambda: _load_tag_db("NEKOSIA_TAGS_DB", "nekosia_tag_names.json")
 
+ESHUSHU_TAGS_DB = []
+
+def load_eshuushuu_db():
+    global ESHUSHU_TAGS_DB
+    p = os.path.join(DATABASE_DIR, "eshuushuu_tags.json")
+    if os.path.exists(p):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                ESHUSHU_TAGS_DB = json.load(f)
+        except Exception: pass
+
 def load_anime_dl_db():
     global ANIME_TAGS_DB
     p = os.path.join(DATABASE_DIR, "anime_tags.json")
@@ -881,6 +916,7 @@ if __name__ == "__main__":
     load_dan_db()
     load_sankaku_db()
     load_nekosia_db()
+    load_eshuushuu_db()
     load_anime_dl_db()
     startup_rescan()
 
