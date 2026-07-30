@@ -110,7 +110,6 @@ Rem God Catcher/
 || **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |
 || **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
 || **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
-|| **DeviantArt** | Tag browsing, popular, user gallery | Yes/No | OAuth2 client ID + secret | Options tab |
 
 ---
 
@@ -123,17 +122,11 @@ Rem God Catcher/
 | Sankaku | Login email + password (auto-login) | Options tab |
 | Pinterest | Browser cookies (export from DevTools) or email + password | Options tab |
 | Pixiv | OAuth2 refresh token — click "Get Token" to generate via browser | Options tab |
-| DeviantArt | OAuth2 client ID + secret | register at https://www.deviantart.com/developers/ |
 
 ### Pixiv token setup
 1. Enter your Pixiv email and password in the Options tab  
 2. Click **"Get Token"** — the app opens a browser for OAuth2 authorization  
 3. Approve the scopes, the refresh token is auto-saved to `.env` as `PIXIV_REFRESH_TOKEN`
-
-### DeviantArt setup
-1. Register an app at https://www.deviantart.com/developers/  
-2. Copy the **Client ID** and **Client Secret** into the Options tab  
-3. No separate token step needed — the app auto-authenticates via client credentials grant
 
 ---
 
