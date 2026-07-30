@@ -32,7 +32,7 @@
 - **Full UI Customization** — Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode.
 - **Advanced Search** — AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, rating filters.
 - **Anti-Ban Engine** — Tactical delays, retry loops, rate-limit handling.
-- **Proxy Support** — Full proxy configuration from the UI (v2rayN, Clash, etc.).
+|- **Proxy Support** — Per-worker proxy toggle in each worker tab. Set proxy URL in Options tab, enable per-worker.
 - **Tag Auto-Suggest** — Live autocomplete for all platforms with offline tag databases.
 - **Hydrus Sidecar Files** — Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import.
 - **Pixiv OAuth** — Login via Pixiv email/password or refresh token, with fallback to browser-based code authorization.
@@ -94,21 +94,23 @@ Rem God Catcher/
 
 | Platform | Tags | NSFW | Auth | Notes |
 |---|---|---|---|---|
-| **Rule34** | AND/OR, exclusions, sorting | Yes | Optional (key) | API key unlocks full results |
-| **Safebooru** | Standard tag | No | None | May need proxy (Cloudflare) |
-| **Gelbooru** | Full search, exclusions | Yes | Optional (key) | Rating-based subfolders |
-| **Danbooru** | Full tag, rating filter | Yes | None | Offline tag DB |
-| **Yande.re** | Full tag, rating filter | Yes | None | Moebooru API |
-| **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
-| **Sankaku** | Full tag, rating, exclusions | Yes | Login | OAuth token managed automatically |
-| **Zerochan** | Tag search with live suggestions | No | None | Built-in retry & rate limiting |
-| **Waifu.im** | Name-to-slug, NSFW toggle | Yes | None | Local `tags.json` |
-| **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
-| **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
-| **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
-| **Pixiv** | Search, bookmark, ranking, user | Yes | Refresh token | Ugoira-to-GIF, 4 modes |
-| **Pinterest** | Search, board URL | Varies | Cookies/email | Board URLs and keyword search |
-| **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
+| **Rule34** | AND/OR, exclusions, sorting | Yes | API key + User ID from account settings | Options tab |
+|| **Safebooru** | Standard tag | No | None | May need proxy (Cloudflare) |
+|| **Gelbooru** | Full search, exclusions | Yes | API Key + User ID from account | Options tab |
+|| **Danbooru** | Full tag, rating filter | Yes | None | Offline tag DB |
+|| **Yande.re** | Full tag, rating filter | Yes | None | Moebooru API |
+|| **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
+|| **Sankaku** | Full tag, rating, exclusions | Yes | Login email + password | Options tab (auto-login) |
+|| **Zerochan** | Tag search with live suggestions | No | None | Built-in retry & rate limiting |
+|| **Waifu.im** | Name-to-slug, NSFW toggle | Yes | None | Local `tags.json` |
+|| **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
+|| **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
+|| **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
+|| **Eshuushuu** | Tag name or numeric tag ID | Suggestive | None | Tag/user ID search fields |
+|| **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |
+|| **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
+|| **Anime-Pictures** | Tag search | No | None | Cookie bypass built in |
+|| **DeviantArt** | Tag browsing, popular, user gallery | Yes/No | OAuth2 client ID + secret | Options tab |
 
 ---
 
@@ -117,10 +119,21 @@ Rem God Catcher/
 | Service | What to get | Where to enter |
 |---|---|---|
 | Rule34 | API Key + User ID from account settings | Options tab |
-| Gelbooru | API Key from account options; User ID from URL | Options tab |
+| Gelbooru | API Key + User ID from account options | Options tab |
 | Sankaku | Login email + password (auto-login) | Options tab |
-| Pinterest | Cookies from browser, or email/password | Options tab |
-| Pixiv | Email + password (auto-get token) | Options tab |
+| Pinterest | Browser cookies (export from DevTools) or email + password | Options tab |
+| Pixiv | OAuth2 refresh token — click "Get Token" to generate via browser | Options tab |
+| DeviantArt | OAuth2 client ID + secret | register at https://www.deviantart.com/developers/ |
+
+### Pixiv token setup
+1. Enter your Pixiv email and password in the Options tab  
+2. Click **"Get Token"** — the app opens a browser for OAuth2 authorization  
+3. Approve the scopes, the refresh token is auto-saved to `.env` as `PIXIV_REFRESH_TOKEN`
+
+### DeviantArt setup
+1. Register an app at https://www.deviantart.com/developers/  
+2. Copy the **Client ID** and **Client Secret** into the Options tab  
+3. No separate token step needed — the app auto-authenticates via client credentials grant
 
 ---
 
