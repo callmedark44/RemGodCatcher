@@ -13,8 +13,6 @@
   Your browser does not support the video tag. <a href="assets/demo.mp4">Download the demo</a>.
 </video>
 
-> **Drop `assets/demo.mp4` and `assets/demo-poster.png` in the repo root to replace the placeholder above.**
-
 </div>
 
 ---
