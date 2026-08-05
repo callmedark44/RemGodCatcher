@@ -62,11 +62,13 @@ class ZerochanWorker(BaseDownloader):
         if not username or not password:
             self.log("gallery-dl fallback skipped: no ZEROCHAN_USERNAME/PASSWORD set")
             return []
+        cmd = ["gallery-dl", "-u", username, "-p", password]
+        if self.net_config.get("use_proxy"):
+            cmd.extend(["--proxy", self.net_config["proxy_url"]])
+        cmd.extend(["-g", f"https://www.zerochan.net/{tag}"])
         try:
-            # Use gallery-dl -g to get URLs and extract post IDs from them
             result = subprocess.run(
-                ["gallery-dl", "-u", username, "-p", password,
-                 "-g", f"https://www.zerochan.net/{tag}"],
+                cmd,
                 capture_output=True, text=True, timeout=120, check=True
             )
             post_ids = []
