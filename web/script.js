@@ -2,6 +2,14 @@ let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false
 let uiConfig = {};
 let currentActiveTheme = 'dark';
 
+// escape for HTML text content and for single-quoted strings inside onclick attrs
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function js(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
     if (uiConfig.theme_mode === 'system') {
         applyRenderTheme(e.matches ? 'dark' : 'light');
@@ -227,7 +235,7 @@ function updateProgressBar(worker, msg) {
     let txt = document.getElementById("progressText_" + key);
     if (!wrap || !fill || !txt) return;
 
-    if (msg.includes("Phase 2: Starting parallel download")) {
+    if (msg.includes("Phase 2: Starting")) {
         wrap.classList.add("active");
         fill.classList.remove("done");
         fill.style.width = "0%";
@@ -245,7 +253,7 @@ function updateProgressBar(worker, msg) {
         return;
     }
 
-    if (msg.includes("--- All") && msg.includes("downloads completed")) {
+    if (msg.includes("--- All") && (msg.includes("downloads completed") || msg.includes("download completed"))) {
         fill.classList.add("done");
         fill.style.width = "100%";
         txt.textContent = "100%";
@@ -494,6 +502,7 @@ async function startWorker(workerName) {
     } else if (workerName === 'neko') {
         payload.category = document.getElementById('nekoCat').value;
         payload.limit = document.getElementById('nekoAmount').value;
+        payload.format = document.getElementById('nekoFormat').value === 'GIFs' ? 'gif' : 'image';
     } else if (workerName === 'nekos_life') {
         payload.category = document.getElementById('nekosLifeCat').value;
         payload.limit = document.getElementById('nekosLifeAmount').value;
@@ -702,6 +711,8 @@ async function loadApiSettings() {
     document.getElementById("pixivLoginEmail").value = settings.pixiv_login_email || "";
     document.getElementById("pixivLoginPassword").value = settings.pixiv_login_password || "";
     document.getElementById("pixivToken").value = settings.pixiv_refresh_token || "";
+    document.getElementById("zerochanUsername").value = settings.zerochan_username || "";
+    document.getElementById("zerochanPassword").value = settings.zerochan_password || "";
 }
 
 async function saveApiSettings() {
@@ -717,7 +728,9 @@ async function saveApiSettings() {
         pinterest_password: document.getElementById("pinterestPassword").value.trim(),
         pixiv_login_email: document.getElementById("pixivLoginEmail").value.trim(),
         pixiv_login_password: document.getElementById("pixivLoginPassword").value.trim(),
-        pixiv_refresh_token: document.getElementById("pixivToken").value.trim()
+        pixiv_refresh_token: document.getElementById("pixivToken").value.trim(),
+        zerochan_username: document.getElementById("zerochanUsername").value.trim(),
+        zerochan_password: document.getElementById("zerochanPassword").value.trim()
     };
     let resp = await fetch("/api/api-settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -911,13 +924,13 @@ function renderHistory() {
             htmlStr += `
                 <div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <div>
-                        <span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span>
-                        <span style="font-size: 14px; color: var(--text-color);">${item.tag}</span>
+                        <span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${esc(item.site)}</span>
+                        <span style="font-size: 14px; color: var(--text-color);">${esc(item.tag)}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button>
-                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button>
-                        <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button>
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${js(item.site)}', '${js(item.tag)}')">&rarr;</button>
+                        <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color);" onclick="toggleFavorite('${js(item.site)}', '${js(item.tag)}')">${heartIcon}</button>
+                        <button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${js(item.site)}', '${js(item.tag)}')">&times;</button>
                     </div>
                 </div>
             `;
@@ -939,12 +952,12 @@ function renderFavorites() {
     favoriteTags.forEach(item => {
         ui.innerHTML += `
             <div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;">
-                <span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);">
+                <span onclick="jumpToSite('${js(item.site)}', '${js(item.tag)}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);">
                     <span>✦</span>
-                    <span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span>
-                    <span>${item.tag}</span>
+                    <span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${esc(item.site)}]</span>
+                    <span>${esc(item.tag)}</span>
                 </span>
-                <button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button>
+                <button onclick="event.stopPropagation(); toggleFavorite('${js(item.site)}', '${js(item.tag)}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button>
             </div>
         `;
     });
@@ -995,11 +1008,15 @@ function jumpToSite(site, tag) {
         "anime_dl":  { tab: "AnimeDL",  input: "animeDlTag" },
         "pinterest": { tab: "Pinterest",input: "pinterestTag" },
         "pixiv":     { tab: "Pixiv",    input: null },
-        "eshuushuu": { tab: "E-Shuushuu", input: "eshuushuuTag" }
+        "eshuushuu": { tab: "Eshuushuu", input: "eshuushuuTag" }
     };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
 
-    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
+    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => {
+        let a = el.textContent.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let b = mapping.tab.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return b && a.includes(b);
+    });
     if(btn) openTab(mapping.tab, btn);
 
     if(mapping.input) {
@@ -1024,21 +1041,21 @@ function renderImageHistory() {
                 let bgColor = isFav ? "var(--tab-active-bg)" : "var(--input-bg)";
                 let borderColor = isFav ? "var(--accent-color)" : "transparent";
                 let textColor = isFav ? "var(--accent-color)" : "var(--text-color)";
-                return `<span onclick="addFavoriteFromImage('${img.site}', '${t}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${t}</span>`;
+                return `<span onclick="addFavoriteFromImage('${js(img.site)}', '${js(t)}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${esc(t)}</span>`;
             }).join('');
 
-            let artistHtml = img.artists && img.artists.length > 0 
+            let artistHtml = img.artists && img.artists.length > 0
                 ? `<div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">
-                       <span style="color: var(--title-color); font-size: 12px; font-weight: bold;">Artists:</span> 
-                       <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.map(a => a.startsWith('__user__:') ? a.slice(9) : a).join(', ')}</span>
-                   </div>` 
+                       <span style="color: var(--title-color); font-size: 12px; font-weight: bold;">Artists:</span>
+                       <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.map(a => esc(a.startsWith('__user__:') ? a.slice(9) : a)).join(', ')}</span>
+                   </div>`
                 : "";
 
             htmlStr += `
                 <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); position: relative;">
-                    <button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&times;</button>
-                    <h3 style="color: var(--text-color); font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3>
-                    
+                    <button onclick="removeImageHistory('${js(img.filename)}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&times;</button>
+                    <h3 style="color: var(--text-color); font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${esc(img.filename)} <span style="font-size: 10px; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${esc(img.site)}</span></h3>
+
                     <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding-right: 5px;">
                         ${tagsHtml}
                     </div>

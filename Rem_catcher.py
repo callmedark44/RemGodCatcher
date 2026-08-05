@@ -4,7 +4,7 @@ Every worker inherits BaseDownloader (shared.py). The App class owns
 the Flask + SocketIO server and dispatches workers as asyncio tasks.
 """
 
-import os, sys, threading, time, json, hashlib, re, urllib.parse, webbrowser
+import os, sys, threading, time, json, hashlib, re, urllib.parse, webbrowser, random
 from datetime import datetime
 from functools import lru_cache
 
@@ -164,10 +164,13 @@ class RemGodCatcherApp:
 
         @self.app.route("/api/folder", methods=["GET", "POST"])
         def _folder_manager():
+            global MASTER_FOLDER
             if request.method == "POST":
                 folder = request.json.get("folder", "")
                 if folder:
                     shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
+                    MASTER_FOLDER = shared.MASTER_FOLDER
+                    self._build_filepath_cache.cache_clear()
                     return jsonify({"folder": shared.MASTER_FOLDER})
             return jsonify({"folder": shared.MASTER_FOLDER})
 
@@ -184,6 +187,8 @@ class RemGodCatcherApp:
                     "PINTEREST_PASSWORD": "pinterest_password",
                     "PIXIV_LOGIN_EMAIL": "pixiv_login_email", "PIXIV_LOGIN_PASSWORD": "pixiv_login_password",
                     "PIXIV_REFRESH_TOKEN": "pixiv_refresh_token",
+                    "ZEROCHAN_USERNAME": "zerochan_username",
+                    "ZEROCHAN_PASSWORD": "zerochan_password",
                 }
                 for env_k, json_k in keys.items():
                     os.environ[env_k] = data.get(json_k, "")
@@ -208,6 +213,8 @@ class RemGodCatcherApp:
                 "pixiv_login_email": config.get("PIXIV_LOGIN_EMAIL", ""),
                 "pixiv_login_password": config.get("PIXIV_LOGIN_PASSWORD", ""),
                 "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", ""),
+                "zerochan_username": config.get("ZEROCHAN_USERNAME", ""),
+                "zerochan_password": config.get("ZEROCHAN_PASSWORD", ""),
             })
 
         # --- Upload wallpaper ---
@@ -419,8 +426,9 @@ class RemGodCatcherApp:
 
         @self.app.route("/api/gallery/file/<path:filepath>")
         def _gallery_file(filepath):
-            full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
-            if not full.startswith(str(MASTER_FOLDER)):
+            root = os.path.realpath(MASTER_FOLDER)
+            full = os.path.realpath(os.path.join(MASTER_FOLDER, filepath))
+            if full != root and not full.startswith(root + os.sep):
                 return "Forbidden", 403
             if os.path.isfile(full):
                 return send_file(full)
@@ -428,8 +436,9 @@ class RemGodCatcherApp:
 
         @self.app.route("/api/gallery/thumb/<path:filepath>")
         def _gallery_thumb(filepath):
-            full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
-            if not full.startswith(str(MASTER_FOLDER)):
+            root = os.path.realpath(MASTER_FOLDER)
+            full = os.path.realpath(os.path.join(MASTER_FOLDER, filepath))
+            if full != root and not full.startswith(root + os.sep):
                 return "Forbidden", 403
             if not os.path.isfile(full):
                 return "Not found", 404
@@ -439,9 +448,12 @@ class RemGodCatcherApp:
             if ext in EXT_VIDEO:
                 thumb = os.path.join(THUMB_CACHE, key + ".jpg")
                 if not os.path.exists(thumb):
-                    subprocess.run(["ffmpeg", "-y", "-i", full, "-vframes", "1",
-                                    "-q:v", "2", thumb],
-                                   capture_output=True, timeout=10)
+                    try:
+                        subprocess.run(["ffmpeg", "-y", "-i", full, "-vframes", "1",
+                                        "-q:v", "2", thumb],
+                                       capture_output=True, timeout=10)
+                    except Exception:
+                        pass
                 if os.path.exists(thumb):
                     return send_file(thumb, mimetype='image/jpeg')
                 return send_file(full)
@@ -475,18 +487,18 @@ class RemGodCatcherApp:
         def _import_gallery():
             hist = self._load_json_db(IMAGE_HISTORY_FILE)
             gallery = shared.load_gallery()
-            existing = {i["filename"] for i in gallery["images"]}
+            existing = {(i.get("site",""), i["filename"]) for i in gallery["images"]}
             fp_cache = self._build_filepath_cache()
             count = 0
             for entry in hist:
                 fn = entry.get("filename", "")
-                if fn and fn not in existing:
+                if fn and (entry.get("site",""), fn) not in existing:
                     gallery["images"].append({
                         "id": hashlib.sha256(f"{entry.get('site','')}:{fn}".encode()).hexdigest()[:12],
-                        "filename": fn, "filepath": fp_cache.get(fn, ""),
+                        "filename": fn, "filepath": (fp_cache.get(fn) or [""])[0],
                         "site": entry.get("site", ""), "tags": entry.get("tags", []),
                         "artists": entry.get("artists", []), "favourite": False, "downloaded_at": ""})
-                    existing.add(fn); count += 1
+                    existing.add((entry.get("site",""), fn)); count += 1
             shared.save_gallery(gallery)
             return jsonify({"success": True, "imported": count})
 
@@ -591,7 +603,7 @@ class RemGodCatcherApp:
         _DISPATCH = {
             "zero":     (worker_zerochan,     lambda d: (d["tag"], int(d.get("limit", 50)), d["net_config"])),
             "waifu":    (worker_waifu,        lambda d: (d["tag"], int(d.get("limit", 30)), d.get("nsfw", False), d["net_config"])),
-            "neko":     (worker_nekos_best,   lambda d: (d["category"], int(d.get("limit", 20)), d["net_config"])),
+            "neko":     (worker_nekos_best,   lambda d: (d["category"], int(d.get("limit", 20)), d.get("format", "image"), d["net_config"])),
             "safe":     (worker_safebooru,    lambda d: (d["tag"], int(d.get("limit", 50)), d.get("exclusions", []), d["net_config"])),
             "rule34":   (worker_rule34,       lambda d: (d["tag"], int(d.get("limit", 50)), d.get("method", "and"), d.get("sort_type", "id"), d.get("sort_order", "desc"), d.get("exclusions", []), d["net_config"])),
             "gelbooru": (worker_gelbooru,    lambda d: (d["tag"], int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d["net_config"])),
@@ -630,7 +642,8 @@ class RemGodCatcherApp:
         for k in ("RULE34_API_KEY", "RULE34_USER_ID", "GELBOORU_API_KEY", "GELBOORU_USER_ID",
                   "SANKA_LOGIN", "SANKA_PASSWORD",
                   "PINTEREST_COOKIES", "PINTEREST_EMAIL", "PINTEREST_PASSWORD",
-                  "PIXIV_LOGIN_EMAIL", "PIXIV_LOGIN_PASSWORD", "PIXIV_REFRESH_TOKEN"):
+                  "PIXIV_LOGIN_EMAIL", "PIXIV_LOGIN_PASSWORD", "PIXIV_REFRESH_TOKEN",
+                  "ZEROCHAN_USERNAME", "ZEROCHAN_PASSWORD"):
             keys[k] = os.environ.get(k, "")
         lines = []
         if os.path.exists(env_path):
@@ -673,6 +686,9 @@ class RemGodCatcherApp:
             s.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "text/html,application/json,*/*"})
             a = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=2.0, status_forcelist=[429,500,502,503,504], allowed_methods=["GET"]))
             s.mount("https://", a); s.mount("http://", a)
+            _zc_user = os.getenv("ZEROCHAN_USERNAME", "")
+            if _zc_user:
+                s.headers["User-Agent"] = f"RemGodCatcher - {_zc_user}"
         elif site in ("waifu", "neko"):
             s.headers.update({"Accept": "application/json"})
         elif site == "yande":
@@ -690,7 +706,7 @@ class RemGodCatcherApp:
             for fn in files:
                 ext = os.path.splitext(fn)[1].lower()
                 if ext in RemGodCatcherApp.EXT_IMAGE | RemGodCatcherApp.EXT_VIDEO:
-                    cache[fn] = os.path.relpath(os.path.join(root, fn), MASTER_FOLDER)
+                    cache.setdefault(fn, []).append(os.path.relpath(os.path.join(root, fn), MASTER_FOLDER))
         return cache
 
     def _build_gallery_response(self, args):
@@ -700,6 +716,7 @@ class RemGodCatcherApp:
         sort_by = args.get("sort", "newest")
         type_filter = args.get("type", "all").lower().strip()
         type_filters = [t.strip() for t in type_filter.split(",") if t.strip()] if type_filter and type_filter != "all" else []
+        rating_filter = [s.strip() for s in args.get("rating", "").split(",") if s.strip()] if args.get("rating") else []
         page = max(1, int(args.get("page", 1)))
         per_page = min(120, max(1, int(args.get("per_page", 24))))
 
@@ -708,14 +725,19 @@ class RemGodCatcherApp:
         fp_cache = self._build_filepath_cache()
         dirty = False
         for img in list(images):
-            cached = fp_cache.get(img.get("filename", ""))
-            if cached:
-                if img.get("filepath") != cached:
-                    img["filepath"] = cached; dirty = True
-            elif img.get("filepath"):
+            paths = fp_cache.get(img.get("filename", ""))
+            fp = img.get("filepath", "")
+            if not paths:
+                if fp:
+                    del img["filepath"]; dirty = True
+                else:
+                    images.remove(img); dirty = True
+            elif fp in paths:
+                continue
+            elif len(paths) == 1:
+                img["filepath"] = paths[0]; dirty = True
+            else:
                 del img["filepath"]; dirty = True
-            elif not img.get("filepath"):
-                images.remove(img); dirty = True
         if dirty:
             shared.save_gallery(gallery)
             images = gallery.get("images", [])
@@ -736,6 +758,9 @@ class RemGodCatcherApp:
                     if tf == "video" and ext in self.EXT_VIDEO: return True
                 return False
             images = [i for i in images if _match_type(i)]
+
+        if rating_filter:
+            images = [i for i in images if _img_rating(i) in rating_filter]
 
         def _sort_key(img):
             ts = img.get("downloaded_at", "")
@@ -762,7 +787,7 @@ class RemGodCatcherApp:
 
     def _do_rescan(self):
         gallery = shared.load_gallery()
-        by_fn = {i["filename"]: i for i in gallery["images"]}
+        by_fn = {(i.get("site",""), i["filename"]): i for i in gallery["images"]}
         added = fixed = 0
         for root, _, files in os.walk(MASTER_FOLDER):
             for fn in files:
@@ -775,8 +800,8 @@ class RemGodCatcherApp:
                 site = parts[0] if len(parts) > 1 else "unknown"
                 tag = parts[1] if len(parts) > 2 else ""
                 tags = [tag] if tag else []
-                if fn in by_fn:
-                    e = by_fn[fn]
+                if (site, fn) in by_fn:
+                    e = by_fn[(site, fn)]
                     if not e.get("filepath"): e["filepath"] = rel; fixed += 1
                     if not e.get("tags"): e["tags"] = tags; fixed += 1
                 else:
@@ -786,7 +811,7 @@ class RemGodCatcherApp:
                         "tags": tags, "artists": [], "favourite": False,
                         "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat(),
                     })
-                    by_fn[fn] = gallery["images"][-1]
+                    by_fn[(site, fn)] = gallery["images"][-1]
                     added += 1
         before = len(gallery["images"])
         kept = []
@@ -814,6 +839,21 @@ UI_CONFIG_FILE = os.path.join(DATABASE_DIR, "ui_config.json")
 THUMB_CACHE = os.path.join(DATABASE_DIR, "thumb_cache")
 os.makedirs(THUMB_CACHE, exist_ok=True)
 
+# map gallery folder labels to canonical rating tokens for the gallery rating filter
+RATING_FOLDERS = {
+    "safe": {"safe", "general"},
+    "sensitive": {"sensitive"},
+    "questionable": {"questionable", "moderate"},
+    "explicit": {"nsfw", "explicit", "r18", "r18g"},
+}
+
+def _img_rating(img):
+    segs = set((img.get("filepath") or "").lower().replace("\\", "/").split("/"))
+    for canon, labels in RATING_FOLDERS.items():
+        if segs & labels:
+            return canon
+    return ""
+
 
 # ── Tag DB loaders ──────────────────────────────────────────────
 def load_safe_db():
@@ -833,6 +873,7 @@ def load_waifu_tags():
         try:
             with open(p, "r", encoding="utf-8") as f: WAIFU_TAGS_DB = json.load(f)
             WAIFU_TAG_MAP = {t["name"].lower(): t["slug"] for t in WAIFU_TAGS_DB}
+            shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
         except Exception: pass
 
 def _load_tag_db(global_name, filename):
@@ -879,7 +920,7 @@ def startup_rescan():
     """Build initial gallery from disk on boot."""
     with shared.GALLERY_LOCK:
         gallery = shared.load_gallery()
-        by_fn = {i["filename"]: i for i in gallery["images"]}
+        by_fn = {(i.get("site",""), i["filename"]): i for i in gallery["images"]}
         count = 0
         for root, _, files in os.walk(MASTER_FOLDER):
             for fn in files:
@@ -892,9 +933,9 @@ def startup_rescan():
                 site = parts[0] if len(parts) > 1 else "unknown"
                 tag = parts[1] if len(parts) > 2 else ""
                 tags = [tag] if tag else []
-                if fn in by_fn:
-                    if not by_fn[fn].get("tags"):
-                        by_fn[fn]["tags"] = tags; count += 1
+                if (site, fn) in by_fn:
+                    if not by_fn[(site, fn)].get("tags"):
+                        by_fn[(site, fn)]["tags"] = tags; count += 1
                     continue
                 gallery["images"].append({
                     "id": hashlib.md5(f"{site}:{fn}".encode()).hexdigest()[:12],
@@ -902,7 +943,7 @@ def startup_rescan():
                     "tags": tags, "artists": [], "favourite": False,
                     "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat(),
                 })
-                by_fn[fn] = gallery["images"][-1]; count += 1
+                by_fn[(site, fn)] = gallery["images"][-1]; count += 1
         if count:
             shared.save_gallery(gallery)
             print(f"Rescanned {count} new images into gallery")
