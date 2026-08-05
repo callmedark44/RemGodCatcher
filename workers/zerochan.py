@@ -65,6 +65,8 @@ class ZerochanWorker(BaseDownloader):
         cmd = ["gallery-dl", "-u", username, "-p", password]
         if self.net_config.get("use_proxy"):
             cmd.extend(["--proxy", self.net_config["proxy_url"]])
+        if self.amount > 0:
+            cmd.extend(["--range", f"1-{self.amount}"])
         cmd.extend(["-g", f"https://www.zerochan.net/{tag}"])
         try:
             result = subprocess.run(
