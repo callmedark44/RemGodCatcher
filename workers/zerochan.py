@@ -65,8 +65,8 @@ class ZerochanWorker(BaseDownloader):
         cmd = ["gallery-dl", "-u", username, "-p", password]
         if self.net_config.get("use_proxy"):
             cmd.extend(["--proxy", self.net_config["proxy_url"]])
-        if self.amount > 0:
-            cmd.extend(["--range", f"1-{self.amount}"])
+        # ponytail: no --range — gallery-dl enumerates ALL posts so the worker
+        # loop can keep past duplicates until collected_count hits amount
         cmd.extend(["-g", f"https://www.zerochan.net/{tag}"])
         try:
             result = subprocess.run(
@@ -103,6 +103,7 @@ class ZerochanWorker(BaseDownloader):
         collected_count = 0
         page = 1
         collected_ids = []
+        seen_ids = set()  # ponytail: tracks all post IDs ever seen
         api_exhausted = False
         first_page = True
         gallery_dl_ran = False
@@ -120,11 +121,10 @@ class ZerochanWorker(BaseDownloader):
                         params={"json": "1", "p": page, "l": 48},
                         timeout=30
                     )
-                    self.log(f"API response: HTTP {resp.status_code}, {len(resp.content)} bytes, "
-                             f"content-type={resp.headers.get('content-type', '?')}")
+                    self.log(f"Parsing API page {page}...")
                     resp.raise_for_status()
                     items = resp.json().get("items", [])
-                    self.log(f"Parsed JSON: found {len(items)} items")
+                    self.log(f"Page {page}: {len(items)} items")
                     if not items:
                         if gallery_dl_ran:
                             self.log("End of database reached (gallery-dl already ran).")
@@ -134,10 +134,11 @@ class ZerochanWorker(BaseDownloader):
                         fallback_ids = await asyncio.to_thread(
                             self._gallery_dl_fallback, self.encoded_tag
                         )
-                        new_ids = [pid for pid in fallback_ids if pid not in collected_ids]
+                        new_ids = [pid for pid in fallback_ids if pid not in seen_ids]
                         gallery_dl_ran = True
                         if new_ids:
                             collected_ids.extend(new_ids)
+                            seen_ids.update(new_ids)
                             self.log(f"gallery-dl fallback added {len(new_ids)} posts")
                             continue
                         self.log("End of database reached.")
@@ -145,8 +146,9 @@ class ZerochanWorker(BaseDownloader):
                         break
                     for item in items:
                         post_id = item.get("id")
-                        if post_id:
+                        if post_id and post_id not in seen_ids:
                             collected_ids.append(post_id)
+                            seen_ids.add(post_id)
                     self.log(f"API page {page} returned {len(items)} items, "
                              f"total collected so far: {len(collected_ids)}")
                     page += 1
@@ -168,7 +170,6 @@ class ZerochanWorker(BaseDownloader):
                 continue
 
             post_id = collected_ids.pop(0)
-            self.log(f"Processing post ID: {post_id}")
 
             try:
                 det_resp = await asyncio.to_thread(
@@ -176,11 +177,8 @@ class ZerochanWorker(BaseDownloader):
                     f"https://www.zerochan.net/{post_id}?json",
                     timeout=30
                 )
-                self.log(f"Post details: HTTP {det_resp.status_code}, "
-                         f"{len(det_resp.content)} bytes")
                 det_resp.raise_for_status()
                 json_data = det_resp.json()
-                self.log(f"Post details parsed: id={json_data.get('id')}")
             except requests.exceptions.SSLError as e:
                 self.log(f"SSL error getting post {post_id}: {e}, skipping")
                 continue
@@ -201,14 +199,11 @@ class ZerochanWorker(BaseDownloader):
 
             filename = urllib.parse.unquote(img_url.split('/')[-1])
             filepath = os.path.join(self.tag_dir, filename)
-            self.log(f"Preparing download: {img_url} -> {filename}")
 
             if await self.enqueue_download(img_url, filepath, filename, tags_list, []):
                 collected_count += 1
                 self.log(f"Enqueued download for {filename} "
                          f"(total enqueued: {collected_count})")
-            else:
-                self.log(f"Download skipped (already in history): {filename}")
 
         actual = self.download_queue.qsize() if self.download_queue else collected_count
         if actual == 0:
