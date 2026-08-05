@@ -290,7 +290,7 @@ class RemGodCatcherApp:
             return jsonify([])
 
         def _tag_suggest(db, query):
-            q = query.lower()
+            q = query.lower().replace(" ", "_")
             return jsonify([t for t in db if t.startswith(q)][:50] if db else [])
 
         def _make(name, db_):
