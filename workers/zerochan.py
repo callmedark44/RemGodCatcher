@@ -105,6 +105,7 @@ class ZerochanWorker(BaseDownloader):
         collected_ids = []
         api_exhausted = False
         first_page = True
+        gallery_dl_ran = False
 
         while (not self.stop_event.is_set()
                and (self.amount == 0 or collected_count < self.amount)
@@ -125,13 +126,16 @@ class ZerochanWorker(BaseDownloader):
                     items = resp.json().get("items", [])
                     self.log(f"Parsed JSON: found {len(items)} items")
                     if not items:
-                        # API returned 0 items - try gallery-dl fallback to
-                        # make sure nothing was missed on later pages too
+                        if gallery_dl_ran:
+                            self.log("End of database reached (gallery-dl already ran).")
+                            api_exhausted = True
+                            break
                         self.log("API returned no items, trying gallery-dl fallback...")
                         fallback_ids = await asyncio.to_thread(
                             self._gallery_dl_fallback, self.encoded_tag
                         )
                         new_ids = [pid for pid in fallback_ids if pid not in collected_ids]
+                        gallery_dl_ran = True
                         if new_ids:
                             collected_ids.extend(new_ids)
                             self.log(f"gallery-dl fallback added {len(new_ids)} posts")
