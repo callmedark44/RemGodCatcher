@@ -833,7 +833,7 @@ async function fetchDan(val) {
 async function fetchGelbooru(val) {
     if (val.length < 2) return;
     try {
-        let resp = await fetch("/api/tags/rule34", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: val, net_config: globalNetConfig }) });
+        let resp = await fetch("/api/tags/gelbooru", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: val }) });
         let tags = await resp.json();
         let dl = document.getElementById("gelbooruList");
         let dHtml = "";

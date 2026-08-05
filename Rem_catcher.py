@@ -57,6 +57,7 @@ SANKAKU_TAGS_DB = []
 ANIME_TAGS_DB = []
 NEKOSIA_TAGS_DB = []
 WAIFU_TAGS_DB = []
+GELBOORU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
 
 DATABASE_DIR = os.path.join(_BASE_DIR, "database")
@@ -304,6 +305,7 @@ class RemGodCatcherApp:
             ("/api/tags/sankaku", "sankaku", SANKAKU_TAGS_DB),
             ("/api/tags/anime_dl", "anime_dl", ANIME_TAGS_DB),
             ("/api/tags/nekosia", "nekosia", NEKOSIA_TAGS_DB),
+            ("/api/tags/gelbooru", "gelbooru", GELBOORU_TAGS_DB),
         ]:
             self.app.route(route, methods=["POST"])(_make(name, db))
 
@@ -889,6 +891,7 @@ def load_kona_db(): _load_tag_db("KONA_TAGS_DB", "kona_tag_names.json")
 def load_dan_db(): _load_tag_db("DAN_TAGS_DB", "dan_tag_names.json")
 def load_sankaku_db(): _load_tag_db("SANKAKU_TAGS_DB", "sankaku_tag_names.json")
 load_nekosia_db = lambda: _load_tag_db("NEKOSIA_TAGS_DB", "nekosia_tag_names.json")
+load_gelbooru_db = lambda: _load_tag_db("GELBOORU_TAGS_DB", "gelbooru_tag_names.json")
 
 ESHUSHU_TAGS_DB = []
 
@@ -959,6 +962,7 @@ if __name__ == "__main__":
     load_nekosia_db()
     load_eshuushuu_db()
     load_anime_dl_db()
+    load_gelbooru_db()
     startup_rescan()
 
     app = RemGodCatcherApp()
