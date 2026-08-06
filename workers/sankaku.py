@@ -23,9 +23,9 @@ class SankakuWorker(BaseDownloader):
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
     def _login(self):
-        access_token = os.getenv("SANKA_ACCESS_TOKEN")
-        sanka_login = os.getenv("SANKA_LOGIN")
-        sanka_password = os.getenv("SANKA_PASSWORD")
+        access_token = self.net_config.get("access_token") or os.getenv("SANKA_ACCESS_TOKEN")
+        sanka_login = self.net_config.get("login") or os.getenv("SANKA_LOGIN")
+        sanka_password = self.net_config.get("password") or os.getenv("SANKA_PASSWORD")
 
         if not access_token and sanka_login and sanka_password:
             for login_url in (f"{API_BASE}/auth/token", "https://login.sankakucomplex.com/auth/token"):

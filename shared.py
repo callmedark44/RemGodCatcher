@@ -13,19 +13,7 @@ HISTORY_LOCK = threading.Lock()
 GALLERY_LOCK = threading.RLock()
 STOP_EVENTS = {}
 
-SAFE_TAGS_DB = []
-WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
-
-def get_session(site, net_config):
-    session = requests.Session()
-    if net_config.get("use_proxy"):
-        p = net_config.get("proxy_url")
-        session.proxies = {"http": p, "https": p}
-    else:
-        session.proxies = {"http": "", "https": "", "no_proxy": "*"}
-    session.verify = net_config.get("verify_tls", False)
-    return session
 
 # --- LOGGING & TAG SYSTEM ---
 def default_logger(worker_name, msg): print(f"[{worker_name.upper()}] {msg}")
@@ -62,9 +50,9 @@ def save_gallery(data):
 def add_to_gallery(site, filename, filepath, tags_list, artists):
     with GALLERY_LOCK:
         gallery = load_gallery()
-        # ponytail: dict-by-filename avoids O(n) scan; upgrade to DB if gallery > 10k items
-        by_fn = {i["filename"]: i for i in gallery["images"]}
-        if filename in by_fn:
+        # ponytail: dict-by-(site,filename) avoids O(n) scan; upgrade to DB if gallery > 10k items
+        by_key = {(i.get("site", ""), i["filename"]): i for i in gallery["images"]}
+        if (site, filename) in by_key:
             return
         gallery["images"].insert(0, {
             "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],

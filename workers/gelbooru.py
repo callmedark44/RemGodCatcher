@@ -25,8 +25,8 @@ class GelbooruWorker(BaseDownloader):
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
-        api_key = os.getenv("GELBOORU_API_KEY", "")
-        user_id = os.getenv("GELBOORU_USER_ID", "")
+        api_key = self.net_config.get("api_key") or os.getenv("GELBOORU_API_KEY", "")
+        user_id = self.net_config.get("user_id") or os.getenv("GELBOORU_USER_ID", "")
 
         collected_count = 0
         pid = 0

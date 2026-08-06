@@ -1,5 +1,5 @@
 """Pinterest worker — async BaseDownloader subclass."""
-import os, re, json, threading
+import os, re, json, threading, random
 import asyncio
 from pathlib import Path
 from shared import BaseDownloader
@@ -27,9 +27,20 @@ class PinterestWorker(BaseDownloader):
         self.session = None
         self._client = None
 
+    def _apply_proxy(self, session):
+        if self.net_config.get("use_proxy"):
+            session.proxies = {"http": self.proxy_url, "https": self.proxy_url}
+        else:
+            session.proxies = {"http": "", "https": "", "no_proxy": "*"}
+
     def _make_api_client(self):
         from pinterest_dl import PinterestDL
-        return PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
+        client = PinterestDL.with_api(timeout=5, verbose=False, ensure_alt=True)
+        # ponytail: _apply_proxy covers client._session only; pinterest_dl's
+        # internal _get_default_cookies/_resolve_short_url use bare requests.get
+        # and bypass it. Upgrade: patch pinterest_dl to pass proxies/session in.
+        self._apply_proxy(client._session)
+        return client
 
     def _browser_login(self):
         from playwright.sync_api import BrowserType
@@ -37,7 +48,7 @@ class PinterestWorker(BaseDownloader):
 
         orig = BrowserType.launch
         def patched_launch(self, **kw):
-            if self.proxy_url:
+            if self.net_config.get("use_proxy") and self.proxy_url:
                 kw["proxy"] = {"server": self.proxy_url}
             return orig(self, **kw)
         BrowserType.launch = patched_launch
@@ -82,10 +93,6 @@ class PinterestWorker(BaseDownloader):
 
     async def scraper_task(self):
         self.log(f"Initializing Pinterest worker: '{self.query[:80]}'")
-
-        if self.net_config.get("use_proxy"):
-            os.environ.setdefault("HTTP_PROXY", self.net_config["proxy_url"])
-            os.environ.setdefault("HTTPS_PROXY", self.net_config["proxy_url"])
 
         from pinterest_dl.download import MediaDownloader
 
@@ -144,6 +151,7 @@ class PinterestWorker(BaseDownloader):
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             timeout=int(self.net_config.get("api_timeout", 10)),
             max_retries=dl_retries)
+        self._apply_proxy(downloader.http_client.session)
 
         downloaded = 0
         for i, media in enumerate(medias):

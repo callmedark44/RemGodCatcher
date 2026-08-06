@@ -72,9 +72,6 @@ STARTUP_CONFIG = {
     "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
     "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
 }
-if STARTUP_CONFIG["use_proxy"]:
-    os.environ.setdefault("HTTP_PROXY", STARTUP_CONFIG["proxy_url"])
-    os.environ.setdefault("HTTPS_PROXY", STARTUP_CONFIG["proxy_url"])
 
 
 # ── App class ───────────────────────────────────────────────────

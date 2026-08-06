@@ -33,6 +33,9 @@ class AnimeDlWorker(BaseDownloader):
         if self.net_config.get("use_proxy"):
             p = self.net_config.get("proxy_url", "")
             s.proxies = {"http": p, "https": p}
+        else:
+            # libcurl reads http_proxy/https_proxy env vars; empty string disables
+            s.proxies = {"http": "", "https": ""}
         s.cookies.set("time_zone", "UTC", domain=".anime-pictures.net")
         s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
         return s
@@ -83,7 +86,7 @@ class AnimeDlWorker(BaseDownloader):
 
         post_ids = []
         page = 0
-        while not self.stop_event.is_set() and len(post_ids) < self.amount:
+        while not self.stop_event.is_set() and (self.amount == 0 or len(post_ids) < self.amount):
             posts, total = await self._search_posts(page)
             if not posts:
                 break
@@ -94,7 +97,8 @@ class AnimeDlWorker(BaseDownloader):
             if page * PER_PAGE >= total:
                 break
 
-        post_ids = post_ids[:self.amount]
+        if self.amount > 0:
+            post_ids = post_ids[:self.amount]
         if not post_ids:
             self.log("No posts found.")
             return

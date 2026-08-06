@@ -50,9 +50,9 @@ class Rule34Worker(BaseDownloader):
     def _setup_session(self):
         session = super()._setup_session()
         client = rule34Py()
-        api_key = os.getenv("RULE34_API_KEY", "")
-        user_id_raw = os.getenv("RULE34_USER_ID", "0")
-        user_id = int(user_id_raw) if user_id_raw.isdigit() else 0
+        api_key = self.net_config.get("api_key") or os.getenv("RULE34_API_KEY", "")
+        user_id_raw = self.net_config.get("user_id") or os.getenv("RULE34_USER_ID", "0")
+        user_id = int(user_id_raw) if str(user_id_raw).isdigit() else 0
 
         if api_key and user_id:
             client.api_key = api_key

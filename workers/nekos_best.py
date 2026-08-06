@@ -3,9 +3,10 @@ import asyncio
 from shared import BaseDownloader
 
 class NekosBestWorker(BaseDownloader):
-    def __init__(self, category, amount, net_config):
+    def __init__(self, category, amount, fmt, net_config):
         super().__init__("neko", "Nekos.best", amount, net_config)
         self.category = category
+        self.fmt = fmt
         self.cat_dir = os.path.join(self.site_root, category)
         os.makedirs(self.cat_dir, exist_ok=True)
 
@@ -18,7 +19,8 @@ class NekosBestWorker(BaseDownloader):
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
             batch_size = min(20, self.amount - collected_count if self.amount > 0 else 20)
-            fetch_url = f"https://nekos.best/api/v2/{self.category}?amount={batch_size}"
+            gif_prefix = "gif/" if self.fmt == "gif" else ""
+            fetch_url = f"https://nekos.best/api/v2/{gif_prefix}{self.category}?amount={batch_size}"
 
             try:
                 self.log("Scanning API...")
@@ -65,6 +67,6 @@ class NekosBestWorker(BaseDownloader):
         asyncio.run(self.run_async_loop(self.scraper_task))
         self.log("--- Worker Terminated ---")
 
-def worker_nekos_best(category, amount, net_config):
-    worker = NekosBestWorker(category, amount, net_config)
+def worker_nekos_best(category, amount, fmt, net_config):
+    worker = NekosBestWorker(category, amount, fmt, net_config)
     worker.run()

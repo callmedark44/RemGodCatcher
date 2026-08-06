@@ -22,6 +22,13 @@ class DanbooruWorker(BaseDownloader):
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         os.makedirs(self.tag_dir, exist_ok=True)
 
+        login = self.net_config.get("login") or os.getenv("DANBOORU_LOGIN", "")
+        api_key = self.net_config.get("api_key") or os.getenv("DANBOORU_API_KEY", "")
+        if login and api_key:
+            import base64
+            token = base64.b64encode(f"{login}:{api_key}".encode()).decode()
+            self.session.headers["Authorization"] = f"Basic {token}"
+
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
 

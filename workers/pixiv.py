@@ -14,7 +14,7 @@
 # code from gallery-dl. See LICENSE for details.
 #
 # Modifications: adapted to BaseDownloader pattern, removed gallery-dl
-# CLI/config/Job/postprocessor machinery, switched to shared get_session()
+# CLI/config/Job/postprocessor machinery, switched to the shared session
 # proxy/TLS framework, added ugoira-to-GIF conversion via Pillow.
 
 import os
@@ -398,10 +398,6 @@ def get_refresh_token(username, password, proxy_url=None):
     """Get a Pixiv refresh token using email/password.
     Opens browser via webbrowser.open, user copies code from DevTools,
     submits it via Options tab -> /api/pixiv/submit_code."""
-    return _browser_get_refresh_token(username, password, proxy_url)
-
-
-def _api_get_refresh_token(username, password, proxy_url=None):
     return _browser_get_refresh_token(username, password, proxy_url)
 
 
