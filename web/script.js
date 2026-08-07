@@ -219,7 +219,7 @@ async function resetWallpapersUI() {
 const socket = io();
 
 const WORKER_TO_TAB = {
-    "neko": "neko", "nekos_life": "nekos_life", "nekosia": "nekosia", "zero": "zero", "waifu": "waifu",
+    "neko": "neko", "nekos_life": "nekos_life", "nekosia": "nekosia", "nekosapi": "nekosapi", "zero": "zero", "waifu": "waifu",
     "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
     "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
     "eshuushuu": "eshuushuu",
@@ -460,7 +460,7 @@ function clearLog(tabID) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "nekosapi": "consoleLog_nekosapi", "sankaku": "consoleLog_sankaku",
         "anime_dl": "consoleLog_anime_dl", "eshuushuu": "consoleLog_eshuushuu", "pinterest": "consoleLog_pinterest",
         "pixiv": "consoleLog_pixiv",
     };
@@ -473,7 +473,7 @@ function logToConsole(tabID, msg) {
         "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life",
         "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe",
         "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande",
-        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "sankaku": "consoleLog_sankaku",
+        "kona": "consoleLog_kona", "dan": "consoleLog_dan", "nekosia": "consoleLog_nekosia", "nekosapi": "consoleLog_nekosapi", "sankaku": "consoleLog_sankaku",
         "anime_dl": "consoleLog_anime_dl", "eshuushuu": "consoleLog_eshuushuu", "pinterest": "consoleLog_pinterest",
         "pixiv": "consoleLog_pixiv",
     };
@@ -512,10 +512,14 @@ async function startWorker(workerName) {
             payload.format = document.getElementById('nekosLifeFormat').value;
         }
     } else if (workerName === 'nekosia') {
-        payload.tag = document.getElementById('nekosiaTag').value;
-        payload.limit = document.getElementById('nekosiaLimit').value;
-        payload.net_config.rating = document.getElementById('nekosiaRating').value;
-    } else if (workerName === 'eshuushuu') {
+            payload.tag = document.getElementById('nekosiaTag').value;
+            payload.limit = document.getElementById('nekosiaLimit').value;
+            payload.net_config.rating = document.getElementById('nekosiaRating').value;
+        } else if (workerName === 'nekosapi') {
+            payload.tag = document.getElementById('nekosapiTag').value;
+            payload.limit = document.getElementById('nekosapiLimit').value;
+            payload.net_config.rating = document.getElementById('nekosapiRating').value;
+        } else if (workerName === 'eshuushuu') {
         payload.tag = document.getElementById('eshuushuuTag').value;
         payload.limit = document.getElementById('eshuushuuLimit').value;
         payload.user_id = document.getElementById('eshuushuuUserId').value;
@@ -664,7 +668,7 @@ async function startWorker(workerName) {
     }
     
     // per-worker proxy: checkbox in the worker's tab
-    const TAB_IDS = {anime_dl:"AnimeDL",dan:"Danbooru",gelbooru:"Gelbooru",kona:"Kona",neko:"Neko",nekosia:"Nekosia",eshuushuu:"Eshuushuu",nekos_life:"NekosLife",pinterest:"Pinterest",pixiv:"Pixiv",rule34:"Rule34",safe:"Safe",sankaku:"Sankaku",waifu:"Waifu",yande:"Yande",zero:"Zero",main:"Main"};
+    const TAB_IDS = {anime_dl:"AnimeDL",dan:"Danbooru",gelbooru:"Gelbooru",kona:"Kona",neko:"Neko",nekosia:"Nekosia",nekosapi:"NekosApi",eshuushuu:"Eshuushuu",nekos_life:"NekosLife",pinterest:"Pinterest",pixiv:"Pixiv",rule34:"Rule34",safe:"Safe",sankaku:"Sankaku",waifu:"Waifu",yande:"Yande",zero:"Zero",main:"Main"};
     const tabId = TAB_IDS[workerName] || (workerName.charAt(0).toUpperCase() + workerName.slice(1));
     const proxyBox = document.querySelector(`#${tabId} .worker-proxy-check`);
     payload.net_config.use_proxy = proxyBox ? proxyBox.checked : false;
@@ -868,6 +872,19 @@ async function fetchNekosia(val) {
     } catch(e) {}
 }
 
+async function fetchNekosapi(val) {
+    if (val.length < 2) return;
+    let words = val.split(","); let lastWord = words[words.length - 1].trim(); if(lastWord.length < 2) return;
+    try {
+        let resp = await fetch("/api/tags/nekosapi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        let tags = await resp.json();
+        let dl = document.getElementById("nekosapiList");
+        let dHtml = "";
+        tags.forEach(t => dHtml += `<option value="${words.slice(0,-1).join(",") + (words.length>1?",":"") + t}">`);
+        dl.innerHTML = dHtml;
+    } catch(e) {}
+}
+
 async function fetchAnimeDl(val) {
     if (val.length < 2) return;
     let words = val.split(" "); let lastWord = words[words.length - 1]; if(lastWord.length < 2) return;
@@ -996,6 +1013,7 @@ function jumpToSite(site, tag) {
     let siteMap = {
         "zero":      { tab: "Zero",     input: "zeroTag" },
         "waifu":     { tab: "Waifu",    input: "waifuTag" },
+        "nekosapi":  { tab: "NekosApi", input: "nekosapiTag" },
         "neko":      { tab: "Neko",     input: null },
         "nekos_life":{ tab: "NekosLife", input: null },
         "safe":      { tab: "Safe",     input: "safeTag" },

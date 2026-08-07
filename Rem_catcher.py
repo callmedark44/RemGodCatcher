@@ -47,6 +47,7 @@ from workers.pinterest_worker import worker_pinterest
 from workers.pixiv import worker_pixiv, get_refresh_token, submit_pixiv_code
 from workers.nekosia import worker_nekosia
 from workers.eshuushuu import worker_eshuushuu
+from workers.nekosapi import worker_nekosapi
 
 # ── Tag DB globals ──────────────────────────────────────────────
 SAFE_TAGS_DB = []
@@ -56,6 +57,7 @@ DAN_TAGS_DB = []
 SANKAKU_TAGS_DB = []
 ANIME_TAGS_DB = []
 NEKOSIA_TAGS_DB = []
+NEKOSAPI_TAGS_DB = []
 WAIFU_TAGS_DB = []
 GELBOORU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
@@ -303,6 +305,7 @@ class RemGodCatcherApp:
             ("/api/tags/anime_dl", "anime_dl", ANIME_TAGS_DB),
             ("/api/tags/nekosia", "nekosia", NEKOSIA_TAGS_DB),
             ("/api/tags/gelbooru", "gelbooru", GELBOORU_TAGS_DB),
+            ("/api/tags/nekosapi", "nekosapi", NEKOSAPI_TAGS_DB),
         ]:
             self.app.route(route, methods=["POST"])(_make(name, db))
 
@@ -614,6 +617,7 @@ class RemGodCatcherApp:
             "anime_dl": (worker_anime_dl,     lambda d: (d["tag"], int(d.get("limit", 50)), d["net_config"])),
             "pixiv":    (worker_pixiv,        lambda d: (d["tag"], int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d["net_config"])),
             "nekosia":  (worker_nekosia,      lambda d: (d.get("tag", "waifu"), int(d.get("limit", 50)), d["net_config"])),
+            "nekosapi": (worker_nekosapi,     lambda d: (d.get("tag", "kemonomimi"), int(d.get("limit", 50)), d["net_config"])),
             "eshuushuu": (worker_eshuushuu, lambda d: (d["tag"], int(d.get("limit", 50)), d.get("exclusions", []), d.get("user_id", ""), d["net_config"])),
         }
 
@@ -888,6 +892,7 @@ def load_kona_db(): _load_tag_db("KONA_TAGS_DB", "kona_tag_names.json")
 def load_dan_db(): _load_tag_db("DAN_TAGS_DB", "dan_tag_names.json")
 def load_sankaku_db(): _load_tag_db("SANKAKU_TAGS_DB", "sankaku_tag_names.json")
 load_nekosia_db = lambda: _load_tag_db("NEKOSIA_TAGS_DB", "nekosia_tag_names.json")
+load_nekosapi_db = lambda: _load_tag_db("NEKOSAPI_TAGS_DB", "nekosapi_tag_names.json")
 load_gelbooru_db = lambda: _load_tag_db("GELBOORU_TAGS_DB", "gelbooru_tag_names.json")
 
 ESHUSHU_TAGS_DB = []
@@ -957,6 +962,7 @@ if __name__ == "__main__":
     load_dan_db()
     load_sankaku_db()
     load_nekosia_db()
+    load_nekosapi_db()
     load_eshuushuu_db()
     load_anime_dl_db()
     load_gelbooru_db()

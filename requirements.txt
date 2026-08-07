@@ -8,3 +8,4 @@ rule34Py
 curl_cffi
 pinterest-dl
 playwright
+anime-api
