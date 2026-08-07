@@ -19,7 +19,7 @@
 
 ## Features
 
-- **Multi-Platform** — Built-in modules for 15 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, Nekosia, Pixiv, Pinterest, Anime-Pictures)
+- **Multi-Platform** — Built-in modules for 16 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, NekosAPI v4, Nekosia, Pixiv, Pinterest, Anime-Pictures)
 - **Modern Web UI** — Glass-morphism dark & light themes, opens in your default browser
 - **Concurrent Downloads** — Run multiple tags and APIs simultaneously, each with independent progress
 - **Discovery Engine & Archives** — Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
@@ -74,7 +74,8 @@ Opens at `http://127.0.0.1:5000`. Most features work immediately without configu
 Rem God Catcher/
 ├── Rem_catcher.py          # Flask + Socket.IO backend
 ├── shared.py               # Core utilities, BaseDownloader, gallery
-├── workers/                # API-specific download modules (15 workers)
+├── workers/                # API-specific download modules (16 workers)
+├── scripts/                # Tag list fetchers for offline autocomplete DBs
 ├── database/               # Tag databases & user data (git-ignored)
 ├── web/                    # Frontend (index.html, script.js, style.css)
 ├── assets/                 # Screenshots, demos, media
@@ -100,6 +101,7 @@ Rem God Catcher/
 | **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
 | **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
 | **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
+| **NekosAPI v4** | Tag search, exclusions, rating filter | Yes | None | Async worker, local tag DB |
 | **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
 | **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
 | **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |
