@@ -60,3 +60,6 @@ android/.idea/
 *.iml
 *.hprof
 
+
+# Local dev scripts (fetchers/scrapers, not app code)
+scripts/
