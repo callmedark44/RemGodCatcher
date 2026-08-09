@@ -7,7 +7,7 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
-[![Version](https://img.shields.io/badge/Version-4.2.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.3.0-ff9ff3.svg)](CHANGELOG.md)
 
 <video controls width="720" src="assets/demo.mp4" alt="Demo">
   Your browser does not support the video tag. <a href="assets/demo.mp4">Download the demo</a>.
@@ -19,7 +19,7 @@
 
 ## Features
 
-- **Multi-Platform** — Built-in modules for 16 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, NekosAPI v4, Nekosia, Pixiv, Pinterest, Anime-Pictures)
+- **Multi-Platform** — Built-in modules for 17 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, NekosAPI v4, Nekosia, Pixiv, Pinterest, Anime-Pictures, Eshuushuu)
 - **Modern Web UI** — Glass-morphism dark & light themes, opens in your default browser
 - **Concurrent Downloads** — Run multiple tags and APIs simultaneously, each with independent progress
 - **Discovery Engine & Archives** — Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
@@ -74,14 +74,13 @@ Opens at `http://127.0.0.1:5000`. Most features work immediately without configu
 Rem God Catcher/
 ├── Rem_catcher.py          # Flask + Socket.IO backend
 ├── shared.py               # Core utilities, BaseDownloader, gallery
-├── workers/                # API-specific download modules (16 workers)
-├── scripts/                # Tag list fetchers for offline autocomplete DBs
+├── workers/                # API-specific download modules (17 workers)
 ├── database/               # Tag databases & user data (git-ignored)
 ├── web/                    # Frontend (index.html, script.js, style.css)
 ├── assets/                 # Screenshots, demos, media
-├── README.html             # Rich HTML readme (supports video/GIF)
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Configuration template
+├── README_fa.md            # Farsi translation
 ├── CHANGELOG.md
 ├── README.md
 └── LICENSE
