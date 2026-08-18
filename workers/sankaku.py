@@ -59,6 +59,8 @@ class SankakuWorker(BaseDownloader):
         self.log(f"Initializing worker for tag: '{self.original_tag}'")
         collected_count = 0
         page = 1
+        api_failures = 0
+        max_api_retries = max(1, int(self.net_config.get("api_retries", 3)))
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
             try:
@@ -102,9 +104,15 @@ class SankakuWorker(BaseDownloader):
                     break
 
             except Exception as e:
+                api_failures += 1
                 self.log(f"API Error: {e}")
-                await asyncio.sleep(5)
+                if api_failures >= max_api_retries:
+                    self.log(f"Stopping after {api_failures} consecutive API failures.")
+                    break
+                await asyncio.sleep(float(self.net_config.get("retry_wait", 5)))
                 continue
+
+            api_failures = 0
 
             await asyncio.sleep(0.25)
 
@@ -135,6 +143,7 @@ class SankakuWorker(BaseDownloader):
                 rating_label = self.rating_map.get(post_rating, "Unknown")
                 subfolder = "books" if post.get("in_visible_pool") else "images"
                 filepath = os.path.join(self.tag_dir, rating_label, subfolder, filename)
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
                 raw_tags = post.get("tags", [])
                 if raw_tags and isinstance(raw_tags[0], dict):

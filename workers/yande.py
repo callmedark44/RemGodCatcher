@@ -25,6 +25,8 @@ class YandeWorker(BaseDownloader):
 
         collected_count = 0
         page = 1
+        api_failures = 0
+        max_api_retries = max(1, int(self.net_config.get("api_retries", 3)))
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
             try:
@@ -58,13 +60,19 @@ class YandeWorker(BaseDownloader):
                     break
 
             except Exception as e:
+                api_failures += 1
                 err_str = str(e)
                 if "403" in err_str:
                     self.log("ERROR 403: Cloudflare/ISP block. You need a proxy.")
                 else:
                     self.log(f"API Error: {e}")
-                await asyncio.sleep(5)
+                if api_failures >= max_api_retries:
+                    self.log(f"Stopping after {api_failures} consecutive API failures.")
+                    break
+                await asyncio.sleep(float(self.net_config.get("retry_wait", 5)))
                 continue
+
+            api_failures = 0
 
             had_valid = False
             for post in posts:

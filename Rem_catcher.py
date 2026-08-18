@@ -84,6 +84,9 @@ class RemGodCatcherApp:
         self.app = Flask(__name__, static_folder=_STATIC)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*", async_mode="threading", ping_interval=2, ping_timeout=5)
         self.shutdown_timer = None
+        self._connected_clients = set()
+        self._active_workers = set()
+        self._worker_lock = threading.Lock()
         self._tag_tasks = {}
         self._tag_tasks_lock = threading.Lock()
         self._tag_semaphore = threading.Semaphore(MAX_CONCURRENT_TAGS := int(os.getenv("MAX_CONCURRENT_TAGS", "10")))
@@ -305,9 +308,23 @@ class RemGodCatcherApp:
             ("/api/tags/anime_dl", "anime_dl", ANIME_TAGS_DB),
             ("/api/tags/nekosia", "nekosia", NEKOSIA_TAGS_DB),
             ("/api/tags/gelbooru", "gelbooru", GELBOORU_TAGS_DB),
-            ("/api/tags/nekosapi", "nekosapi", NEKOSAPI_TAGS_DB),
         ]:
             self.app.route(route, methods=["POST"])(_make(name, db))
+
+        @self.app.route("/api/tags/nekosapi", methods=["POST"])
+        def _nekosapi_suggest():
+            query = (request.json or {}).get("query", "").strip()
+            if len(query) < 2:
+                return jsonify([])
+            try:
+                s = self._get_session("nekosapi", (request.json or {}).get("net_config", {}))
+                r = s.get("https://api.nekosapi.com/v5/tags", params={"name": query, "limit": 50}, timeout=10)
+                r.raise_for_status()
+                if "json" not in r.headers.get("Content-Type", "").lower():
+                    return jsonify([])
+                return jsonify([item["name"] for item in r.json().get("items", []) if item.get("name")])
+            except Exception:
+                return _tag_suggest(NEKOSAPI_TAGS_DB, query)
 
         @self.app.route("/api/tags/eshuushuu", methods=["POST"])
         def _eshuushuu_suggest():
@@ -350,11 +367,12 @@ class RemGodCatcherApp:
             return jsonify(self._load_json_db(TAG_HISTORY_FILE))
 
         for route, fname in [
-            ("/api/history/clear", None), ("/api/image_history/clear", None),
+            ("/api/history/clear", TAG_HISTORY_FILE),
+            ("/api/image_history/clear", IMAGE_HISTORY_FILE),
         ]:
-            def _clear_make(route_, _):
+            def _clear_make(route_, file_):
                 def _clear():
-                    self._save_json_db(TAG_HISTORY_FILE if "history" in route_ else IMAGE_HISTORY_FILE, [])
+                    self._save_json_db(file_, [])
                     return jsonify({"success": True})
                 _clear.__name__ = f"clear_{route_.lstrip('/').replace('/','_')}"
                 return _clear
@@ -547,17 +565,23 @@ class RemGodCatcherApp:
     def _register_socketio_events(self):
         @self.socketio.on("connect")
         def _on_connect():
+            self._connected_clients.add(request.sid)
             if self.shutdown_timer:
                 self.shutdown_timer.cancel()
                 self.shutdown_timer = None
+            self.socketio.emit("workers_state", {"active": sorted(self._active_workers)}, to=request.sid)
             print("Browser tab connected!")
 
         @self.socketio.on("disconnect")
         def _on_disconnect():
-            print("Browser tab closed. 3s shutdown timer...")
+            self._connected_clients.discard(request.sid)
+            if self._connected_clients:
+                return
+            print("Last browser tab closed. 3s shutdown timer...")
             def _die():
-                print(">>> No active tabs. Shutting down. <<<")
-                os._exit(0)
+                if not self._connected_clients:
+                    print(">>> No active tabs. Shutting down. <<<")
+                    os._exit(0)
             self.shutdown_timer = threading.Timer(3.0, _die)
             self.shutdown_timer.start()
 
@@ -571,9 +595,29 @@ class RemGodCatcherApp:
             if name in shared.STOP_EVENTS:
                 for evt in shared.STOP_EVENTS[name]:
                     evt.set()
+                self.socketio.emit("worker_status", {"worker": name, "status": "stopping"})
 
     def _handle_start_worker(self, data):
         worker = data.get("worker")
+        with self._worker_lock:
+            if worker in self._active_workers:
+                self.socketio.emit("worker_status", {"worker": worker, "status": "running"})
+                self._log(worker, "Worker is already running.")
+                return
+            self._active_workers.add(worker)
+        self.socketio.emit("worker_status", {"worker": worker, "status": "queued"})
+
+        def _run(fn, args):
+            self.socketio.emit("worker_status", {"worker": worker, "status": "running"})
+            try:
+                fn(*args)
+            except Exception as exc:
+                self._log(worker, f"Worker crashed: {exc}")
+                self.socketio.emit("worker_status", {"worker": worker, "status": "error"})
+            finally:
+                with self._worker_lock:
+                    self._active_workers.discard(worker)
+                self.socketio.emit("worker_status", {"worker": worker, "status": "idle"})
 
         # save history
         tag = data.get("tag", data.get("category", "")).strip()
@@ -592,12 +636,10 @@ class RemGodCatcherApp:
             nc = data.get("net_config", {})
             for k in ("pinterest_cookies", "pinterest_email", "pinterest_password"):
                 nc[k] = os.getenv(k.upper(), "")
-            t = threading.Thread(
-                target=worker_pinterest,
-                args=(data.get("tag", ""), int(data.get("limit", 50)),
-                      data.get("is_search", False), nc,
-                      int(data.get("min_w", 0)), int(data.get("min_h", 0))),
-                daemon=True)
+            args = (data.get("tag", ""), int(data.get("limit", 50)),
+                    data.get("is_search", False), nc,
+                    int(data.get("min_w", 0)), int(data.get("min_h", 0)))
+            t = threading.Thread(target=_run, args=(worker_pinterest, args), daemon=True)
             t.start()
             return
 
@@ -617,16 +659,25 @@ class RemGodCatcherApp:
             "anime_dl": (worker_anime_dl,     lambda d: (d["tag"], int(d.get("limit", 50)), d["net_config"])),
             "pixiv":    (worker_pixiv,        lambda d: (d["tag"], int(d.get("limit", 50)), d.get("rating", ""), d.get("exclusions", []), d["net_config"])),
             "nekosia":  (worker_nekosia,      lambda d: (d.get("tag", "waifu"), int(d.get("limit", 50)), d["net_config"])),
-            "nekosapi": (worker_nekosapi,     lambda d: (d.get("tag", "kemonomimi"), int(d.get("limit", 50)), d["net_config"])),
+            "nekosapi": (worker_nekosapi,     lambda d: (d.get("tag", ""), d.get("artists", ""), int(d.get("limit", 50)), d.get("rating", "safe"), d["net_config"])),
             "eshuushuu": (worker_eshuushuu, lambda d: (d["tag"], int(d.get("limit", 50)), d.get("exclusions", []), d.get("user_id", ""), d["net_config"])),
         }
 
         entry = _DISPATCH.get(worker)
         if not entry:
+            with self._worker_lock:
+                self._active_workers.discard(worker)
             return
-        fn, arg_fn = entry
-        args = arg_fn(data)
-        t = threading.Thread(target=fn, args=args, daemon=True)
+        try:
+            fn, arg_fn = entry
+            args = arg_fn(data)
+        except Exception as exc:
+            with self._worker_lock:
+                self._active_workers.discard(worker)
+            self._log(worker, f"Invalid worker options: {exc}")
+            self.socketio.emit("worker_status", {"worker": worker, "status": "error"})
+            return
+        t = threading.Thread(target=_run, args=(fn, args), daemon=True)
         t.start()
 
     # ── .env writer ─────────────────────────────────────────────
@@ -747,7 +798,12 @@ class RemGodCatcherApp:
         images = [i for i in images if i.get("filepath")]
 
         if search:
-            images = [i for i in images if any(search in t.lower() for t in i.get("tags", []))]
+            images = [i for i in images if (
+                search in i.get("filename", "").lower()
+                or search in i.get("site", "").lower()
+                or any(search in str(t).lower() for t in i.get("tags", []))
+                or any(search in str(a).lower() for a in i.get("artists", []))
+            )]
         if site_filters:
             images = [i for i in images if i.get("site", "").lower() in site_filters]
         if fav_only:

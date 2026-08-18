@@ -58,8 +58,10 @@ class Rule34Worker(BaseDownloader):
             client.api_key = api_key
             client.user_id = user_id
             self.log("API credentials loaded from .env")
+            self.has_credentials = True
         else:
-            self.log("No API credentials found. Running in anonymous mode.")
+            self.has_credentials = False
+            self.log("Rule34 requires an API key and user ID. Configure both in Options.")
 
         if self.net_config.get("use_proxy"):
             p = self.net_config.get("proxy_url")
@@ -74,6 +76,8 @@ class Rule34Worker(BaseDownloader):
 
     async def scraper_task(self):
         self.log("Initializing worker... [RULE34PY LIBRARY MODE]")
+        if not self.has_credentials:
+            return
 
         collected_count = 0
         page = 0

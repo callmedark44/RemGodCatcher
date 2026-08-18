@@ -19,7 +19,7 @@
 
 ## Features
 
-- **Multi-Platform** — Built-in modules for 17 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, NekosAPI v4, Nekosia, Pixiv, Pinterest, Anime-Pictures, Eshuushuu)
+- **Multi-Platform** — Built-in modules for 17 imageboard and gallery APIs (Rule34, Gelbooru, Danbooru, Yande.re, Konachan, Sankaku, Zerochan, Safebooru, Waifu.im, Nekos.best, Nekos.life, Nekos API v5, Nekosia, Pixiv, Pinterest, Anime-Pictures, Eshuushuu)
 - **Modern Web UI** — Glass-morphism dark & light themes, opens in your default browser
 - **Concurrent Downloads** — Run multiple tags and APIs simultaneously, each with independent progress
 - **Discovery Engine & Archives** — Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
@@ -100,7 +100,7 @@ Rem God Catcher/
 | **Konachan** | Full tag, rating filter | Yes | None | Video/GIF filter |
 | **Nekos.best** | Category-based (PNG/GIF) | No | None | Simple endpoint |
 | **Nekos.life** | Category-based (GIF/Static) | Yes | None | Animated neko, hug, pat |
-| **NekosAPI v4** | Tag search, exclusions, rating filter | Yes | None | Async worker, local tag DB |
+| **Nekos API v5** | Up to 5 tags/artists, rating filter | Yes | None | Live autocomplete, pagination, metadata |
 | **Nekosia** | Tag search, exclusions | Suggestive | None | Async worker |
 | **Pinterest** | Search, board URL | Varies | Browser cookies OR email+password | Options tab |
 | **Pixiv** | Search, bookmark, ranking, user | Yes | OAuth2 refresh token | Options tab → "Get Token" button |

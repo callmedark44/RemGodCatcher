@@ -28,10 +28,19 @@ class NekosiaWorker(BaseDownloader):
         count = max(1, min(count, 20))
         params = {"count": count, "additionalTags": ",".join(included_tags),
                   "blacklistedTags": ",".join(blacklisted_tags), "rating": rating}
-        response = self.session.get("https://api.nekosia.cat/api/v1/images/nothing", params=params)
+        response = self.session.get(
+            "https://api.nekosia.cat/api/v1/images/nothing",
+            params=params,
+            timeout=max(1, int(self.net_config.get("api_timeout", 15))),
+        )
         if response.status_code != 200:
             return f"non 200 status code: {response.status_code}"
-        data = response.json()
+        if "json" not in response.headers.get("Content-Type", "").lower():
+            return "API returned non-JSON content (service may be unavailable)"
+        try:
+            data = response.json()
+        except ValueError:
+            return "API returned invalid JSON"
         if data.get("status") in (400, 429):
             return [] if data["status"] == 400 else "Rate limit exceeded"
         result = []
@@ -47,7 +56,13 @@ class NekosiaWorker(BaseDownloader):
         return result
 
     def update_nekosia_database(self):
-        response = self.session.get("https://api.nekosia.cat/api/v1/tags").json()
+        raw = self.session.get("https://api.nekosia.cat/api/v1/tags", timeout=15)
+        if not raw.ok or "json" not in raw.headers.get("Content-Type", "").lower():
+            return False
+        try:
+            response = raw.json()
+        except ValueError:
+            return False
         final_values = []
         if response.get("success"):
             for category in ("tags", "anime", "characters"):

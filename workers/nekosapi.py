@@ -1,97 +1,133 @@
-import os
+"""Nekos API v5 image worker."""
+
 import asyncio
+import os
+import re
+from urllib.parse import urlparse
+
 from shared import BaseDownloader
 
 
 class NekosApiWorker(BaseDownloader):
-    def __init__(self, tags, amount, net_config):
-        super().__init__("nekosapi", "NekosAPI", amount, net_config)
-        self.tags = [t.strip() for t in tags.split(",") if t.strip()]
-        self.exclusions = []
-        for t in self.tags[:]:
-            if t.startswith("-"):
-                self.exclusions.append(t[1:])
-                self.tags.remove(t)
-        if not self.tags:
-            self.tags = ["kemonomimi"]
-        self.rating = (net_config or {}).get("rating", "safe")
-        self.api_base = "https://api.nekosapi.com/v4"
-        self.tag_dir = os.path.join(self.site_root, "_".join(self.tags))
-        self.rating_dir = os.path.join(self.tag_dir, "NSFW" if self.rating.lower() == "explicit" else self.rating.capitalize())
-        os.makedirs(self.rating_dir, exist_ok=True)
+    API_BASE = "https://api.nekosapi.com/v5"
+    VALID_RATINGS = {"safe", "suggestive", "borderline", "explicit"}
+    MAX_FILTERS = 5
 
-    def _validate_rating(self):
-        valid = {"safe", "suggestive", "borderline", "explicit"}
-        if self.rating.lower() not in valid:
-            self.rating = "safe"
+    def __init__(self, tags, artists, amount, rating, net_config):
+        self.tags = self._parse_filters(tags, "tags")
+        self.artists = self._parse_filters(artists, "artists")
+        self.rating = str(rating or "safe").strip().lower()
+        if self.rating not in self.VALID_RATINGS:
+            raise ValueError(f"Unsupported Nekos API rating: {self.rating}")
 
-    async def scraper_task(self):
-        self._validate_rating()
-        self.log(f"Initializing worker for tags: {self.tags}")
-        self.log(f"Exclusions: {self.exclusions}")
-        self.log(f"Rating: {self.rating}")
+        label = self.tags[0] if self.tags else self.artists[0] if self.artists else "all"
+        folder = re.sub(r"[^\w.-]+", "_", label, flags=re.UNICODE).strip("._") or "all"
+        super().__init__("nekosapi", os.path.join("NekosAPI", self.rating, folder), amount, net_config)
 
-        need = self.amount or 200
-        collected = 0
-        offset = 0
-        batch_size = 50
+    @classmethod
+    def _parse_filters(cls, values, label):
+        if isinstance(values, str):
+            values = re.split(r"[,\n]", values)
+        values = values or []
+        cleaned = []
+        seen = set()
+        for value in values:
+            value = str(value).strip()
+            key = value.casefold()
+            if value and key not in seen:
+                cleaned.append(value)
+                seen.add(key)
+        if len(cleaned) > cls.MAX_FILTERS:
+            raise ValueError(f"Nekos API accepts at most {cls.MAX_FILTERS} {label}.")
+        return cleaned
 
-        while collected < need and not self.stop_event.is_set():
-            params = {"limit": min(batch_size, need - collected), "offset": offset}
-            if self.tags:
-                params["tags"] = ",".join(self.tags)
-            if self.exclusions:
-                params["without_tags"] = ",".join(self.exclusions)
-            params["rating"] = [self.rating]
+    async def _request_page(self, params):
+        retries = max(1, int(self.net_config.get("api_retries", 3)))
+        timeout = max(1, int(self.net_config.get("api_timeout", 15)))
+        retry_wait = max(0, float(self.net_config.get("retry_wait", 3)))
 
+        for attempt in range(retries):
             try:
-                resp = await asyncio.to_thread(
-                    self.session.get, f"{self.api_base}/images", params=params, timeout=15
+                response = await asyncio.to_thread(
+                    self.session.get,
+                    f"{self.API_BASE}/images",
+                    params=params,
+                    timeout=timeout,
                 )
-                if resp.status_code in (403, 429):
-                    self.log(f"API BAN ({resp.status_code}). Change VPN node.")
-                    break
-                resp.raise_for_status()
-                data = resp.json()
-                images = data.get("items", [])
-                if not images:
-                    self.log("No more images found.")
-                    break
-            except Exception as e:
-                self.log(f"API error: {e}")
+                if response.status_code == 429:
+                    wait = min(60, float(response.headers.get("Retry-After", retry_wait)))
+                    if attempt + 1 < retries:
+                        self.log(f"Rate limited by Nekos API; retrying in {wait:g}s...")
+                        await asyncio.sleep(wait)
+                        continue
+                response.raise_for_status()
+                content_type = response.headers.get("Content-Type", "").lower()
+                if "json" not in content_type:
+                    raise ValueError(f"Nekos API returned non-JSON content ({content_type or 'unknown'}).")
+                payload = response.json()
+                if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+                    raise ValueError("Nekos API returned an unexpected response shape.")
+                return payload
+            except Exception as exc:
+                if attempt + 1 >= retries:
+                    raise RuntimeError(f"Nekos API request failed after {retries} attempts: {exc}") from exc
+                await asyncio.sleep(retry_wait)
+        return {"items": []}
+
+    async def scraper(self):
+        offset = 0
+        collected = 0
+        unlimited_page_cap = 200
+
+        while not self.stop_event.is_set() and (self.amount == 0 or collected < self.amount):
+            remaining = self.amount - collected if self.amount else 100
+            page_limit = min(100, max(1, remaining))
+            params = [("limit", page_limit), ("offset", offset), ("rating", self.rating)]
+            params.extend(("tag", tag) for tag in self.tags)
+            params.extend(("artist", artist) for artist in self.artists)
+
+            payload = await self._request_page(params)
+            items = payload["items"]
+            if not items:
                 break
 
-            for img in images:
-                if self.stop_event.is_set() or collected >= need:
+            for item in items:
+                if self.stop_event.is_set() or (self.amount and collected >= self.amount):
                     break
-                url = img.get("url")
-                if not url:
+                url = item.get("url")
+                image_id = item.get("id")
+                if not url or image_id is None:
                     continue
-                img_id = img.get("id", "unknown")
-                ext = url.rsplit(".", 1)[-1].split("?")[0]
-                if ext.lower() not in {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff"}:
+                ext = os.path.splitext(urlparse(url).path)[1].lower().lstrip(".") or "jpg"
+                if ext not in self.IMAGE_EXTENSIONS:
                     ext = "jpg"
-                filename = f"{img_id}.{ext}"
-                filepath = os.path.join(self.rating_dir, filename)
-                tag_list = self.tags + [t for t in img.get("tags", []) if t]
-                artist_name = img.get("artist_name")
-                artists = [artist_name] if artist_name else []
-                if await self.enqueue_download(url, filepath, filename, tag_list, artists):
+                filename = f"nekosapi_{image_id}.{ext}"
+                filepath = os.path.join(self.site_root, filename)
+                tag_names = [
+                    tag.get("name", "").strip()
+                    for tag in item.get("tags", [])
+                    if isinstance(tag, dict) and tag.get("name")
+                ]
+                item_rating = str(item.get("rating") or self.rating)
+                if item_rating:
+                    tag_names.append(f"rating:{item_rating}")
+                artists = [str(item["artist_name"]).strip()] if item.get("artist_name") else []
+                if await self.enqueue_download(url, filepath, filename, tag_names, artists):
                     collected += 1
 
-            if collected >= need or not images:
+            offset += len(items)
+            total = payload.get("total")
+            if len(items) < page_limit or (isinstance(total, int) and offset >= total):
                 break
-            offset += len(images)
-            if not self.stop_event.is_set():
+            if self.amount == 0 and offset >= unlimited_page_cap:
+                self.log("Unlimited mode page cap reached; start again to continue.")
+                break
+            if self.anti_ban_pause:
                 await asyncio.sleep(self.anti_ban_pause)
 
-        if collected:
-            self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
-
     def run(self):
-        asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        asyncio.run(self.run_async_loop(self.scraper))
 
 
-def worker_nekosapi(tags, amount, net_config):
-    NekosApiWorker(tags, amount, net_config).run()
+def worker_nekosapi(tags, artists, amount, rating, net_config):
+    NekosApiWorker(tags, artists, amount, rating, net_config).run()

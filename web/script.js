@@ -217,6 +217,7 @@ async function resetWallpapersUI() {
 }
 
 const socket = io();
+const activeWorkers = new Set();
 
 const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "nekosia": "nekosia", "nekosapi": "nekosapi", "zero": "zero", "waifu": "waifu",
@@ -226,6 +227,35 @@ const WORKER_TO_TAB = {
     "pinterest": "pinterest",
     "pixiv": "pixiv",
 };
+
+function setConnectionState(state) {
+    const el = document.getElementById('connectionStatus');
+    if (!el) return;
+    el.textContent = state === 'connected' ? 'CONNECTED' : state === 'disconnected' ? 'DISCONNECTED' : 'CONNECTING';
+    el.className = `connection-status ${state}`;
+}
+
+function setWorkerState(worker, status) {
+    const busy = ['queued', 'running', 'stopping'].includes(status);
+    if (busy) activeWorkers.add(worker); else activeWorkers.delete(worker);
+    const start = document.querySelector(`button[onclick="startWorker('${worker}')"]`);
+    const stop = document.querySelector(`button[onclick="stopWorker('${worker}')"]`);
+    if (start) {
+        start.disabled = busy;
+        start.textContent = status === 'queued' ? 'QUEUED' : status === 'running' ? 'RUNNING' : status === 'stopping' ? 'STOPPING' : 'START';
+    }
+    if (stop) stop.disabled = !busy || status === 'stopping';
+}
+
+socket.on('connect', () => setConnectionState('connected'));
+socket.on('disconnect', () => setConnectionState('disconnected'));
+socket.on('workers_state', data => {
+    const running = new Set((data && data.active) || []);
+    Object.keys(WORKER_TO_TAB).forEach(worker => setWorkerState(worker, running.has(worker) ? 'running' : 'idle'));
+});
+socket.on('worker_status', data => {
+    if (data && data.worker) setWorkerState(data.worker, data.status || 'idle');
+});
 
 function updateProgressBar(worker, msg) {
     let key = WORKER_TO_TAB[worker];
@@ -487,6 +517,10 @@ function logToConsole(tabID, msg) {
 }
 
 async function startWorker(workerName) {
+    if (activeWorkers.has(workerName)) {
+        logToConsole(workerName, 'Worker is already running.');
+        return;
+    }
     let payload = { worker: workerName, net_config: { ...globalNetConfig } };
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
     payload.net_config.retry_wait = document.getElementById("retryWait").value;
@@ -515,11 +549,18 @@ async function startWorker(workerName) {
             payload.tag = document.getElementById('nekosiaTag').value;
             payload.limit = document.getElementById('nekosiaLimit').value;
             payload.net_config.rating = document.getElementById('nekosiaRating').value;
-        } else if (workerName === 'nekosapi') {
+    } else if (workerName === 'nekosapi') {
             payload.tag = document.getElementById('nekosapiTag').value;
+            payload.artists = document.getElementById('nekosapiArtists').value;
             payload.limit = document.getElementById('nekosapiLimit').value;
-            payload.net_config.rating = document.getElementById('nekosapiRating').value;
-        } else if (workerName === 'eshuushuu') {
+            payload.rating = document.getElementById('nekosapiRating').value;
+            const tags = payload.tag.split(',').map(v => v.trim()).filter(Boolean);
+            const artists = payload.artists.split(',').map(v => v.trim()).filter(Boolean);
+            if (tags.length > 5 || artists.length > 5) {
+                logToConsole('nekosapi', 'Nekos API accepts at most 5 tags and 5 artists.');
+                return;
+            }
+    } else if (workerName === 'eshuushuu') {
         payload.tag = document.getElementById('eshuushuuTag').value;
         payload.limit = document.getElementById('eshuushuuLimit').value;
         payload.user_id = document.getElementById('eshuushuuUserId').value;
@@ -667,12 +708,20 @@ async function startWorker(workerName) {
         }
     }
     
+    const amount = Number(payload.limit);
+    if (!Number.isInteger(amount) || amount < 0) {
+        logToConsole(workerName, 'Amount must be a non-negative whole number.');
+        return;
+    }
+    if (amount === 0 && !confirm('Amount 0 enables unlimited mode. Continue?')) return;
+
     // per-worker proxy: checkbox in the worker's tab
     const TAB_IDS = {anime_dl:"AnimeDL",dan:"Danbooru",gelbooru:"Gelbooru",kona:"Kona",neko:"Neko",nekosia:"Nekosia",nekosapi:"NekosApi",eshuushuu:"Eshuushuu",nekos_life:"NekosLife",pinterest:"Pinterest",pixiv:"Pixiv",rule34:"Rule34",safe:"Safe",sankaku:"Sankaku",waifu:"Waifu",yande:"Yande",zero:"Zero",main:"Main"};
     const tabId = TAB_IDS[workerName] || (workerName.charAt(0).toUpperCase() + workerName.slice(1));
     const proxyBox = document.querySelector(`#${tabId} .worker-proxy-check`);
     payload.net_config.use_proxy = proxyBox ? proxyBox.checked : false;
 
+    setWorkerState(workerName, 'queued');
     socket.emit("start_worker", payload);
 
     let key = WORKER_TO_TAB[workerName];
@@ -692,7 +741,9 @@ async function startWorker(workerName) {
 }
 
 function stopWorker(workerName) {
+    if (!activeWorkers.has(workerName)) return;
     socket.emit("stop_worker", { worker: workerName });
+    setWorkerState(workerName, 'stopping');
     let key = WORKER_TO_TAB[workerName];
     if (key) {
         let wrap = document.getElementById("progressWrap_" + key);
@@ -872,11 +923,21 @@ async function fetchNekosia(val) {
     } catch(e) {}
 }
 
-async function fetchNekosapi(val) {
+let nekosapiSuggestTimer = null;
+let nekosapiSuggestController = null;
+
+function fetchNekosapi(val) {
+    clearTimeout(nekosapiSuggestTimer);
+    nekosapiSuggestTimer = setTimeout(() => fetchNekosapiNow(val), 250);
+}
+
+async function fetchNekosapiNow(val) {
     if (val.length < 2) return;
     let words = val.split(","); let lastWord = words[words.length - 1].trim(); if(lastWord.length < 2) return;
     try {
-        let resp = await fetch("/api/tags/nekosapi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord }) });
+        if (nekosapiSuggestController) nekosapiSuggestController.abort();
+        nekosapiSuggestController = new AbortController();
+        let resp = await fetch("/api/tags/nekosapi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: lastWord, net_config: globalNetConfig }), signal: nekosapiSuggestController.signal });
         let tags = await resp.json();
         let dl = document.getElementById("nekosapiList");
         let dHtml = "";

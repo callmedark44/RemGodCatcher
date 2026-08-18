@@ -2,6 +2,7 @@
 import os, re, json, threading, random
 import asyncio
 from pathlib import Path
+import shared
 from shared import BaseDownloader
 
 
@@ -159,7 +160,10 @@ class PinterestWorker(BaseDownloader):
                 break
             try:
                 path = downloader.download(media, Path(self.tag_dir), download_streams=True)
+                if not path or not os.path.exists(path):
+                    raise ValueError("Pinterest downloader did not create a file")
                 filename = os.path.basename(path)
+                self._validate_download(str(path))
                 rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
                 tags = [media.alt] if media.alt else []
                 add_to_gallery(self.name, filename, rel, tags, [])

@@ -861,3 +861,34 @@ select option {
     min-width: 36px;
     text-align: center;
 }
+
+.connection-status {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(255, 184, 77, 0.18);
+    color: #ffb84d;
+    font: 600 10px/1.2 Inter, sans-serif;
+    letter-spacing: .08em;
+}
+.connection-status.connected { background: rgba(45, 212, 191, .18); color: #2dd4bf; }
+.connection-status.disconnected { background: rgba(255, 92, 92, .18); color: #ff5c5c; }
+.action-btn:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }
+
+@media (max-width: 760px) {
+    .glass-panel { width: calc(100vw - 20px); height: calc(100vh - 20px); margin: 10px; }
+    .tab-buttons { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; scrollbar-width: thin; }
+    .tab-btn { flex: 0 0 auto; }
+    .tab-container { padding: 12px; }
+    .input-group { align-items: stretch; }
+    .input-group input[type="text"], .input-group input[type="number"], .input-group select { max-width: 100%; width: 100% !important; box-sizing: border-box; }
+    .console-log { min-height: 180px; }
+    .gallery-toolbar { overflow-x: auto; flex-wrap: nowrap; }
+    .connection-status { top: auto; bottom: 8px; right: 10px; z-index: 30; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

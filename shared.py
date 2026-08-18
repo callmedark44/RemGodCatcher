@@ -44,6 +44,7 @@ def load_gallery():
 
 def save_gallery(data):
     with GALLERY_LOCK:
+        os.makedirs(os.path.dirname(GALLERY_FILE), exist_ok=True)
         with open(GALLERY_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -112,6 +113,9 @@ def save_history(site_root, history_set):
 # === OOP ASYNCIO ENGINE ===
 # ==========================================
 class BaseDownloader:
+    IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"}
+    VIDEO_EXTENSIONS = {"mp4", "webm"}
+
     def __init__(self, name, site_folder, amount, net_config):
         self.name = name
         self.site_folder = site_folder
@@ -136,6 +140,8 @@ class BaseDownloader:
         self.total_bytes = 0
         self.total_to_download = 0
         self.download_queue = None
+        self._pending_downloads = set()
+        self._pending_lock = threading.Lock()
 
     def _setup_session(self):
         session = requests.Session()
@@ -156,8 +162,10 @@ class BaseDownloader:
 
     async def enqueue_download(self, url, filepath, filename, tags_list, artists=None):
         if artists is None: artists = []
-        if filename in self.dl_history or os.path.exists(filepath):
-            return False
+        with self._pending_lock:
+            if filename in self.dl_history or os.path.exists(filepath) or filename in self._pending_downloads:
+                return False
+            self._pending_downloads.add(filename)
         file_size = 0
         try:
             resp = await asyncio.to_thread(self.session.head, url, timeout=5)
@@ -169,8 +177,10 @@ class BaseDownloader:
         return True
 
     async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0):
-        if self.stop_event.is_set(): return False
-        if filename in self.dl_history or os.path.exists(filepath): return False
+        if self.stop_event.is_set() or filename in self.dl_history or os.path.exists(filepath):
+            with self._pending_lock:
+                self._pending_downloads.discard(filename)
+            return False
 
         for attempt in range(self.dl_retries):
             try:
@@ -193,10 +203,14 @@ class BaseDownloader:
 
                 if self.stop_event.is_set():
                     if os.path.exists(filepath): os.remove(filepath)
+                    with self._pending_lock:
+                        self._pending_downloads.discard(filename)
                     return False
 
                 if content_length > 0 and downloaded < content_length:
                     raise IOError(f"Truncated: got {downloaded} of {content_length} bytes")
+
+                await asyncio.to_thread(self._validate_download, filepath, r.headers.get("Content-Type", ""))
 
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded
@@ -209,6 +223,8 @@ class BaseDownloader:
                 add_to_gallery(self.name, filename, rel_path, tags_list, artists)
                 write_image_metadata(filepath, tags_list, artists, self.name)
                 send_tags(self.name, filename, tags_list, artists, rel_path)
+                with self._pending_lock:
+                    self._pending_downloads.discard(filename)
                 return True
 
             except Exception as e:
@@ -217,7 +233,28 @@ class BaseDownloader:
                 else:
                     if os.path.exists(filepath): os.remove(filepath)
                     self.log(f"[FAILED] {filename}: {e}")
+        with self._pending_lock:
+            self._pending_downloads.discard(filename)
         return False
+
+    def _validate_download(self, filepath, content_type=""):
+        """Reject HTML/JSON error bodies and corrupt media before recording success."""
+        ext = os.path.splitext(filepath)[1].lower().lstrip(".")
+        content_type = content_type.lower()
+        if "text/html" in content_type or "application/json" in content_type:
+            raise ValueError(f"Unexpected download content type: {content_type}")
+        if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+            raise ValueError("Downloaded file is empty")
+        if ext in self.IMAGE_EXTENSIONS:
+            with Image.open(filepath) as image:
+                image.verify()
+        elif ext in self.VIDEO_EXTENSIONS:
+            with open(filepath, "rb") as media:
+                header = media.read(16)
+            if ext == "mp4" and b"ftyp" not in header:
+                raise ValueError("Downloaded MP4 has an invalid header")
+            if ext == "webm" and not header.startswith(b"\x1aE\xdf\xa3"):
+                raise ValueError("Downloaded WebM has an invalid header")
 
     async def _download_worker(self):
         while not self.stop_event.is_set():

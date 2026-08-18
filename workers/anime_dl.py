@@ -10,6 +10,7 @@ rejects requests (403) unless two cookies are present:
 import os, re
 import asyncio
 from curl_cffi import requests as curl_requests
+import shared
 from shared import BaseDownloader
 
 API = "https://api.anime-pictures.net/api/v3"
