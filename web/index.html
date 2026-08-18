@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rem God Catcher</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body style="background-image: url('wallpaper/Rem_main_d.png');">
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="glass-panel">
+        <div class="tab-buttons">
+            <div class="tab-group-title" onclick="toggleMenu('group-menu')">Menu <span class="chevron">▼</span></div>
+            <div class="tab-group-content" id="group-menu">
+                <button class="tab-btn active" onclick="openTab('Main', this)">MAIN</button>
+                <button class="tab-btn" onclick="openTab('Gallery', this)">Gallery</button>
+                <button class="tab-btn" onclick="openTab('History', this)">History</button>
+            </div>
+            
+            <div class="tab-group-title" onclick="toggleMenu('group-downloaders')">Downloaders <span class="chevron">▼</span></div>
+            <div class="tab-group-content" id="group-downloaders">
+                <button class="tab-btn" onclick="openTab('AnimeDL', this)">Anime DL</button>
+                <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
+                <button class="tab-btn" onclick="openTab('EShuushuu', this)">e-shuushuu</button>
+                <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
+                <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
+                <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
+                <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
+                <button class="tab-btn" onclick="openTab('NekosAPI', this)">NekosAPI</button>
+                <button class="tab-btn" onclick="openTab('Nekosia', this)">Nekosia</button>
+                <button class="tab-btn" onclick="openTab('Pinterest', this)">Pinterest</button>
+                <button class="tab-btn" onclick="openTab('Rule34', this)">Rule34</button>
+                <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
+                <button class="tab-btn" onclick="openTab('Sankaku', this)">Sankaku</button>
+                <button class="tab-btn" onclick="openTab('Waifu', this)">Waifu.im</button>
+                <button class="tab-btn" onclick="openTab('Yande', this)">Yande.re</button>
+                <button class="tab-btn" onclick="openTab('Zero', this)">Zerochan</button>
+            </div>
+            
+            <div class="tab-group-title" onclick="toggleMenu('group-settings')">Settings <span class="chevron">▼</span></div>
+            <div class="tab-group-content" id="group-settings">
+                <button class="tab-btn" onclick="openTab('Customize', this)">Customize</button>
+                <button class="tab-btn" onclick="openTab('Options', this)">Settings</button>
+            </div>
+        </div>
+        <div class="glass-panel-content">
+
+        <div class="tab-container">
+            <div id="Main" class="tab-content" style="display: flex;">
+                <div class="options-scroll">
+                    <h2>System Setup</h2>
+                    <div class="input-group">
+                        <label>Master Folder:</label>
+                        <span id="folderDisplay" style="color: var(--accent-color); flex-grow: 1; font-family: monospace;">Loading...</span>
+                        <button class="action-btn" onclick="browseFolder()">Browse</button>
+                    </div>
+
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="input-group" style="margin-top: 0;">
+                            <input type="checkbox" id="proxyEnabled">
+                            <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (Required for Rule34, Safebooru)</label>
+                        </div>
+                        <div class="input-group" style="margin-top: 8px;">
+                            <label style="min-width: 100px;">Proxy URL:</label>
+                            <input type="text" id="proxyUrl" value="http://127.0.0.1:10808" style="width: 280px;">
+                            <button class="action-btn" onclick="saveProxySettings()" style="margin-left: 10px;">Apply</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <p style="color: var(--title-color); font-size: 14px; font-weight: bold; margin-bottom: 8px;">Favorite Tags</p>
+                        <div id="favoritesListUI" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;">
+                            </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="AnimeDL" class="tab-content" style="display: none;">
+                <h2>Anime Pictures Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="animeDlTag" placeholder="e.g. rem">
+                        <div id="animeDlAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="animeDlLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('anime_dl')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('anime_dl')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_anime_dl" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_anime_dl">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_anime_dl"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('anime_dl')">Clear</button>
+                    <div id="consoleLog_anime_dl" class="console-log"></div>
+                </div>
+            </div>
+
+            <!-- E-Shuushuu Tab -->
+            <div id="EShuushuu" class="tab-content" style="display: none;">
+                <h2>e-shuushuu Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input type="text" id="eshuushuuTag" placeholder="e.g. rem" autocomplete="off" style="width: 100%;">
+                        <div id="eshuushuuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>User ID:</label>
+                    <input type="text" id="eshuushuuUser" placeholder="Optional" style="width: 100px;">
+                    <label>Limit:</label>
+                    <input type="number" id="eshuushuuLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('eshuushuu')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('eshuushuu')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_eshuushuu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_eshuushuu">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_eshuushuu"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('eshuushuu')">Clear</button>
+                    <div id="consoleLog_eshuushuu" class="console-log"></div>
+                </div>
+            </div>
+
+            <!-- NekosAPI Tab -->
+            <div id="NekosAPI" class="tab-content" style="display: none;">
+                <h2>NekosAPI Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input type="text" id="nekosapiTag" placeholder="e.g. catgirl" autocomplete="off" style="width: 100%;">
+                        <div id="nekosapiAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="nekosapiLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('nekosapi')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('nekosapi')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_nekosapi" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekosapi">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekosapi"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('nekosapi')">Clear</button>
+                    <div id="consoleLog_nekosapi" class="console-log"></div>
+                </div>
+            </div>
+
+            <!-- Nekosia Tab (UI Ready) -->
+            <div id="Nekosia" class="tab-content" style="display: none;">
+                <h2>Nekosia Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input type="text" id="nekosiaTag" placeholder="e.g. maid" autocomplete="off" style="width: 100%;">
+                        <div id="nekosiaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="nekosiaLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('nekosia')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('nekosia')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_nekosia" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekosia">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekosia"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('nekosia')">Clear</button>
+                    <div id="consoleLog_nekosia" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Customize" class="tab-content" style="display: none;">
+                <div class="options-scroll">
+                    <h2 style="color: var(--title-color); margin-bottom: 6px;">UI & Theming Engine</h2>
+                    <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-bottom: 20px;">Personalize colors, wallpapers, and application behavior.</p>
+
+                    <div class="settings-cards-grid">
+                        <div class="settings-card" style="grid-column: 1 / -1;">
+                            <h3>Appearance Mode</h3>
+                            <div class="field-row">
+                                <label>Theme Mode:</label>
+                                <div style="display: flex; gap: 15px;">
+                                    <label><input type="radio" name="themeMode" value="dark" onchange="changeThemeMode(this.value)"> Dark</label>
+                                    <label><input type="radio" name="themeMode" value="light" onchange="changeThemeMode(this.value)"> Light</label>
+                                    <label><input type="radio" name="themeMode" value="system" onchange="changeThemeMode(this.value)"> System Auto</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>Color Palette</h3>
+                            <div class="color-picker-wrapper"><input type="color" id="color_title" class="color-circle" oninput="updateLiveColor('title', this.value)"><span>Title Text</span></div>
+                            <div class="color-picker-wrapper"><input type="color" id="color_text" class="color-circle" oninput="updateLiveColor('text', this.value)"><span>General Text</span></div>
+                            <div class="color-picker-wrapper"><input type="color" id="color_accent" class="color-circle" oninput="updateLiveColor('accent', this.value)"><span>Accent Text</span></div>
+                            <div class="color-picker-wrapper"><input type="color" id="color_tab_text" class="color-circle" oninput="updateLiveColor('tab_text', this.value)"><span>Tab Names</span></div>
+                            <div class="color-picker-wrapper"><input type="color" id="color_tab_hover_bg" class="color-circle" oninput="updateLiveColor('tab_hover_bg', this.value)"><span>Tab Hover BG</span></div>
+                            <div class="color-picker-wrapper"><input type="color" id="color_tab_active_bg" class="color-circle" oninput="updateLiveColor('tab_active_bg', this.value)"><span>Tab Active BG</span></div>
+
+                            <div style="display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;"><input type="color" id="color_btn_start_bg" class="color-circle" oninput="updateLiveColor('btn_start_bg', this.value)"><span style="font-size: 11px; opacity: 0.8;">Start BG</span></div>
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;"><input type="color" id="color_btn_start_text" class="color-circle" oninput="updateLiveColor('btn_start_text', this.value)"><span style="font-size: 11px; opacity: 0.8;">Start Txt</span></div>
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;"><input type="color" id="color_btn_stop_bg" class="color-circle" oninput="updateLiveColor('btn_stop_bg', this.value)"><span style="font-size: 11px; opacity: 0.8;">Stop BG</span></div>
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;"><input type="color" id="color_btn_stop_text" class="color-circle" oninput="updateLiveColor('btn_stop_text', this.value)"><span style="font-size: 11px; opacity: 0.8;">Stop Txt</span></div>
+                            </div>
+
+                            <div style="margin-top: auto; padding-top: 20px; display: flex; gap: 10px; align-items: center;">
+                                <button class="action-btn" onclick="saveColors()">Save Colors</button>
+                                <button class="action-btn stop-btn" onclick="resetColors()">Reset</button>
+                                <span id="colorSaveStatus" style="font-size: 12px; color: var(--title-color);"></span>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>Wallpapers</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 380px; overflow-y: auto; padding-right: 5px;" class="options-scroll" id="wpGridUI"></div>
+                            <div style="margin-top: auto; padding-top: 20px; display: flex; gap: 10px; align-items: center;">
+                                <button class="action-btn" onclick="saveWallpapersUI()">Save Wallpapers</button>
+                                <button class="action-btn stop-btn" onclick="resetWallpapersUI()">Reset</button>
+                                <span id="wpSaveStatusUI" style="font-size: 12px; color: var(--title-color);"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="Danbooru" class="tab-content" style="display: none;">
+                <h2>Danbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="danTag" placeholder="e.g. rem blue_hair">
+                        <div id="danAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="danLimit" value="50" min="0" style="width: 80px;">
+                    <select id="danRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('dan')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="danFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_dan" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_dan">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_dan"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
+                    <div id="consoleLog_dan" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Gallery" class="tab-content gallery-tab" style="display: none;">
+                <div class="gallery-toolbar">
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('sourceDropdown')">All Sources ▾</button>
+                        <div id="sourceDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                        </div>
+                    </div>
+                    <input type="text" id="gallerySearch" placeholder="Search tags, filename..." onkeydown="if(event.key==='Enter')loadGallery(1)">
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('sortDropdown')">Newest First ▾</button>
+                        <div id="sortDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="selectSort(this, 'newest')"><span>Newest First</span></div>
+                            <div class="dd-item" onclick="selectSort(this, 'oldest')"><span>Oldest First</span></div>
+                        </div>
+                    </div>
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('typeDropdown')">All Types ▾</button>
+                        <div id="typeDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Images</span><input type="checkbox" value="image"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>GIFs</span><input type="checkbox" value="gif"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Videos</span><input type="checkbox" value="video"></div>
+                        </div>
+                    </div>
+                    <div class="gallery-dropdown">
+                        <button class="gallery-dropdown-btn" onclick="toggleDropdown('ratingDropdown')">All Ratings ▾</button>
+                        <div id="ratingDropdown" class="gallery-dropdown-menu">
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Safe</span><input type="checkbox" value="safe"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Sensitive</span><input type="checkbox" value="sensitive"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>Questionable</span><input type="checkbox" value="questionable"></div>
+                            <div class="dd-item" onclick="toggleCheck(this)"><span>NSFW</span><input type="checkbox" value="explicit"></div>
+                        </div>
+                    </div>
+                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">♥ Favorites</button>
+                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images">↻</button>
+                </div>
+                <div id="galleryGrid"></div>
+                <div id="galleryPagination" class="gallery-pagination"></div>
+                <div id="galleryViewer" class="gallery-viewer" style="display: none;">
+                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">&times;</button>
+                    <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
+                    <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
+                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">‹</button>
+                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">›</button>
+                    <img id="galleryViewerImg" src="">
+                </div>
+            </div>
+
+            <div id="Gelbooru" class="tab-content" style="display: none;">
+                <h2>Gelbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="gelbooruTag" placeholder="e.g. 1girl blue_hair">
+                        <div id="gelbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="gelbooruLimit" value="50" min="0" style="width: 80px;">
+                    <select id="gelbooruRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="gelFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="gelNoAI"> <label for="gelNoAI">Exclude AI</label>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_gelbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_gelbooru">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_gelbooru"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('gelbooru')">Clear</button>
+                    <div id="consoleLog_gelbooru" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="History" class="tab-content" style="display: none;">
+                <div class="options-scroll">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2>Tag Search History</h2>
+                        <button class="action-btn stop-btn" onclick="clearHistory()">Clear All History</button>
+                    </div>
+                    <div id="historyListUI" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 15px;">
+                        <h2 style="color: var(--accent-color);">Downloaded Images Archive</h2>
+                        <button class="action-btn stop-btn" onclick="clearImageHistory()">Clear Archive</button>
+                    </div>
+                    <div id="imageHistoryUI" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                </div>
+            </div>
+
+            <div id="Kona" class="tab-content" style="display: none;">
+                <h2>Konachan Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="konaTag" placeholder="e.g. rem blue_hair">
+                        <div id="konaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="konaLimit" value="50" min="0" style="width: 80px;">
+                    <select id="konaRating" style="width: 110px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:s">Safe</option>
+                        <option value="rating:q">Moderate</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('kona')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
+                </div>
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                    <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
+                    <select id="konaFormat" style="margin-right: 15px;">
+                        <option value="images">Images Only</option>
+                        <option value="all">Images & Videos</option>
+                        <option value="videos">Videos Only</option>
+                    </select>
+                    <input type="checkbox" id="konaExGif"> <label for="konaExGif">Exclude GIF</label>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_kona" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_kona">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_kona"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('kona')">Clear</button>
+                    <div id="consoleLog_kona" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Neko" class="tab-content" style="display: none;">
+                <h2>Nekos.best Downloader</h2>
+                <div class="input-group">
+                    <label>Format:</label>
+                    <select id="nekoFormat" onchange="updateNekoDropdown()">
+                        <option value="Images">Images</option>
+                        <option value="GIFs">GIFs</option>
+                    </select>
+                    <label>Category:</label>
+                    <select id="nekoCat" style="width: 140px;"></select>
+                    <label>Amount:</label>
+                    <input type="number" id="nekoAmount" value="20" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('neko')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_neko" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_neko">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_neko"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('neko')">Clear</button>
+                    <div id="consoleLog_neko" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="NekosLife" class="tab-content" style="display: none;">
+                <h2>Nekos.life Downloader</h2>
+                <div class="input-group">
+                    <label>Category:</label>
+                    <select id="nekosLifeCat" style="width: 150px;" onchange="updateNekosLifeType()">
+                        <optgroup label="GIF Only">
+                            <option value="ngif">nekoGif</option><option value="hug">hug</option><option value="pat">pat</option>
+                            <option value="cuddle">cuddle</option><option value="tickle">tickle</option><option value="feed">feed</option>
+                            <option value="slap">slap</option><option value="kiss">kiss</option><option value="smug">smug</option>
+                        </optgroup>
+                        <optgroup label="Static Only">
+                            <option value="gecg">gecg</option><option value="meow">meow</option><option value="neko">neko</option>
+                            <option value="lewd">lewd</option><option value="gasm">gasm</option><option value="8ball">8ball</option>
+                            <option value="avatar">avatar</option><option value="woof">woof</option><option value="fox_girl">foxGirl</option>
+                            <option value="waifu">waifu</option>
+                        </optgroup>
+                        <optgroup label="Mixed (GIF/Static)">
+                            <option value="goose">goose</option><option value="wallpaper">wallpaper</option>
+                            <option value="lizard">lizard</option><option value="span">span</option>
+                        </optgroup>
+                    </select>
+                    <span id="nekosLifeType" style="color: var(--accent-color); font-size: 12px; font-weight: bold; margin-left: 5px;"></span>
+                    <label id="nekosLifeFormatLabel" style="margin-left: 10px; display: none;">Format:</label>
+                    <select id="nekosLifeFormat" style="width: 120px; display: none;" onchange="updateNekosLifeFormatHint()">
+                        <option value="both">Both (GIF & Image)</option>
+                        <option value="gif">GIF Only</option>
+                        <option value="image">Image Only</option>
+                    </select>
+                    <label style="margin-left: 10px;">Amount:</label>
+                    <input type="number" id="nekosLifeAmount" value="20" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('nekos_life')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('nekos_life')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_nekos_life" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekos_life">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekos_life"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('nekos_life')">Clear</button>
+                    <div id="consoleLog_nekos_life" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Options" class="tab-content" style="display: none;">
+                <div class="options-scroll">
+                    <h2 style="margin-bottom: 6px;">Settings</h2>
+                    <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-bottom: 20px;">Configure API credentials and download behavior.</p>
+
+                    <div class="settings-cards-grid">
+                        <div class="settings-card">
+                            <h3>🔑 Rule34 Credentials</h3>
+                            <div class="field-row"><label>API Key:</label><input type="password" id="r34Key" placeholder="Rule34 API Key" style="flex:1;"></div>
+                            <div class="field-row"><label>User ID:</label><input type="text" id="r34Uid" placeholder="Rule34 User ID" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>🔑 Gelbooru Credentials</h3>
+                            <div class="field-row"><label>API Key:</label><input type="password" id="gelKey" placeholder="Gelbooru API Key" style="flex:1;"></div>
+                            <div class="field-row"><label>User ID:</label><input type="text" id="gelUid" placeholder="Gelbooru User ID" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>🔑 Sankaku Credentials</h3>
+                            <div class="field-row"><label>Login:</label><input type="text" id="sankaLogin" placeholder="Email / Username" style="flex:1;"></div>
+                            <div class="field-row"><label>Password:</label><input type="password" id="sankaPassword" placeholder="Password" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>🔑 Zerochan Credentials</h3>
+                            <div class="field-row"><label>Username:</label><input type="text" id="zeroLogin" placeholder="Zerochan Username" style="flex:1;"></div>
+                            <div class="field-row"><label>Password:</label><input type="password" id="zeroPassword" placeholder="Zerochan Password" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>🔑 Pinterest Login</h3>
+                            <div class="field-row"><label>Cookies:</label><input type="text" id="pinterestCookies" placeholder="Cookies file path (optional)" style="flex:1;"></div>
+                            <div class="field-row"><label>Email:</label><input type="email" id="pinterestEmail" placeholder="Email (fallback)" style="flex:1;"></div>
+                            <div class="field-row"><label>Password:</label><input type="password" id="pinterestPassword" placeholder="Password" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card" style="grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 16px;">
+                            <button class="action-btn" onclick="saveApiSettings()">💾 Save All API Keys</button>
+                            <span id="apiSaveStatus" style="font-size: 13px; color: var(--title-color);"></span>
+                        </div>
+
+                        <div class="settings-card" style="grid-column: 1 / -1;">
+                            <h3>⚙️ Download Parameters</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+                                <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">API Timeout (s)</label><input type="number" id="apiTimeout" value="10" style="width: 100%;"></div>
+                                <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Retry Wait (s)</label><input type="number" id="retryWait" value="5" style="width: 100%;"></div>
+                                <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Anti-Ban Pause (s)</label><input type="number" id="antiBanPause" value="3" step="0.5" style="width: 100%;"></div>
+                                <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Download Retries</label><input type="number" id="downloadRetries" value="3" min="1" style="width: 100%;"></div>
+                            </div>
+                            <div class="field-row" style="margin-top: 12px;">
+                                <input type="checkbox" id="hydrusSidecarToggle">
+                                <label for="hydrusSidecarToggle">Write Hydrus sidecar (.txt) metadata files</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+                                <button class="action-btn" onclick="saveDownloadSettings()">💾 Save Download Settings</button>
+                                <span id="dlSettingsStatus" style="font-size: 13px; color: var(--title-color);"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="Pinterest" class="tab-content" style="display: none;">
+                <h2>Pinterest Downloader</h2>
+                <div class="input-group">
+                    <label>URL or Query:</label>
+                    <input type="text" id="pinterestTag" placeholder="Board URL, pin URL, or search query" style="width: 400px;">
+                    <label>Limit:</label>
+                    <input type="number" id="pinterestLimit" value="30" min="0" style="width: 80px;">
+                    <label>Mode:</label>
+                    <select id="pinterestMode" style="width: 100px;">
+                        <option value="scrape">URL Scrape</option>
+                        <option value="search">Search</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('pinterest')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('pinterest')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_pinterest" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_pinterest">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pinterest"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('pinterest')">Clear</button>
+                    <div id="consoleLog_pinterest" class="console-log"></div>
+                </div>
+            </div>
+
+            <!-- CLEANED RULE34 LAYOUT -->
+            <div id="Rule34" class="tab-content" style="display: none;">
+                <h2>Rule34 Downloader</h2>
+                <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 5px; margin-bottom: 5px;">
+                    <div class="input-group" style="margin-top: 0; align-items: flex-start; gap: 8px;">
+                        <label style="min-width: 60px; padding-top: 4px; font-size: 13px;">Tags:</label>
+                        <div style="display:flex; flex-direction:column; flex:1; gap:4px;">
+                            <div style="display:flex; gap:6px; position: relative;">
+                                <input type="text" id="rule34TagInput" autocomplete="off" placeholder="e.g. rem blue_hair -maid" style="flex:1; padding: 4px 8px; font-size: 13px;" onkeydown="if(event.key==='Enter') addRule34Tag()">
+                                <div id="rule34Autosuggest" class="autosuggest-dropdown" style="display:none;"></div>
+                                <button class="action-btn" onclick="addRule34Tag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
+                            </div>
+                            <div id="rule34TagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 60px; font-size: 13px;">Method:</label>
+                            <select id="rule34Method" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                                <option value="and">AND (All)</option>
+                                <option value="or">OR (Any)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 40px; font-size: 13px;">Sort:</label>
+                            <select id="rule34SortType" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                                <option value="id">Newest (ID)</option>
+                                <option value="score">Score</option>
+                            </select>
+                            <select id="rule34SortOrder" style="margin-left: 6px; padding: 2px 6px; font-size: 12px; height: 26px; width: 60px;">
+                                <option value="desc">Desc</option>
+                                <option value="asc">Asc</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 60px; font-size: 13px;">Format:</label>
+                            <select id="rule34Format" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
+                                <option value="images">Images Only</option>
+                                <option value="gifs">GIFs Only</option>
+                                <option value="all">Images & Videos</option>
+                                <option value="videos">Videos Only</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <label style="min-width: 60px; font-size: 13px;">Exclude:</label>
+                            <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
+                            <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
+                            <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+                        <label style="font-size: 13px;">Limit:</label>
+                        <input type="number" id="rule34Limit" value="50" min="0" style="width: 70px; padding: 2px 6px; height: 26px; font-size: 13px;">
+                        <button class="action-btn" onclick="startWorker('rule34')" style="margin-left: auto; padding: 4px 14px; font-size: 13px; height: 28px;">START</button>
+                        <button class="action-btn stop-btn" onclick="stopWorker('rule34')" style="padding: 4px 14px; font-size: 13px; height: 28px;">STOP</button>
+                    </div>
+                </div>
+                
+                <div class="dual-progress-container" id="dualProgress_rule34" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_rule34">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_rule34"></div></div>
+                </div>
+                
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('rule34')">Clear</button>
+                    <div id="consoleLog_rule34" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Safe" class="tab-content" style="display: none;">
+                <h2>Safebooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="safeTag" placeholder="e.g. 1girl blue_hair">
+                        <div id="safeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="safeLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('safe')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_safe" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_safe">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_safe"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('safe')">Clear</button>
+                    <div id="consoleLog_safe" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Sankaku" class="tab-content" style="display: none;">
+                <h2>Sankaku Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="sankakuTag" placeholder="e.g. rem blue_hair">
+                        <div id="sankakuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="sankakuLimit" value="50" min="0" style="width: 80px;">
+                    <select id="sankakuRating" style="width: 110px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:s">Safe</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <input type="checkbox" id="sankakuHideBooks"> <label for="sankakuHideBooks">Hide Books/Pools</label>
+                    <button class="action-btn" onclick="startWorker('sankaku')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('sankaku')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_sankaku" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_sankaku">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_sankaku"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('sankaku')">Clear</button>
+                    <div id="consoleLog_sankaku" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Waifu" class="tab-content" style="display: none;">
+                <h2>Waifu.im Downloader</h2>
+                <div class="input-group">
+                    <label>Tag:</label>
+                    <select id="waifuTag" style="width: 160px;"></select>
+                    <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
+                    <label>Limit:</label>
+                    <input type="number" id="waifuLimit" value="30" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_waifu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_waifu">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_waifu"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('waifu')">Clear</button>
+                    <div id="consoleLog_waifu" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Yande" class="tab-content" style="display: none;">
+                <h2>Yande.re Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="yandeTag" placeholder="e.g. rem blue_hair">
+                        <div id="yandeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="yandeLimit" value="50" min="0" style="width: 80px;">
+                    <select id="yandeRating" style="width: 110px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:s">Safe</option>
+                        <option value="rating:q">Moderate</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('yande')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('yande')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_yande" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_yande">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_yande"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('yande')">Clear</button>
+                    <div id="consoleLog_yande" class="console-log"></div>
+                </div>
+            </div>
+
+            <div id="Zero" class="tab-content" style="display: none;">
+                <h2>Zerochan Downloader</h2>
+                <div class="input-group">
+                    <label>Tag Name:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="zeroTag" placeholder="e.g. Rem (Re:Zero)">
+                        <div id="zeroAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="zeroLimit" value="50" min="0" style="width: 80px;">
+                    <button class="action-btn" onclick="startWorker('zero')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_zero" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_zero">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_zero"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('zero')">Clear</button>
+                    <div id="consoleLog_zero" class="console-log"></div>
+                </div>
+            </div>
+
+        </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

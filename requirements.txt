@@ -1,0 +1,9 @@
+flask
+flask-socketio
+requests
+python-dotenv
+pillow
+aiohttp
+curl_cffi
+rule34Py
+gallery-dl

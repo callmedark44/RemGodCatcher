@@ -1,0 +1,69 @@
+﻿# ========================
+# Downloaded Content & User Data (NEVER UPLOAD)
+# ========================
+Rem God/
+Safebooru/
+Rule34/
+Zerochan/
+Waifu.im/
+Nekos.best/
+user_wallpapers/
+
+# User History and Favorites Databases
+tag_history.json
+fav_tags.json
+image_history.json
+
+# ========================
+# Personal Wallpapers Filter
+# ========================
+# هر عکسی که در این پوشه فرعی بگذاری آپلود نخواهد شد
+web/wallpaper/personal/
+web/wallpaper/new/
+
+# ========================
+# Python & Virtual Environments
+# ========================
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+
+# ========================
+# Build & Executable Files
+# ========================
+build/
+dist/
+*.spec
+
+# Gallery DB & thumb cache
+database/gallery.json
+database/tag_history.json
+database/image_history.json
+database/fav_tags.json
+database/thumb_cache/
+
+# Do not upload multi agent and gemini dump
+multi_agent.py
+Gemini_Dump.txt
+
+# Graphify output
+graphify-out/
+
+# Cosplay downloader
+cosplay/
+cosplay_server.log
+downloaded_urls.json
+
+# ========================
+# Android Studio
+# ========================
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+*.hprof
