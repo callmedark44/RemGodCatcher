@@ -186,6 +186,10 @@ class DatabaseManager:
         return DatabaseManager._load_tag_db("dan_tag_names.json")
 
     @staticmethod
+    def load_gelbooru_tags():
+        return DatabaseManager._load_tag_db("gelbooru_tag_names.json")
+
+    @staticmethod
     def load_sankaku_tags():
         return DatabaseManager._load_tag_db("sankaku_tag_names.json")
 
@@ -320,7 +324,8 @@ class SettingsManager:
             "ZEROCHAN_PASSWORD": data.get("zerochan_password", ""),
             "PINTEREST_COOKIES": data.get("pinterest_cookies", ""),
             "PINTEREST_EMAIL": data.get("pinterest_email", ""),
-            "PINTEREST_PASSWORD": data.get("pinterest_password", "")
+            "PINTEREST_PASSWORD": data.get("pinterest_password", ""),
+            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", "")
         }
         self._upsert_env_keys(keys_to_save)
         for k, v in keys_to_save.items():
@@ -342,9 +347,10 @@ class SettingsManager:
             "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
             "sanka_login": config.get("SANKA_LOGIN", ""),
             "sanka_password": config.get("SANKA_PASSWORD", ""),
-            "zerochan_login": config.get("ZEROCHAN_LOGIN", ""),
+            "zerochan_login": config.get("ZEROCHAN_LOGIN", config.get("ZEROCHAN_USERNAME", "")),
             "zerochan_password": config.get("ZEROCHAN_PASSWORD", ""),
             "pinterest_cookies": config.get("PINTEREST_COOKIES", ""),
             "pinterest_email": config.get("PINTEREST_EMAIL", ""),
-            "pinterest_password": config.get("PINTEREST_PASSWORD", "")
+            "pinterest_password": config.get("PINTEREST_PASSWORD", ""),
+            "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", "")
         }

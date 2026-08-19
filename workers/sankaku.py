@@ -30,6 +30,7 @@ class SankakuWorker(BaseWorker):
         session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json",
+            "Referer": "https://www.sankakucomplex.com/",
         })
 
         import os as _os
@@ -68,6 +69,15 @@ class SankakuWorker(BaseWorker):
 
     def get_tags(self):
         return [self.original_tag]
+
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None):
+        if artists is None: artists = []
+        if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
+            return False
+        self.queued_items.add(filename)
+        self.enqueued_count += 1
+        # Download immediately — Sankaku signed URLs expire before queued download starts
+        return await self._async_download_file(url, filepath, filename, tags_list, artists, 0)
 
     async def download_image(self, url, filepath, filename, tags_list, artists=None):
         return await self.enqueue_download(url, filepath, filename, tags_list, artists or [])

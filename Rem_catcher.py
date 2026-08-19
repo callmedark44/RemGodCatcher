@@ -46,6 +46,7 @@ from workers.danbooru import worker_danbooru
 from workers.sankaku import worker_sankaku
 from workers.anime_dl import worker_anime_dl
 from workers.pinterest_worker import worker_pinterest
+from workers.pixiv import worker_pixiv
 
 MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
 DATABASE_DIR = os.path.join(BASE_DIR, "database")
@@ -56,6 +57,7 @@ SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
 DAN_TAGS_DB = []
+GELBOORU_TAGS_DB = []
 SANKAKU_TAGS_DB = []
 ANIME_TAGS_DB = []
 WAIFU_TAGS_DB = []
@@ -237,6 +239,12 @@ def get_rule34_suggestions():
         if resp.status_code == 200: return jsonify([item.get("value") for item in resp.json() if isinstance(item, dict) and "value" in item])
     except Exception: pass
     return jsonify([])
+
+@app.route("/api/tags/gelbooru", methods=["POST"])
+def get_gelbooru_suggestions():
+    query = request.json.get("query", "").lower()
+    if not GELBOORU_TAGS_DB: return jsonify([])
+    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
 
 @app.route("/api/tags/yande", methods=["POST"])
 def get_yande_suggestions():
@@ -497,22 +505,30 @@ def gallery_thumb(filepath):
         return "Forbidden", 403
     if not os.path.isfile(full):
         return "Not found", 404
+
     ext = os.path.splitext(full)[1].lower()
-    if ext in EXTENSIONS_VIDEO:
-        return send_file(full)
     cache_key = hashlib.sha256(filepath.encode()).hexdigest()[:16]
     cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
-    png_cache = os.path.join(THUMB_CACHE, cache_key + ".png")
+
     if os.path.exists(cache_path):
         return send_file(cache_path, mimetype='image/jpeg')
-    if os.path.exists(png_cache):
-        return send_file(png_cache, mimetype='image/png')
+
+    if ext in EXTENSIONS_VIDEO:
+        import subprocess
+        # Generate thumbnail from first frame
+        subprocess.run(["ffmpeg", "-y", "-i", full, "-vframes", "1", "-ss", "0", "-vf", "scale=300:300:force_original_aspect_ratio=decrease,pad=300:300:(ow-iw)/2:(oh-ih)/2", cache_path],
+                       capture_output=True, timeout=10)
+        if os.path.exists(cache_path):
+            return send_file(cache_path, mimetype='image/jpeg')
+        return "", 415
+
     try:
         img = Image.open(full)
-        img.thumbnail((300, 300))
+        img.draft('RGB', (600, 600))
+        img.thumbnail((300, 300), reducing_gap=2.0)
+        png_cache = os.path.join(THUMB_CACHE, cache_key + ".png")
         use_png = ext in ('png', 'gif') or img.mode in ('RGBA', 'P', 'L', 'LA', '1')
-        is_png = use_png
-        if is_png:
+        if use_png:
             img.save(png_cache, format='PNG')
             return send_file(png_cache, mimetype='image/png')
         else:
@@ -521,7 +537,7 @@ def gallery_thumb(filepath):
             img.save(cache_path, format='JPEG', quality=85)
             return send_file(cache_path, mimetype='image/jpeg')
     except Exception:
-        return send_file(full)
+        return "Preview unavailable", 415
 
 @app.route("/api/gallery/sources", methods=["GET"])
 def get_gallery_sources():
@@ -659,7 +675,9 @@ def handle_start_worker(data):
         net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
         net_config["pinterest_email"] = os.getenv("PINTEREST_EMAIL", "")
         net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
-        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config), daemon=True).start()
+        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config, int(data.get("min_w", 0) or 0), int(data.get("min_h", 0) or 0)), daemon=True).start()
+    elif worker == "pixiv":
+        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "eshuushuu":
         from workers.eshuushuu import worker_eshuushuu
         threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), int(data.get("limit", 50)), [], data.get("user_id", ""), net_config), daemon=True).start()
@@ -721,6 +739,7 @@ if __name__ == "__main__":
     YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
     KONA_TAGS_DB = DatabaseManager.load_kona_tags()
     DAN_TAGS_DB = DatabaseManager.load_dan_tags()
+    GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
     SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
     ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
     ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()

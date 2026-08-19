@@ -33,6 +33,7 @@
                 <button class="tab-btn" onclick="openTab('NekosAPI', this)">NekosAPI</button>
                 <button class="tab-btn" onclick="openTab('Nekosia', this)">Nekosia</button>
                 <button class="tab-btn" onclick="openTab('Pinterest', this)">Pinterest</button>
+                <button class="tab-btn" onclick="openTab('Pixiv', this)">Pixiv</button>
                 <button class="tab-btn" onclick="openTab('Rule34', this)">Rule34</button>
                 <button class="tab-btn" onclick="openTab('Safe', this)">Safebooru</button>
                 <button class="tab-btn" onclick="openTab('Sankaku', this)">Sankaku</button>
@@ -527,6 +528,11 @@
                             <div class="field-row"><label>Password:</label><input type="password" id="pinterestPassword" placeholder="Password" style="flex:1;"></div>
                         </div>
 
+                        <div class="settings-card">
+                            <h3>🔑 Pixiv Credentials</h3>
+                            <div class="field-row"><label>Refresh Token:</label><input type="password" id="pixivToken" placeholder="PIXIV_REFRESH_TOKEN" style="flex:1;"></div>
+                        </div>
+
                         <div class="settings-card" style="grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 16px;">
                             <button class="action-btn" onclick="saveApiSettings()">💾 Save All API Keys</button>
                             <span id="apiSaveStatus" style="font-size: 13px; color: var(--title-color);"></span>
@@ -560,6 +566,10 @@
                     <input type="text" id="pinterestTag" placeholder="Board URL, pin URL, or search query" style="width: 400px;">
                     <label>Limit:</label>
                     <input type="number" id="pinterestLimit" value="30" min="0" style="width: 80px;">
+                    <label>Min W:</label>
+                    <input type="number" id="pinterestMinW" value="0" min="0" placeholder="0" style="width: 70px;">
+                    <label>Min H:</label>
+                    <input type="number" id="pinterestMinH" value="0" min="0" placeholder="0" style="width: 70px;">
                     <label>Mode:</label>
                     <select id="pinterestMode" style="width: 100px;">
                         <option value="scrape">URL Scrape</option>
@@ -579,6 +589,48 @@
                 </div>
             </div>
 
+            <div id="Pixiv" class="tab-content" style="display: none;">
+                <h2>Pixiv Downloader</h2>
+                <div class="input-group">
+                    <label>Mode:</label>
+                    <select id="pixivMode" style="width: 120px;" onchange="updatePixivMode()">
+                        <option value="artworks">Artworks</option>
+                        <option value="bookmark">Bookmarks</option>
+                        <option value="search">Search</option>
+                        <option value="ranking">Ranking</option>
+                    </select>
+                    <select id="pixivRankingMode" style="width: 175px; display: none;">
+                        <option value="day">Daily</option>
+                        <option value="week">Weekly</option>
+                        <option value="month">Monthly</option>
+                        <option value="day_male">Popular with Male Users</option>
+                        <option value="day_female">Popular with Female Users</option>
+                        <option value="week_original">Weekly Original</option>
+                        <option value="week_rookie">Weekly Rookie</option>
+                    </select>
+                    <label>Value:</label>
+                    <input type="text" id="pixivTag" placeholder="User ID or Tag" style="width: 180px;">
+                    <label>Limit:</label>
+                    <input type="number" id="pixivLimit" value="50" min="0" style="width: 80px;">
+                    <select id="pixivRating" style="width: 120px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:r18">R-18</option>
+                        <option value="rating:r18g">R-18G</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('pixiv')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_pixiv">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pixiv"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
+                    <div id="consoleLog_pixiv" class="console-log"></div>
+                </div>
+            </div>
+
             <!-- CLEANED RULE34 LAYOUT -->
             <div id="Rule34" class="tab-content" style="display: none;">
                 <h2>Rule34 Downloader</h2>
@@ -589,7 +641,7 @@
                             <div style="display:flex; gap:6px; position: relative;">
                                 <input type="text" id="rule34TagInput" autocomplete="off" placeholder="e.g. rem blue_hair -maid" style="flex:1; padding: 4px 8px; font-size: 13px;" onkeydown="if(event.key==='Enter') addRule34Tag()">
                                 <div id="rule34Autosuggest" class="autosuggest-dropdown" style="display:none;"></div>
-                                <button class="action-btn" onclick="addRule34Tag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
+                                <button class="action-btn" onclick="addRule34Tag()">Add</button>
                             </div>
                             <div id="rule34TagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                         </div>
@@ -598,32 +650,32 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 60px; font-size: 13px;">Method:</label>
-                            <select id="rule34Method" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                            <select id="rule34Method" style="flex: 1;">
                                 <option value="and">AND (All)</option>
                                 <option value="or">OR (Any)</option>
                             </select>
                         </div>
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 40px; font-size: 13px;">Sort:</label>
-                            <select id="rule34SortType" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                            <select id="rule34SortType" style="flex: 1;">
                                 <option value="id">Newest (ID)</option>
                                 <option value="score">Score</option>
                             </select>
-                            <select id="rule34SortOrder" style="margin-left: 6px; padding: 2px 6px; font-size: 12px; height: 26px; width: 60px;">
+                            <select id="rule34SortOrder" style="flex: 1; width: 60px;">
                                 <option value="desc">Desc</option>
                                 <option value="asc">Asc</option>
                             </select>
                         </div>
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 60px; font-size: 13px;">Format:</label>
-                            <select id="rule34Format" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
+                            <select id="rule34Format" style="flex: 1;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
                                 <option value="images">Images Only</option>
                                 <option value="gifs">GIFs Only</option>
                                 <option value="all">Images & Videos</option>
                                 <option value="videos">Videos Only</option>
                             </select>
                         </div>
-                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px;">
                             <label style="min-width: 60px; font-size: 13px;">Exclude:</label>
                             <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
                             <input type="checkbox" id="exComic"><label for="exComic">Comic</label>

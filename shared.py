@@ -168,6 +168,8 @@ class BaseDownloader:
         proxy = None
         if self.net_config.get("use_proxy"):
             proxy = self.net_config.get("proxy_url")
+        if not proxy:
+            proxy = os.environ.get("https_proxy") or os.environ.get("http_proxy") or os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
 
         connector = aiohttp.TCPConnector(
             ssl=False if not self.net_config.get("verify_tls", False) else None,
@@ -209,7 +211,8 @@ class BaseDownloader:
 
         for attempt in range(self.dl_retries):
             try:
-                async with self.session.get(url, headers={"Referer": url}) as resp:
+                referer = self.session.headers.get("Referer") or url
+                async with self.session.get(url, headers={"Referer": referer}) as resp:
                     resp.raise_for_status()
                     content_length = int(resp.headers.get('Content-Length', 0)) or file_size
                     if content_length and (content_length != file_size):
