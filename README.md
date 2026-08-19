@@ -24,82 +24,6 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 ---
 
-## 🔑 How to get API Keys / Credentials (Step-by-Step)
-
-Entering credentials in the **Settings** tab unlocks higher API limits and restricted content.
-
-**1. Rule34.xxx**
-* Go to [Rule34.xxx](https://rule34.xxx) and Log in.
-* Click **My Account** -> **Settings**.
-* Scroll down to **API Key** and click **Generate**. Copy this key.
-* Click on your username to go to your profile. Check the URL for `id=XXXXXX`. That number is your **User ID**.
-
-**2. Gelbooru**
-* Go to [Gelbooru.com](https://gelbooru.com) and Log in.
-* Click **My Account** -> **Options**.
-* Under **Miscellaneous Options**, find **API Key** and click **Generate API Key**.
-* Go back to your account page, find the URL (e.g. `&uid=123456`). That number is your **User ID**.
-
-**3. Sankaku Complex**
-* Simply use your standard Sankaku **Username/Email** and **Password** in the UI.
-
-**4. Zerochan**
-* Some images are restricted to guests. Use your standard Zerochan **Username** and **Password** in the UI to let the `gallery-dl` engine fetch everything.
-
-**5. Pinterest**
-* Standard method: Enter your Pinterest **Email** and **Password**.
-* Alternative (If blocked): Use a browser extension (like *EditThisCookie*) to export your Pinterest cookies as a `.json` file. Provide the absolute file path in the `Cookies` field.
-
----
-
-## Quick Start
-
-1. Clone the repository: `git clone https://github.com/RemLover-Dev/RemGodCatcher.git`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run the app: `python Rem_catcher.py`
-4. The Web UI opens automatically at `http://127.0.0.1:5000`.
-
----
-## License
-[MIT License](LICENSE)
-
-# Rem God Catcher
-
-**A modern, cross-platform image & video downloader with a glass-morphism web UI.**
-
-Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, and Danbooru with real-time logging, a built-in discovery engine, advanced tag filtering, anti-ban protections, and Hydrus sidecar file support.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
-[![Version](https://img.shields.io/badge/Version-4.2.0-ff9ff3.svg)](CHANGELOG.md)
-
-[English](README.md) | [فارسی](README_fa.md)
-
-</div>
-
----
-
-## Features
-
-- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
-- **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
-- **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
-- **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
-- **Video & GIF Support** -- Exclusively target `.mp4`, `.webm`, or GIF files via format filtering.
-- **GIFs Only Filter** -- Rule34 supports a dedicated GIFs Only mode alongside Images/Videos/All.
-- **Real-Time Logs** -- Live console output via WebSocket (Socket.IO) with per-tab clear button
-- **Full UI Customization** -- Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode
-- **Advanced Search** -- AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, category-based browsing
-- **Anti-Ban Engine** -- Tactical delays, retry loops, rate-limit handling
-- **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
-- **API Key Management** -- Manage Rule34 credentials directly from the Web UI
-- **Tag Auto-Suggest** -- Live autocomplete for all platforms including offline Konachan tag DB
-- **Hydrus Sidecar Files** -- Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import
-- **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
-
----
-
 ## Quick Start
 
 ### 1. Clone the Repository
@@ -140,6 +64,54 @@ The Web UI opens automatically at `http://127.0.0.1:5000`.
 
 ---
 
+
+## 🔑 How to get API Keys / Credentials (Step-by-Step)
+
+Entering credentials in the **Settings** tab unlocks higher API limits and restricted content.
+
+**1. Rule34.xxx**
+* Go to [Rule34.xxx](https://rule34.xxx) and Log in.
+* Click **My Account** -> **Settings**.
+* Scroll down to **API Key** and click **Generate**. Copy this key.
+* Click on your username to go to your profile. Check the URL for `id=XXXXXX`. That number is your **User ID**.
+
+**2. Gelbooru**
+* Go to [Gelbooru.com](https://gelbooru.com) and Log in.
+* Click **My Account** -> **Options**.
+* Under **Miscellaneous Options**, find **API Key** and click **Generate API Key**.
+* Go back to your account page, find the URL (e.g. `&uid=123456`). That number is your **User ID**.
+
+**3. Sankaku Complex**
+* Simply use your standard Sankaku **Username/Email** and **Password** in the UI.
+
+**4. Zerochan**
+* Some images are restricted to guests. Use your standard Zerochan **Username** and **Password** in the UI to let the `gallery-dl` engine fetch everything.
+
+**5. Pinterest**
+* Standard method: Enter your Pinterest **Email** and **Password**.
+* Alternative (If blocked): Use a browser extension (like *EditThisCookie*) to export your Pinterest cookies as a `.json` file. Provide the absolute file path in the `Cookies` field.
+
+---
+
+## Features
+
+- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
+- **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
+- **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
+- **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
+- **Video & GIF Support** -- Exclusively target `.mp4`, `.webm`, or GIF files via format filtering.
+- **GIFs Only Filter** -- Rule34 supports a dedicated GIFs Only mode alongside Images/Videos/All.
+- **Real-Time Logs** -- Live console output via WebSocket (Socket.IO) with per-tab clear button
+- **Full UI Customization** -- Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode
+- **Advanced Search** -- AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, category-based browsing
+- **Anti-Ban Engine** -- Tactical delays, retry loops, rate-limit handling
+- **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
+- **API Key Management** -- Manage Rule34 credentials directly from the Web UI
+- **Tag Auto-Suggest** -- Live autocomplete for all platforms including offline Konachan tag DB
+- **Hydrus Sidecar Files** -- Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import
+- **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
+
+
 ## Project Structure
 
 ```
@@ -171,8 +143,6 @@ Rem God Catcher/
     └── wallpaper/           # Background images per tab (dark/light mode)
 ```
 
----
-
 ## Supported Platforms
 
 | Platform | Tags | NSFW | Notes |
@@ -187,35 +157,6 @@ Rem God Catcher/
 | **Nekos.life** | Category-based with type indicators (GIF/Static/Mixed) | Yes | Animated neko, hug, pat, cuddle, and more |
 | **Yande.re** | Full tag search, rating filter, artist extraction, local tag DB | Yes | Moebooru API, images only, sorts into Safe/Moderate/NSFW folders |
 | **Konachan** | Full tag search, rating filter, artist extraction, local tag DB, video/GIF format filtering | Yes | Moebooru API, sorts into Safe/Moderate/Explicit folders |
-
----
-
-## Getting Rule34 API Key
-
-1. Register at [rule34.xxx](https://rule34.xxx)
-2. Go to **My Account** -> **Settings**
-3. Find the **API Key** section -> **Generate API Key**
-4. Copy your **User ID** from the profile URL
-5. Enter both in the **Options** tab of the Web UI
-
-> Never share your API keys publicly.
-
----
-
-## Getting Gelbooru API Key
-
-1. Register at [gelbooru.com](https://gelbooru.com)
-2. Go to **My Account** -> **Options**
-3. Under **Miscellaneous Options**, find **API Key** and click **Generate API Key**
-4. Copy your **User ID** from the profile URL (e.g. `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
-5. Enter both in the **Options** tab of the Web UI or add to `.env`:
-
-```env
-GELBOORU_API_KEY=your_api_key_here
-GELBOORU_USER_ID=your_user_id_here
-```
-
-> Gelbooru limits results to 100 posts per page without an API key. With a key, you get access to all results and faster queries.
 
 ---
 
