@@ -1,35 +1,229 @@
+<div dir="rtl" align="center">
+
 # Rem God Catcher 5.0
 
-برنامه Rem God Catcher یک سیستم مدیریت دانلود و استخراج تصاویر از بهترین سایت‌های هنری انیمه است.
+**ابزار عظیم و چندنخی (Multi-threaded) برای دانلود تصاویر انیمه با رابط کاربری شیشه‌ای وب**
+
+پشتیبانی کامل از Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, Danbooru, e-shuushuu, NekosAPI, Nekosia و Pinterest.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
+[![Version](https://img.shields.io/badge/Version-5.0.0-ff9ff3.svg)](CHANGELOG.md)
+
+[English](README.md) | [فارسی](README_fa.md)
+
+</div>
+
+---
+
+<div dir="rtl">
 
 ## ✨ قابلیت‌های جدید در نسخه 5.0
-- **منوی پیشنهادات جذاب:** منوی سرچ و پیشنهاد تگ‌ها برای تمام ورکرها آپدیت شده و بسیار زیبا شده است.
-- **رفع باگ AnimePictures:** با استفاده از curl_cffi سیستم ضد ربات سایت بای‌پس شد.
-- **لاگین Zerochan:** حالا می‌توانید از قسمت تنظیمات، نام‌کاربری و رمز خود را وارد کنید تا به تصاویر پریمیوم دسترسی پیدا کنید.
-- **سیستم خطایابی جدید:** از این به بعد اگر تعداد عکس‌های یک تگ کمتر از مقدار درخواستی شما باشد، برنامه به شما هشدار می‌دهد. همچنین اگر دانلودی خراب شود، تعداد دقیق خطاها در انتها نمایش داده می‌شود.
+- **پیشنهاد تگ فوق‌حرفه‌ای:** منوی سرچ و پیشنهاد تگ‌ها برای تمام ورکرها به صورت شناور و گرافیکی آپدیت شد.
+- **گالری هوشمند و جذاب:** دکمه "Focus Mode" برای مخفی کردن کامل UI و دیدن عکس، رفتن خودکار به عکس بعدی هنگام حذف.
+- **سایت‌های جدید:** اضافه شدن e-shuushuu، Nekosia و NekosAPI با دیتابیس لوکال آفلاین.
+- **جادوی ضدبن:** استفاده از تکنولوژی `curl_cffi` برای جعل کامل مرورگر و عبور از فیلترهای قدرتمند AnimePictures.
 
-## سایت‌های پشتیبانی شده
-* AnimePictures.net (Anime DL)
-* Danbooru
-* E-Shuushuu
-* Gelbooru
-* Konachan
-* Nekos.best
-* Nekos.life
-* NekosAPI
-* Nekosia
-* Pinterest
-* Rule34
-* Safebooru
-* Sankaku
-* Waifu.im
-* Yande.re
-* Zerochan
+---
 
-## نصب و راه‌اندازی
-ابتدا پیش‌نیازها را نصب کنید:
-pip install flask flask-socketio requests python-dotenv pillow aiohttp curl_cffi rule34Py gallery-dl
+## 🔑 آموزش قدم به قدم دریافت API Key و اعتبارنامه‌ها
 
-سپس برنامه را اجرا کنید:
+وارد کردن این اطلاعات در تب **Settings** محدودیت‌های دانلود را حذف کرده و اجازه دسترسی به محتوای مسدود شده را می‌دهد.
+
+**۱. سایت Rule34.xxx**
+* در سایت [Rule34.xxx](https://rule34.xxx) لاگین کنید.
+* به مسیر **My Account** -> **Settings** بروید.
+* در بخش **API Key** روی **Generate** کلیک کرده و کلید را کپی کنید.
+* روی نام کاربری خود در سایت کلیک کنید تا پروفایل باز شود. در آدرس مروگر (URL) عددی مقابل `id=` نوشته شده است. این عدد همان **User ID** شماست.
+
+**۲. سایت Gelbooru**
+* در [Gelbooru.com](https://gelbooru.com) لاگین کنید.
+* به مسیر **My Account** -> **Options** بروید.
+* در بخش **Miscellaneous Options**، روی **Generate API Key** کلیک کنید.
+* در آدرس پروفایلتان (مثلاً `uid=123456&`)، عدد مورد نظر همان **User ID** شماست.
+
+**۳. سایت Sankaku**
+* نیازی به API نیست. صرفاً **ایمیل/نام کاربری** و **رمز عبور** اکانت خود را در بخش تنظیمات برنامه وارد کنید.
+
+**۴. سایت Zerochan**
+* برای دور زدن محدودیت‌های کاربری عادی، کافیست **نام کاربری** و **رمز عبور** اکانت Zerochan خود را در تنظیمات وارد کنید تا هسته‌ی نرم‌افزار به صورت خودکار تصاویر را استخراج کند.
+
+**۵. سایت Pinterest**
+* روش اول: وارد کردن **ایمیل** و **رمز عبور** اکانت پینترست در تنظیمات.
+* روش دوم (اگر پینترست شما را ربات تشخیص داد): با استفاده از افزونه‌های مرورگر (مثل *EditThisCookie*)، کوکی‌های پینترست خود را به صورت یک فایل `.json` ذخیره کنید و آدرس کامل آن فایل را در نرم‌افزار قرار دهید.
+
+---
+
+## شروع سریع
+
+1. مخزن را دانلود کنید: `git clone https://github.com/RemLover-Dev/RemGodCatcher.git`
+2. پیش‌نیازها را نصب کنید: `pip install -r requirements.txt`
+3. برنامه را اجرا کنید: `python Rem_catcher.py`
+4. رابط کاربری به صورت خودکار در `http://127.0.0.1:5000` باز می‌شود.
+
+---
+## مجوز
+[MIT License](LICENSE)
+
+</div>
+
+# Rem God Catcher
+
+**ابزار مدرن دانلود تصویر و ویدیو با رابط کاربری شیشه‌ای وب**
+
+پشتیبانی از Rule34، Safebooru، Gelbooru، Zerochan، Waifu.im، Nekos.best و Nekos.life با لاگ بلادرنگ، موتور کشف تگ، فیلتر پیشرفته و محافظت ضدبن.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
+[![Version](https://img.shields.io/badge/Version-4.0.0-ff9ff3.svg)](CHANGELOG.md)
+
+[English](README.md) | [فارسی](README_fa.md)
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## امکانات
+
+- **چندپلتفرمه** -- ماژول‌های داخلی برای ۸ بوئورد تصویر
+- **وب رابط مدرن** -- تم شیشه‌ای تاریک و روشن، در مرورگر پیش‌فرض باز میشه
+- **موتور کشف و بایگانی** -- استخراج زنده تگ‌ها و نام هنرمندان از مدیای دانلود شده، نمایش داده شده در تب بایگانی تصاویر
+- **علاقه‌مندی‌ها و تاریخچه جستجو** -- تگ‌ها رو به لیست علاقه‌مندی اضافه کن برای جستجوی یک‌کلیکی و تاریخچه جستجو رو حفظ کن
+- **پشتیبانی ویدیو و GIF** -- فیلتر اختصاصی برای دانلود فرمت‌های `.mp4`، `.webm` و GIF
+- **فیلتر فقط GIF** -- Rule34 از حالت فقط GIF به همراه Images/Videos/All پشتیبانی میکنه
+- **لاگ بلادرنگ** -- خروجی کنسول زنده از طریق WebSocket (Socket.IO)
+- **جستجوی پیشرفته** -- کوئری تگ AND/OR، حذف تگ (`-video`, `-image`)، سورت سفارشی، مرور دسته‌بندی
+- **موتور ضدبن** -- وقفه‌های تاکتیکی، حلقه تلاش مجدد، مدیریت محدودیت API
+- **پشتیبانی پروکسی** -- تنظیمات کامل پروکسی از رابط کاربری (v2rayN, Clash و غیره)
+- **مدیریت کلید API** -- مدیریت اعتبارنامه Rule34 مستقیماً از رابط وب
+- **پیشنهاد خودکار تگ** -- autocomplete زنده برای همه پلتفرم‌ها
+- **ذخیره تنظیمات** -- پروکسی، کلیدها و تنظیمات دانلود در فایل `.env` ذخیره میشن
+
+---
+
+## شروع سریع
+
+### ۱. کلون مخزن
+
+```bash
+git clone https://github.com/RemLover-Dev/RemGodCatcher.git
+cd RemGodCatcher
+```
+
+### ۲. نصب وابستگی‌ها
+
+```bash
+pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
+```
+
+### ۳. تنظیمات (اختیاری)
+
+فایل `.env` رو ویرایش کن یا از تب **Options** در رابط وب استفاده کن:
+
+```env
+RULE34_API_KEY=کلید_api_خود_را_اینجا_بگذارید
+RULE34_USER_ID=شناسه_کاربری_خود_را_اینجا_بگذارید
+USE_PROXY=false
+PROXY_URL=http://127.0.0.1:10808
+VERIFY_TLS=false
+API_TIMEOUT=10
+RETRY_WAIT=5
+ANTI_BAN_PAUSE=3.0
+```
+
+### ۴. اجرا
+
+```bash
 python Rem_catcher.py
+```
 
+رابط وب خودکار در `http://127.0.0.1:5000` باز میشه.
+
+---
+
+## ساختار پروژه
+
+```
+Rem God Catcher/
+├── Rem_catcher.py          # هسته پایتون (Flask + Socket.IO)
+├── shared.py               # ابزارهای مشترک، مدیریت تگ و پل ارتباطی لاگ
+├── workers/                # ماژول‌های دانلود اختصاصی هر API
+├── tags.json               # دیتابیس تگ‌های Waifu.im (نام → اسلاگ)
+├── safe_tag_names.json     # دیتابیس آفلاین تگ‌های Safebooru
+├── tag_history.json        # دیتابیس تاریخچه جستجو (git-ignored)
+├── fav_tags.json           # دیتابیس علاقه‌مندی‌ها (git-ignored)
+├── image_history.json      # بایگانی تگ تصاویر (git-ignored)
+├── .env                    # کلیدهای API و تنظیمات پروکسی (git-ignored)
+├── .gitignore
+├── LICENSE
+├── README.md               # مستندات انگلیسی
+├── README_fa.md            # مستندات فارسی
+├── CHANGELOG.md
+└── web/
+    ├── index.html           # HTML اصلی (تب‌ها، فرم‌ها، بایگانی، تنظیمات)
+    ├── script.js            # منطق فرانت‌اند (Socket.IO + fetch API)
+    ├── style.css            # تم تاریک شیشه‌ای (فونت Inter)
+    ├── Fonts/               # فونت‌های آفلاین
+    └── wallpaper/           # تصاویر پس‌زمینه هر تب
+```
+
+---
+
+## پلتفرم‌های پشتیبانی شده
+
+| پلتفرم | تگ‌ها | NSFW | توضیحات |
+|---------|-------|------|---------|
+| **Rule34** | جستجوی کامل با AND/OR، حذف، سورت، پشتیبانی فرمت ویدیو | بله | نیاز به کلید API برای بهترین نتیجه |
+| **Safebooru** | جستجوی استاندارد تگ، پشتیبانی فرمت ویدیو، استخراج هنرمند | خیر | ممکنه به پروکسی نیاز داشته باشه (Cloudflare) |
+| **Gelbooru** | جستجوی کامل، فیلتر فرمت، پشتیبانی ویدیو | بله | نیاز به کلید API برای بهترین نتیجه |
+| **Zerochan** | جستجوی تگ با پیشنهادات زنده | خیر | تلاش مجدد و محدودیت نرخ داخلی |
+| **Waifu.im** | تبدیل نام به اسلاگ، فیلتر NSFW | بله | از `tags.json` محلی برای پیشنهادات استفاده میکنه |
+| **Nekos.best** | دسته‌بندی (PNG / GIF) | خیر | پشتیبانی چند فرمت |
+| **Nekos.life** | دسته‌بندی با نشانگر نوع (GIF/Static/Mixed) | بله | نکو متحرک، هق‌هق، بغل، ناز و غیره |
+| **Yande.re** | جستجوی کامل تگ، فیلتر رتبه‌بندی، استخراج هنرمند، دیتابیس تگ محلی | بله | API موبور، فقط تصاویر، سورت به پوشه‌های Safe/Moderate/NSFW |
+
+---
+
+## دریافت کلید API Rule34
+
+1. در [rule34.xxx](https://rule34.xxx) ثبت‌نام کن
+2. به **My Account** -> **Settings** برو
+3. بخش **API Key** رو پیدا کن -> **Generate API Key** رو بزن
+4. **شناسه کاربری (User ID)** رو از آدرس پروفایل کپی کن
+5. هر دو رو در تب **Options** رابط وب وارد کن
+
+> هرگز کلیدهای API خود رو عمومی نکن.
+
+---
+
+## دریافت کلید API Gelbooru
+
+1. در [gelbooru.com](https://gelbooru.com) ثبت‌نام کن
+2. به **My Account** -> **Options** برو
+3. در بخش **Miscellaneous Options**، **API Key** رو پیدا کن و **Generate API Key** رو بزن
+4. **شناسه کاربری (User ID)** رو از آدرس پروفایل کپی کن (مثلاً `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
+5. هر دو رو در تب **Options** رابط وب وارد کن یا به فایل `.env` اضافه کن:
+
+```env
+GELBOORU_API_KEY=your_api_key_here
+GELBOORU_USER_ID=your_user_id_here
+```
+
+> بدون کلید API، گلوبوری حداکثر 100 پست در هر صفحه نشون میده. با کلید API به همه نتایج و کوئری‌های سریع‌تر دسترسی داری.
+
+---
+
+## سلب مسئولیت
+
+این نرم‌افزار صرفاً برای **اهداف آموزشی و بایگانی** ارائه شده است. برخی از APIهای پشتیبانی شده شامل محتوای NSFW هستند -- کاربران باید در حوزه قضایی خود بزرگسال باشند. لطفاً از محدودیت نرخ APIها احترام بگذارید و درخواست‌های پرتکرار ارسال نکنید.
+
+---
+
+## مجوز
+
+[MIT License](LICENSE)
+
+</div>
