@@ -2,6 +2,28 @@
 
 All notable changes to Rem God Catcher will be documented in this file.
 
+---
+
+## [5.0.0] - Rem 5: The Ultimate UI & Logic Update - 2026-08-19
+
+### Added
+- **New Platforms Integration:** Added full support for e-shuushuu, NekosAPI, and Nekosia. Complete with local JSON tag databases for lightning-fast autocomplete.
+- **Gallery Focus Mode (Clean View):** Added an "Eye" button (👁️) in the Gallery Viewer. Clicking it hides all UI elements, tags, and navigation buttons for an immersive fullscreen view of the artwork.
+- **Smart Image Deletion:** Deleting a corrupted/unwanted image from the Fullscreen Viewer now instantly deletes the file from disk and seamlessly slides to the *next* image without closing the viewer.
+- **Save to PC Button:** Added a quick-save (💾) button in the fullscreen viewer for native browser downloading.
+
+### Changed
+- **Beautiful Auto-Suggest Dropdowns:** Replaced the clunky HTML `<datalist>` with a gorgeous, dark-themed custom dropdown UI (`.autosuggest-dropdown`) for *all* workers. Features full keyboard navigation (Up/Down/Enter) and elegant styling.
+- **Gallery Meta Panel:** Completely redesigned the fullscreen viewer's metadata panel into a sleek, auto-hiding glassmorphism capsule at the bottom of the screen. Shows rating (Safe/NSFW), tags, and source site.
+- **Zerochan Login Integration:** Zerochan worker now securely accepts login credentials from the Settings UI, bypassing guest limits.
+- **AnimePictures.net Fixed:** Rewrote the `anime_dl.py` worker entirely using `curl_cffi` to flawlessly impersonate TLS (`chrome131`) and avoid Cloudflare 403 Forbidden blocks.
+
+### Fixed
+- **JavaScript UI Crashes:** Fixed syntax errors inside `update_script.py` rendering `script.js` that caused "Loading..." locks on UI tabs.
+- **Nekosia JSON Structure:** Handled irregular API output from Nekosia where single images returned as dicts instead of arrays.
+
+All notable changes to Rem God Catcher will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
