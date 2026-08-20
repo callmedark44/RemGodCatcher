@@ -458,6 +458,68 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 
+function enhanceAllSelects() {
+    document.querySelectorAll('select').forEach(enhanceSelect);
+}
+
+function enhanceSelect(select) {
+    if (select.dataset.enhanced || select.closest('.custom-select')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'custom-select';
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'cs-trigger';
+    const menu = document.createElement('div');
+    menu.className = 'cs-menu';
+    const label = document.createElement('span');
+    label.className = 'cs-label';
+    trigger.appendChild(label);
+    select.parentNode.insertBefore(wrap, select);
+    select.parentNode.removeChild(select);
+    wrap.appendChild(trigger);
+    wrap.appendChild(select);
+    wrap.appendChild(menu);
+    const wasHidden = select.style.display === 'none' || getComputedStyle(select).display === 'none';
+    select.style.display = 'none';
+    select.dataset.enhanced = '1';
+    if (wasHidden) wrap.style.display = 'none';
+    if (select.style.width) trigger.style.width = select.style.width;
+
+    function renderItems() {
+        menu.innerHTML = '';
+        [...select.options].forEach(opt => {
+            const item = document.createElement('div');
+            item.className = 'cs-item';
+            item.textContent = opt.textContent;
+            if (opt.selected) {
+                item.classList.add('active');
+                label.textContent = opt.textContent;
+            }
+            item.onclick = () => {
+                select.value = opt.value;
+                label.textContent = opt.textContent;
+                menu.querySelectorAll('.cs-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                wrap.classList.remove('open');
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+            menu.appendChild(item);
+        });
+        if (label.textContent === '') label.textContent = select.options[select.selectedIndex] ? select.options[select.selectedIndex].textContent : '';
+    }
+    renderItems();
+    trigger.onclick = (e) => { e.stopPropagation(); wrap.classList.toggle('open'); };
+    document.addEventListener('click', () => wrap.classList.remove('open'));
+    if (window.MutationObserver) {
+        const mo = new MutationObserver(renderItems);
+        mo.observe(select, { childList: true, subtree: true });
+        const styleMo = new MutationObserver(() => {
+            wrap.style.display = select.style.display === 'none' ? 'none' : '';
+        });
+        styleMo.observe(select, { attributes: true, attributeFilter: ['style'] });
+    }
+}
+
 function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
     let input = document.getElementById(inputId);
     let dropdown = document.getElementById(dropdownId);
@@ -548,6 +610,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+    enhanceAllSelects();
     setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu");
     setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi");
     setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia");
@@ -650,6 +713,32 @@ function updateNekoDropdown() {
     sel.innerHTML = "";
     let targetList = fmt === "Images" ? nekoImages : nekoGifs;
     targetList.forEach(t => { let opt = document.createElement("option"); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+}
+
+function updatePixivMode() {
+    let mode = document.getElementById("pixivMode").value;
+    let rankingDropdown = document.getElementById("pixivRankingMode");
+    let tagInput = document.getElementById("pixivTag");
+    let ratingSelect = document.getElementById("pixivRating");
+
+    function setVisible(select, visible) {
+        let wrap = select.closest('.custom-select');
+        if (wrap) wrap.style.display = visible ? "" : "none";
+        else select.style.display = visible ? "inline-block" : "none";
+    }
+
+    if (mode === "ranking") {
+        setVisible(rankingDropdown, true);
+        tagInput.placeholder = "Ranking mode ignores value field";
+        tagInput.style.display = "none";
+    } else {
+        setVisible(rankingDropdown, false);
+        tagInput.style.display = "inline-block";
+        if (mode === "search") tagInput.placeholder = "tag name (e.g. blue_hair)";
+        else if (mode === "bookmark") tagInput.placeholder = "user ID";
+        else tagInput.placeholder = "user ID";
+    }
+    setVisible(ratingSelect, mode !== "search");
 }
 
 function toggleGifExclusion(formatId, checkboxId) {

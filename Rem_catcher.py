@@ -477,6 +477,21 @@ def toggle_gallery_fav():
             return jsonify({"success": True, "favourite": img["favourite"]})
     return jsonify({"success": False, "error": "not found"}), 404
 
+@app.route("/api/gallery/delete/<img_id>", methods=["DELETE"])
+def delete_gallery_image(img_id):
+    gallery = shared.load_gallery()
+    for i, img in enumerate(gallery["images"]):
+        if str(img.get("id")) == str(img_id):
+            fp = img.get("filepath")
+            if fp:
+                full = os.path.normpath(os.path.join(MASTER_FOLDER, fp))
+                if os.path.isfile(full):
+                    os.remove(full)
+            gallery["images"].pop(i)
+            shared.save_gallery(gallery)
+            return jsonify({"success": True})
+    return jsonify({"success": False, "error": "not found"}), 404
+
 @app.route("/api/gallery/tags", methods=["GET"])
 def get_gallery_tags():
     gallery = shared.load_gallery()

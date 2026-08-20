@@ -642,12 +642,12 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-pagination button.active { background: #2dd4bf; color: #0a0e17; font-weight: 600; }
 .gallery-viewer { position: fixed; inset: 0; background: #141414; z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .gallery-viewer img, .gallery-viewer video { max-width: 95vw; max-height: 90vh; object-fit: contain; }
-.gallery-viewer-nav { position: fixed; top: 50%; transform: translateY(-50%); background: rgba(30,30,30,0.6); border: none; color: #aaa; font-size: 28px; cursor: pointer; z-index: 1010; width: 44px; height: 80px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+.gallery-viewer-nav { position: fixed; top: 50%; transform: translateY(-50%); background: rgba(30,30,30,0.6); border: none; color: #aaa; font-size: 28px; cursor: pointer; z-index: 1010; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
 .gallery-viewer-nav.prev { left: 20px; }
 .gallery-viewer-nav.next { right: 20px; }
 .gallery-viewer-top-btn { position: fixed; top: 14px; background: rgba(30,30,30,0.6); border: none; color: #aaa; font-size: 20px; cursor: pointer; z-index: 1010; width: 36px; height: 36px; border-radius: 50%; }
 .gallery-viewer-top-btn.close { right: 14px; }
-.gallery-viewer-top-btn.fav { right: 58px; font-size: 22px; color: #e04080; }
+.gallery-viewer-top-btn.fav { right: 58px; font-size: 26px; line-height: 1; color: #e04080; }
 .gallery-viewer-top-btn.zoom-label {
     left: 50%;
     transform: translateX(-50%);
