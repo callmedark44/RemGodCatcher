@@ -1,7 +1,7 @@
-import os, re, urllib.parse, json, subprocess
+import os, re, urllib.parse, subprocess
 import asyncio
 from requests.adapters import HTTPAdapter
-from shared import BaseDownloader, BASE_DIR
+from shared import BaseDownloader
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -56,6 +56,13 @@ class ZerochanWorker(BaseDownloader):
             p = self.net_config.get("proxy_url")
             self.req_session.proxies = {"http": p, "https": p}
 
+        try:
+            import browser_cookie3
+            self.req_session.cookies.update(browser_cookie3.chrome(domain_name="zerochan.net"))
+            self.log("Loaded Zerochan cookies from Chrome.")
+        except Exception as e:
+            self.log(f"⚠️ No Chrome cookies ({e}) — falling back to credentials only.")
+
         self.log(f"Configured: tag='{self.original_tag}' encoded='{self.encoded_tag}' "
                  f"amount={amount} UA='{self.ua}'")
 
@@ -63,47 +70,50 @@ class ZerochanWorker(BaseDownloader):
         """Enumerate all post IDs for a tag via gallery-dl (primary source)."""
         username = self._zerochan_user
         password = self._zerochan_pass
-        cmd = ["gallery-dl"]
-        
+        cmd = ["gallery-dl", "--cookies-from-browser", "chrome"]
+
         if username and password:
             cmd.extend(["-u", username, "-p", password])
             self.log("Using Zerochan credentials for gallery-dl.")
         else:
             self.log("For more access, please set your Zerochan Login in the Settings tab.")
-            
+
         if self.net_config.get("use_proxy"):
             cmd.extend(["--proxy", self.net_config["proxy_url"]])
             
-        # ponytail: no --range — gallery-dl enumerates ALL posts so the worker
-        # loop can keep past duplicates until collected_count hits amount
+        # ponytail: no --range, no early stop — enumerate ALL posts so the
+        # worker loop can skip past duplicates until amount is reached
         cmd.extend(["-g", f"https://www.zerochan.net/{tag}"])
+        self.log(f"Running gallery-dl enumeration for '{tag}'...")
+        import threading
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True, text=True, timeout=120, check=True
-            )
-            post_ids = []
-            for line in result.stdout.split('\n'):
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            watchdog = threading.Timer(600, proc.kill)
+            watchdog.start()
+            post_ids, seen = [], set()
+            for line in proc.stdout:
                 line = line.strip()
                 if line.startswith('https://static.zerochan.net/.full.'):
                     parts = line.split('.full.')
                     if len(parts) > 1:
                         pid_str = parts[-1].split('.')[0]
                         if pid_str.isdigit():
-                            post_ids.append(int(pid_str))
+                            pid = int(pid_str)
+                            if pid not in seen:
+                                seen.add(pid)
+                                post_ids.append(pid)
+            watchdog.cancel()
+            proc.communicate()
             self.log(f"gallery-dl found {len(post_ids)} posts for '{tag}'")
             return post_ids
-        except subprocess.TimeoutExpired:
-            self.log(f"gallery-dl timed out for '{tag}'")
-            return []
         except FileNotFoundError:
             self.log("gallery-dl not installed")
             return []
-        except subprocess.CalledProcessError as e:
-            self.log(f"gallery-dl failed for '{tag}': {e.stderr[:200]}")
-            return []
         except Exception as e:
-            self.log(f"gallery-dl error for '{tag}': {e}")
+            err = ""
+            try: err = (proc.stderr.read() or "").strip()
+            except Exception: pass
+            self.log(f"gallery-dl failed for '{tag}': {e} {err[:200]}")
             return []
 
     async def scraper_task(self):
@@ -152,7 +162,7 @@ class ZerochanWorker(BaseDownloader):
                          f"(total enqueued: {collected_count})")
             await asyncio.sleep(self.anti_ban_pause)
 
-        actual = self.download_queue.qsize() if self.download_queue else collected_count
+        actual = collected_count + (self.download_queue.qsize() if self.download_queue else 0)
         if actual == 0:
             self.log("No new images to download.")
         else:

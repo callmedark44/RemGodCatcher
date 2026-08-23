@@ -117,6 +117,92 @@ def save_history(site_root, history_set):
             with open(hist_path, "w", encoding="utf-8") as f: json.dump(list(history_set), f, indent=4)
         except Exception as e: print(f"Error saving history: {e}")
 
+def remove_gallery_files(paths):
+    """Drop gallery entries whose file resolves to one of the given absolute paths."""
+    targets = {os.path.normcase(os.path.normpath(p)) for p in paths}
+    gal = load_gallery()
+    kept = [img for img in gal["images"]
+            if os.path.normcase(os.path.normpath(os.path.join(MASTER_FOLDER, img.get("filepath", "")))) not in targets]
+    removed = len(gal["images"]) - len(kept)
+    if removed:
+        gal["images"] = kept
+        save_gallery(gal)
+    return removed
+
+PHASH_LOCK = threading.Lock()
+_PHASH_INDEX = None
+
+def _get_phash_index():
+    """Load the saved hash list; on first use, seed it from existing downloads."""
+    global _PHASH_INDEX
+    if _PHASH_INDEX is None:
+        import phash_util
+        idx = phash_util.load_index()
+        if not idx and os.path.isdir(MASTER_FOLDER):
+            # first run: hash every existing image so future downloads can be compared;
+            # duplicates among them are resolved by the most-populated-subfolder rule
+            from collections import defaultdict
+            groups = defaultdict(list)
+            cache_path = os.path.join(MASTER_FOLDER, phash_util.CACHE_NAME)
+            try:
+                import json as _json
+                cache = _json.load(open(cache_path))
+            except Exception:
+                cache = {}
+            for path in phash_util.iter_images(MASTER_FOLDER):
+                try:
+                    st = os.stat(path)
+                    ent = cache.get(path)
+                    if ent and ent[0] == st.st_mtime and ent[1] == st.st_size:
+                        h = ent[2]
+                    else:
+                        h = phash_util.phash(path)
+                        cache[path] = [st.st_mtime, st.st_size, h]
+                    groups[h].append(path)
+                except Exception:
+                    continue
+            try:
+                import json as _json
+                _json.dump(cache, open(cache_path, "w"))
+            except Exception:
+                pass
+            losers = []
+            for h, paths in groups.items():
+                keep = paths[0] if len(paths) == 1 else phash_util.pick_keeper(paths)
+                idx[h] = os.path.relpath(keep, MASTER_FOLDER).replace("\\", "/")
+                losers.extend(p for p in paths if p != keep)
+            for p in losers:
+                try: os.remove(p)
+                except OSError: pass
+            remove_gallery_files(losers)
+            phash_util.save_index(idx)
+            log_msg("main", f"pHash index seeded from library: {len(idx)} unique images, {len(losers)} duplicates deleted.")
+        else:
+            log_msg("main", f"pHash index loaded: {len(idx)} hashes.")
+        _PHASH_INDEX = idx
+    return _PHASH_INDEX
+
+def register_download_hash(filepath):
+    """Hash a newly downloaded image. If its pHash is already stored, delete the
+    file and return (True, existing_path). Otherwise save the hash and return
+    (False, None)."""
+    import phash_util
+    try:
+        h = phash_util.phash(filepath)
+    except Exception:
+        return False  # never delete a download because hashing failed
+    with PHASH_LOCK:
+        idx = _get_phash_index()
+        rel = os.path.relpath(filepath, MASTER_FOLDER).replace("\\", "/")
+        old_rel = idx.get(h)
+        if old_rel:
+            try: os.remove(filepath)
+            except OSError: pass
+            return True, old_rel
+        idx[h] = rel
+        phash_util.save_index(idx)
+        return False, None
+
 # ==========================================
 # === OOP ASYNCIO ENGINE ===
 # ==========================================
@@ -181,6 +267,7 @@ class BaseDownloader:
             headers=headers,
             proxy=proxy,
         )
+        self.proxy = proxy
         return session
 
     def log(self, msg): log_msg(self.name, msg)
@@ -212,7 +299,8 @@ class BaseDownloader:
         for attempt in range(self.dl_retries):
             try:
                 referer = self.session.headers.get("Referer") or url
-                async with self.session.get(url, headers={"Referer": referer}) as resp:
+                # ponytail: downloads need way more than the API's 30s total timeout
+                async with self.session.get(url, headers={"Referer": referer}, timeout=aiohttp.ClientTimeout(total=600)) as resp:
                     resp.raise_for_status()
                     content_length = int(resp.headers.get('Content-Length', 0)) or file_size
                     if content_length and (content_length != file_size):
@@ -225,9 +313,25 @@ class BaseDownloader:
                             f.write(chunk)
                             downloaded += len(chunk)
 
+                    # ponytail: proxies can drop the tail silently; verify against Content-Length
+                    if not resp.headers.get('Content-Encoding'):
+                        expected = int(resp.headers.get('Content-Length', 0)) or file_size
+                        if expected and downloaded != expected:
+                            raise Exception(f"Incomplete download: got {downloaded} of {expected} bytes")
+
                 if self.stop_event.is_set():
                     if os.path.exists(filepath): os.remove(filepath)
                     self.enqueued_count -= 1
+                    return False
+
+                # pHash dedupe: delete the new file if an identical image is already saved
+                try:
+                    is_dup, orig = await asyncio.to_thread(register_download_hash, filepath)
+                except Exception:
+                    is_dup, orig = False, None
+                if is_dup:
+                    self.enqueued_count -= 1
+                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
                     return False
 
                 self.downloaded_count += 1
@@ -245,10 +349,12 @@ class BaseDownloader:
                 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
-                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
-                
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
+
+                # ponytail: metadata + gallery publish BEFORE the SUCCESS log — the log card
+                # requests its thumb instantly and would otherwise read a half-written file
                 write_image_metadata(filepath, tags_list, artists, self.name)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
+                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
                 send_tags(self.name, filename, tags_list, artists, rel_path)
                 return True
 
@@ -264,6 +370,7 @@ class BaseDownloader:
                     if not err_msg: err_msg = "HTTP 404 / File Deleted from Server"
                     self.log(f"[FAILED] {filename}: {err_msg}")
                     self.failed_count += 1
+                    if os.path.exists(filepath): os.remove(filepath)
         return False
 
     async def _download_worker(self):
@@ -279,6 +386,7 @@ class BaseDownloader:
     async def run_async_loop(self, scraper_coroutine):
         try:
             self.session = await self._create_session()
+            self.log(f"Proxy: {self.proxy or 'Direct'}")
             self.download_queue = asyncio.Queue()
             self.is_scanning = True
 

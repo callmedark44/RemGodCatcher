@@ -1,4 +1,4 @@
-import os, re, time, json, random
+import os, re, json, random
 import asyncio
 from pathlib import Path
 from workers import BaseWorker
@@ -176,11 +176,20 @@ class PinterestWorker(BaseWorker):
                 path = await asyncio.to_thread(downloader.download, media, Path(self.site_root), download_streams=True)
                 filename = os.path.basename(path)
 
+                # pHash dedupe: delete the new file if an identical image is already saved
+                try:
+                    is_dup, orig = await asyncio.to_thread(shared.register_download_hash, str(path))
+                except Exception:
+                    is_dup, orig = False, None
+                if is_dup:
+                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
+                    continue
+
                 rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
                 tags = [media.alt] if media.alt else []
                 artists = []
                 shared.add_to_gallery(self.name, filename, rel, tags, artists)
-                shared.send_tags(self.name, filename, tags, artists)
+                shared.send_tags(self.name, filename, tags, artists, rel)
 
                 downloaded += 1
                 self.log(f"[SUCCESS] Downloaded {filename} ({downloaded}/{self.amount}) |PATH| {rel} |TAGS| {', '.join(tags[:5])}")

@@ -51,6 +51,7 @@ function changeThemeMode(mode) {
     uiConfig.theme_mode = mode;
     let resolvedTheme = mode === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
     applyRenderTheme(resolvedTheme);
+    fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
 }
 
 function updateLiveColor(key, hexVal, saveToConfig = true) {
@@ -80,8 +81,8 @@ function renderWallpaperGrid() {
             <div style="display: flex; flex-direction: column; gap: 5px;">
                 <span style="color: var(--text-color); font-size: 13px; font-weight: bold;">${tab}</span>
                 <div style="display: flex; gap: 10px;">
-                    <div class="wp-box dark-mode" onclick="document.getElementById('${boxIdDark}').click()">Dark Mode<input type="file" id="${boxIdDark}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'dark', this)"></div>
-                    <div class="wp-box light-mode" onclick="document.getElementById('${boxIdLight}').click()">Light Mode<input type="file" id="${boxIdLight}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'light', this)"></div>
+                    <div class="wp-box dark-mode" onclick="document.getElementById('${boxIdDark}').click()">Dark Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdDark}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'dark', this)"></div>
+                    <div class="wp-box light-mode" onclick="document.getElementById('${boxIdLight}').click()">Light Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdLight}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'light', this)"></div>
                 </div>
             </div>
         `;
@@ -146,7 +147,7 @@ async function saveWallpapersUI() {
 async function resetWallpapersUI() {
     if (!confirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.")) return;
     uiConfig.wallpapers = {
-        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
+        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_pixiv_d.png", "light": "Rem_pixiv_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
     };
     renderWallpaperGrid();
     await saveWallpapersUI();
@@ -160,9 +161,9 @@ const socket = io();
 
 const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
-    "safe": "safe", "gelbooru": "gelbooru", "rule34": "rule34", "yande": "yande",
+    "safe": "safe", "gelbooru": "gelbooru", "gsbooru": "gsbooru", "rule34": "rule34", "yande": "yande",
     "kona": "kona", "dan": "dan", "sankaku": "sankaku", "anime_dl": "anime_dl",
-    "pinterest": "pinterest", "eshuushuu": "eshuushuu", "nekosapi": "nekosapi", "nekosia": "nekosia"
+    "pinterest": "pinterest", "pixiv": "pixiv", "eshuushuu": "eshuushuu", "nekosapi": "nekosapi", "nekosia": "nekosia"
 };
 
 function updateProgressBar(worker, msg) {
@@ -228,7 +229,7 @@ function updateProgressBar(worker, msg) {
 // --- Ultimate GUI Log Parser & CLI Restore ---
 // --- Ultimate GUI Log Parser ---
 function logToConsole(tabID, msg) {
-    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
+    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (!cb) return;
 
@@ -253,10 +254,13 @@ function logToConsole(tabID, msg) {
 
         let ratingHtml = "";
         let pLow = rawPath.toLowerCase().replace(/\\/g, '/');
-        if (pLow.includes('/nsfw') || pLow.includes('explicit') || pLow.includes('questionable')) { 
+        if (pLow.includes('/nsfw') || pLow.includes('explicit')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(231, 76, 60, 0.15); color:#e74c3c;">Rating: NSFW</div>`;
         }
-        else if (pLow.includes('/sensitive') || pLow.includes('moderate')) { 
+        else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
+            ratingHtml = `<div class="img-card-rating" style="background:rgba(155, 89, 182, 0.15); color:#9b59b6;">Rating: Sensitive</div>`;
+        }
+        else if (pLow.includes('moderate') || pLow.includes('questionable')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(243, 156, 18, 0.15); color:#f39c12;">Rating: Questionable</div>`;
         }
         else if (pLow.includes('/safe') || pLow.includes('/general')) {
@@ -277,7 +281,7 @@ function logToConsole(tabID, msg) {
         card.innerHTML = `
             <div class="img-card-left">
                 <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
-                <img src="${thumbSrc}?t=${Date.now()}" onerror="this.onerror=null; this.src='${fallbackSrc}';">
+                <img src="${thumbSrc}?t=${Date.now()}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
                 <div class="img-card-dl-badge">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     Downloaded
@@ -300,7 +304,7 @@ function logToConsole(tabID, msg) {
         return;
     }
 
-    if (raw.includes("Phase 2") || raw.includes("Terminated") || raw.includes("Initializing") || raw.includes("Total valid items found") || raw.includes("Notice:")) {
+    if (raw.includes("Phase 2") || raw.includes("Terminated") || raw.includes("Initializing") || raw.includes("Total valid items found") || raw.includes("Notice:") || raw.includes("API error") || raw.includes("API Exception") || raw.includes("API BAN") || raw.includes("No more images") || raw.includes("No new images") || raw.includes("ZERO images") || raw.includes("0 images found") || raw.includes("End of database") || raw.includes("Authenticating") || raw.includes("Proxy:") || raw.includes("Enqueued") || raw.includes("Rating:") || raw.includes("Exclusions:")) {
         let clean = raw.replace(/\[.*?\]/g, '').split("|PATH|")[0].trim();
         let card = document.createElement("div");
         card.className = "log-item system";
@@ -682,6 +686,7 @@ window.onload = async function () {
 
     updateNekoDropdown();
     updateNekosLifeType();
+    updatePixivMode();
     await loadUIConfig();
 
     try {
@@ -718,27 +723,29 @@ function updateNekoDropdown() {
 function updatePixivMode() {
     let mode = document.getElementById("pixivMode").value;
     let rankingDropdown = document.getElementById("pixivRankingMode");
+    let ratingDropdown = document.getElementById("pixivRating");
     let tagInput = document.getElementById("pixivTag");
-    let ratingSelect = document.getElementById("pixivRating");
 
-    function setVisible(select, visible) {
-        let wrap = select.closest('.custom-select');
+    function setVisible(el, visible) {
+        let wrap = el.closest('.custom-select');
         if (wrap) wrap.style.display = visible ? "" : "none";
-        else select.style.display = visible ? "inline-block" : "none";
+        else el.style.display = visible ? "inline-block" : "none";
     }
 
     if (mode === "ranking") {
         setVisible(rankingDropdown, true);
+        setVisible(ratingDropdown, true);
         tagInput.placeholder = "Ranking mode ignores value field";
         tagInput.style.display = "none";
     } else {
         setVisible(rankingDropdown, false);
+        // search mode has no rating filter
+        setVisible(ratingDropdown, mode !== "search");
+        if (mode === "search") ratingDropdown.value = "";
         tagInput.style.display = "inline-block";
         if (mode === "search") tagInput.placeholder = "tag name (e.g. blue_hair)";
-        else if (mode === "bookmark") tagInput.placeholder = "user ID";
         else tagInput.placeholder = "user ID";
     }
-    setVisible(ratingSelect, mode !== "search");
 }
 
 function toggleGifExclusion(formatId, checkboxId) {
@@ -792,6 +799,11 @@ function openTab(tabName, btn) {
     document.getElementById(tabName).style.display = "flex";
     btn.classList.add("active");
     updateBackground(tabName);
+    if (tabName === "Gallery") {
+        // re-measure rows now that the grid is actually visible
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => loadGallery(), 60);
+    }
 }
 
 function toggleMenu(groupId) {
@@ -807,7 +819,7 @@ function toggleMenu(groupId) {
 }
 
 function clearLog(tabID) {
-    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
+    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
 }
@@ -832,14 +844,31 @@ function startWorker(workerName) {
     else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; } 
     else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; } 
     else if (workerName === 'safe') { payload.tag = document.getElementById('safeTag').value; payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; } 
-    else if (workerName === 'gelbooru') { payload.tag = document.getElementById('gelbooruTag').value; payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; } 
+    else if (workerName === 'gelbooru') { payload.tag = document.getElementById('gelbooruTag').value; payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
+    else if (workerName === 'gsbooru') { payload.tag = document.getElementById('gsbooruTag').value; payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
     else if (workerName === 'yande') { payload.tag = document.getElementById('yandeTag').value; payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; } 
     else if (workerName === 'dan') { payload.tag = document.getElementById('danTag').value; payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
     else if (workerName === 'kona') { payload.tag = document.getElementById('konaTag').value; payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
     else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; } 
     else if (workerName === 'sankaku') { payload.tag = document.getElementById('sankakuTag').value; payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; } 
     else if (workerName === 'anime_dl') { payload.tag = document.getElementById('animeDlTag').value; payload.limit = document.getElementById('animeDlLimit').value; } 
-    else if (workerName === 'pinterest') { payload.tag = document.getElementById('pinterestTag').value; payload.limit = document.getElementById('pinterestLimit').value; payload.is_search = document.getElementById('pinterestMode').value === 'search'; }
+    else if (workerName === 'pinterest') { payload.tag = document.getElementById('pinterestTag').value; payload.limit = document.getElementById('pinterestLimit').value; payload.is_search = document.getElementById('pinterestMode').value === 'search'; payload.min_w = parseInt(document.getElementById('pinterestMinW').value) || 0; payload.min_h = parseInt(document.getElementById('pinterestMinH').value) || 0; }
+    else if (workerName === 'pixiv') {
+        let mode = document.getElementById('pixivMode').value;
+        let ranking = document.getElementById('pixivRankingMode').value;
+
+        if (mode === 'ranking') {
+            payload.tag = 'ranking:' + ranking;
+        } else {
+            let val = document.getElementById('pixivTag').value.trim();
+            if (!val) { logToConsole('pixiv', 'Error: Please enter a user ID or search term'); return; }
+            payload.tag = mode + ':' + val;
+        }
+
+        payload.limit = document.getElementById('pixivLimit').value;
+        payload.rating = document.getElementById('pixivRating').value;
+        payload.exclusions = [];
+    }
     else if (workerName === 'eshuushuu') {
         payload.tag = document.getElementById('eshuushuuTag').value;
         payload.user_id = document.getElementById('eshuushuuUser').value;
@@ -887,6 +916,9 @@ async function loadApiSettings() {
     document.getElementById("r34Uid").value = settings.rule34_user_id || "";
     document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
     document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
+    document.getElementById("gsKey").value = settings.gsbooru_api_key || "";
+    document.getElementById("konaLogin").value = settings.konachan_login || "";
+    document.getElementById("konaPassword").value = settings.konachan_password || "";
     document.getElementById("sankaLogin").value = settings.sanka_login || "";
     document.getElementById("sankaPassword").value = settings.sanka_password || "";
     document.getElementById("zeroLogin").value = settings.zerochan_login || "";
@@ -894,6 +926,7 @@ async function loadApiSettings() {
     document.getElementById("pinterestCookies").value = settings.pinterest_cookies || "";
     document.getElementById("pinterestEmail").value = settings.pinterest_email || "";
     document.getElementById("pinterestPassword").value = settings.pinterest_password || "";
+    document.getElementById("pixivToken").value = settings.pixiv_refresh_token || "";
 }
 
 async function saveApiSettings() {
@@ -902,12 +935,16 @@ async function saveApiSettings() {
         rule34_user_id: document.getElementById("r34Uid").value.trim(),
         gelbooru_api_key: document.getElementById("gelKey").value.trim(),
         gelbooru_user_id: document.getElementById("gelUid").value.trim(),
+        gsbooru_api_key: document.getElementById("gsKey").value.trim(),
+        konachan_login: document.getElementById("konaLogin").value.trim(),
+        konachan_password: document.getElementById("konaPassword").value.trim(),
         sanka_login: document.getElementById("sankaLogin").value.trim(),
         sanka_password: document.getElementById("sankaPassword").value.trim(),
         zerochan_login: document.getElementById("zeroLogin").value.trim(),
         zerochan_password: document.getElementById("zeroPassword").value.trim(),
         pinterest_cookies: document.getElementById("pinterestCookies").value.trim(),
         pinterest_email: document.getElementById("pinterestEmail").value.trim(),
+        pixiv_refresh_token: document.getElementById("pixivToken").value.trim(),
         pinterest_password: document.getElementById("pinterestPassword").value.trim()
     };
     let resp = await fetch("/api/api-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -993,13 +1030,23 @@ async function removeFromHistory(site, tag) { await fetch("/api/history/remove",
 async function clearHistory() { if(confirm("Are you sure you want to delete all search history?")) { await fetch("/api/history/clear", { method: "POST" }); await loadTagsData(); } }
 
 function jumpToSite(site, tag) {
-    let siteMap = { "zero": { tab: "Zero", input: "zeroTag" }, "waifu": { tab: "Waifu", input: "waifuTag" }, "neko": { tab: "Neko", input: null }, "nekos_life":{ tab: "NekosLife", input: null }, "safe": { tab: "Safe", input: "safeTag" }, "gelbooru": { tab: "Gelbooru", input: "gelbooruTag" }, "yande": { tab: "Yande", input: "yandeTag" }, "kona": { tab: "Kona", input: "konaTag" }, "dan": { tab: "Danbooru", input: "danTag" }, "rule34": { tab: "Rule34", input: "rule34Tag" }, "sankaku": { tab: "Sankaku", input: "sankakuTag" }, "anime_dl": { tab: "AnimeDL", input: "animeDlTag" }, "pinterest": { tab: "Pinterest", input: "pinterestTag" }, "eshuushuu": { tab: "EShuushuu", input: "eshuushuuTag" }, "nekosapi": { tab: "NekosAPI", input: "nekosapiTag" }, "nekosia": { tab: "Nekosia", input: "nekosiaTag" } };
+    let siteMap = { "zero": { tab: "Zero", input: "zeroTag" }, "waifu": { tab: "Waifu", input: "waifuTag" }, "neko": { tab: "Neko", input: null }, "nekos_life":{ tab: "NekosLife", input: null }, "safe": { tab: "Safe", input: "safeTag" }, "gelbooru": { tab: "Gelbooru", input: "gelbooruTag" }, "gsbooru": { tab: "Gsbooru", input: "gsbooruTag" }, "yande": { tab: "Yande", input: "yandeTag" }, "kona": { tab: "Kona", input: "konaTag" }, "dan": { tab: "Danbooru", input: "danTag" }, "rule34": { tab: "Rule34", input: "rule34Tag" }, "sankaku": { tab: "Sankaku", input: "sankakuTag" }, "anime_dl": { tab: "AnimeDL", input: "animeDlTag" }, "pinterest": { tab: "Pinterest", input: "pinterestTag" }, "pixiv": { tab: "Pixiv", input: "pixivTag" }, "eshuushuu": { tab: "EShuushuu", input: "eshuushuuTag" }, "nekosapi": { tab: "NekosAPI", input: "nekosapiTag" }, "nekosia": { tab: "Nekosia", input: "nekosiaTag" } };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
     let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
     if(btn) openTab(mapping.tab, btn);
     if(mapping.input) { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
 }
 
+// یک هلپر حرفه‌ای برای درست کردن آدرس‌های عکس بدون قاطی کردن Flask
+function getSafeThumbUrl(filepath, filename) {
+    if (filepath) {
+        let parts = filepath.replace(/\\/g, '/').split('/');
+        return '/api/gallery/thumb/' + parts.map(encodeURIComponent).join('/');
+    }
+    return '/api/thumb_by_name/' + encodeURIComponent(filename || "");
+}
+
+// تابع جدید هیستوری که دقیقاً کپی عکسی هست که دادی
 function renderImageHistory() {
     let ui = document.getElementById("imageHistoryUI");
     if(!ui) return;
@@ -1009,15 +1056,44 @@ function renderImageHistory() {
         htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No images downloaded yet.</p>";
     } else {
         imageHistory.forEach(img => {
-            let tagsHtml = img.tags.map(t => {
-                let isFav = isFavorite(img.site, t);
-                let bgColor = isFav ? "var(--tab-active-bg)" : "var(--input-bg)";
-                let borderColor = isFav ? "var(--accent-color)" : "transparent";
-                let textColor = isFav ? "var(--accent-color)" : "var(--text-color)";
-                return `<span onclick="addFavoriteFromImage('${img.site}', '${t}')" style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-block;">${t}</span>`;
-            }).join('');
-            let artistHtml = img.artists && img.artists.length > 0 ? `<div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;"><span style="color: var(--title-color); font-size: 12px; font-weight: bold;">Artists:</span> <span style="font-size: 12px; color: var(--text-color); opacity: 0.8;">${img.artists.join(', ')}</span></div>` : "";
-            htmlStr += `<div style="background: var(--input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); position: relative;"><button onclick="removeImageHistory('${img.filename}')" class="action-btn stop-btn" style="position: absolute; top: 10px; right: 10px; padding: 2px 6px; font-size: 10px;">&times;</button><h3 style="color: var(--text-color); font-size: 16px; margin-bottom: 12px; padding-right: 30px; word-break: break-all;">${img.filename} <span style="font-size: 10px; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 4px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">${img.site}</span></h3><div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding-right: 5px;">${tagsHtml}</div>${artistHtml}</div>`;
+            let tagsStr = (img.tags || []).map(t => `<span class="g-tag-pill">${t}</span>`).join('');
+            
+            let ratingHtml = "";
+            let pLow = ((img.filepath || img.filename) + " " + (img.tags || []).join(' ')).toLowerCase(); 
+            if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
+                ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">NSFW</span>`;
+            } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
+                ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Sensitive</span>`;
+            } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) { 
+                ratingHtml = `<span style="background:rgba(243, 156, 18, 0.15); color:#f39c12; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Questionable</span>`;
+            } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:s') || pLow.includes('rating:g')) {
+                ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Safe</span>`;
+            }
+
+            let thumbUrl = getSafeThumbUrl(img.filepath, img.filename);
+            let safeFn = (img.filename || "").replace(/"/g, '&quot;');
+            let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
+            let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+
+            htmlStr += `
+            <div class="image-card-log" style="position: relative; align-items: stretch; background: rgba(15, 15, 20, 0.75);">
+                <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s;">×</button>
+                <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
+                    <img src="${thumbUrl}" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+                    <div class="img-card-dl-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Archived
+                    </div>
+                </div>
+                <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
+                    <div class="img-card-title" title="${safeFn}" style="font-size: 14px; color: #fff; font-weight: bold;">${img.filename || "image"}</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 55px; overflow-y: auto;">
+                        ${tagsStr}
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; margin-top: auto;">
+                        ${siteBadge} ${ratingHtml}
+                    </div>
+                </div>
+            </div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1032,7 +1108,7 @@ async function clearImageHistory() { if(confirm("Delete all image tag history?")
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
-const SOURCE_RATINGS = { dan: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], kona: ['safe', 'explicit'], yande: ['safe', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], pinterest: [] };
+const SOURCE_RATINGS = { dan: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], kona: ['safe', 'explicit'], yande: ['safe', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], pinterest: [], pixiv: [] };
 // ... [rest of gallery code stays intact] ...
 function updateRatingDropdown() {
     const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]');
@@ -1102,26 +1178,74 @@ function getMultiLabel(id, noneLabel) {
     if (allChecked || count === 0) return noneLabel;
     return `${count} selected`;
 }
+let galleryCols = 0;
+function galleryPerPage() {
+    const grid = document.getElementById("galleryGrid");
+    galleryCols = Math.max(2, Math.floor(((grid && grid.clientWidth ? grid.clientWidth : window.innerWidth - 40)) / 148));
+    if (grid) grid.style.gridTemplateColumns = `repeat(${galleryCols}, minmax(0, 1fr))`;
+    let rows;
+    try {
+        if (grid && grid.clientHeight > 80) {
+            // measure a real probe tile — no more guessing heights
+            const probe = document.createElement('div');
+            probe.className = 'gallery-card';
+            probe.style.visibility = 'hidden';
+            grid.appendChild(probe);
+            const tileH = probe.offsetHeight || 148;
+            probe.remove();
+            const cs = getComputedStyle(grid);
+            const gap = parseFloat(cs.rowGap) || 8;
+            const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            const avail = grid.clientHeight - padY;
+            rows = Math.max(1, Math.floor((avail + gap) / (tileH + gap)));
+        } else {
+            rows = Math.max(1, Math.floor((window.innerHeight - 280) / 158));
+        }
+    } catch (e) {
+        rows = Math.max(1, Math.floor((window.innerHeight - 280) / 158));
+    }
+    return Math.min(400, Math.max(24, galleryCols * rows));
+}
+let galleryReqId = 0;
 async function loadGallery(page) {
+    const reqId = ++galleryReqId;
+    const reqW = window.innerWidth;
     if (page) currentGalleryPage = page;
     const search = document.getElementById("gallerySearch").value;
     const site = getMultiSelectValues('sourceDropdown');
     const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
-    const params = new URLSearchParams({ search, site, sort, type, rating, page: currentGalleryPage, per_page: 24 });
-    if (galleryFavFilter) params.set("favourites", "true");
-    try { let resp = await fetch(`/api/gallery?${params}`); galleryState = await resp.json(); renderGallery(); } catch (e) {}
+    const params = new URLSearchParams({ search, site, sort, type, rating, page: currentGalleryPage, per_page: galleryPerPage() });
+    try {
+        let resp = await fetch(`/api/gallery?${params}`);
+        const data = await resp.json();
+        if (reqId !== galleryReqId) return;
+        // viewport moved mid-flight (fast zoom switch) → refetch for the settled size
+        if (window.innerWidth !== reqW) return loadGallery(page);
+        galleryState = data;
+        renderGallery();
+        populateGallerySiteFilter();
+    } catch (e) {}
 }
 async function loadGalleryPage(page, callback) {
+    const reqId = ++galleryReqId;
+    const reqW = window.innerWidth;
     const search = document.getElementById("gallerySearch").value;
     const site = getMultiSelectValues('sourceDropdown');
     const sort = document.getElementById("sortDropdown").dataset.sort || 'newest';
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
-    const params = new URLSearchParams({ search, site, sort, type, rating, page, per_page: 24 });
-    if (galleryFavFilter) params.set("favourites", "true");
-    try { let resp = await fetch(`/api/gallery?${params}`); galleryState = await resp.json(); currentGalleryPage = page; if (callback) callback(); } catch (e) {}
+    const params = new URLSearchParams({ search, site, sort, type, rating, page, per_page: galleryPerPage() });
+    try {
+        let resp = await fetch(`/api/gallery?${params}`);
+        const data = await resp.json();
+        if (reqId !== galleryReqId) return;
+        if (window.innerWidth !== reqW) return loadGalleryPage(page, callback);
+        galleryState = data;
+        currentGalleryPage = page;
+        if (callback) callback();
+    } catch (e) {}
 }
 function renderGallery() {
     const grid = document.getElementById("galleryGrid");
@@ -1139,8 +1263,12 @@ function renderGallery() {
         const ext = ((img.filename || '').split('.').pop() || '').toLowerCase();
         const isVideo = ['mp4','webm','mov','avi','mkv'].includes(ext);
         const src = `/api/gallery/thumb/${encodeURI(fp)}`;
-        html += `<div class="gallery-card" onclick="openGalleryViewer('${img.id}')">${isVideo ? `<span class="gallery-card-play"></span><img src="${src}" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none'">` : `<img src="${src}" loading="lazy" decoding="async" onerror="this.closest('.gallery-card').classList.add('broken')">`}<button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${img.favourite ? '♥' : '♡'}</button></div>`;
+        const imgTag = `<img src="${src}" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none'">`;
+        const playOverlay = isVideo ? '<span class="gallery-card-play"></span>'  : '';
+        html += `<div class="gallery-card" onclick="openGalleryViewer('${img.id}')">${playOverlay}${imgTag}<button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${img.favourite ? '♥' : '♡'}</button></div>`;
     });
+    // pin the column count so the last row is always full
+    grid.style.gridTemplateColumns = `repeat(${galleryCols}, minmax(0, 1fr))`;
     grid.innerHTML = html;
     let pHtml = '<button onclick="loadGallery(1)" ' + (page<=1?'disabled':'') + '>«</button>';
     pHtml += '<button onclick="loadGallery('+(page-1)+')" ' + (page<=1?'disabled':'') + '>‹</button>';
@@ -1164,6 +1292,14 @@ async function toggleGalleryFav(id) { try { let resp = await fetch("/api/gallery
 let viewerIndex = -1;
 let viewerZoom = 1;
 function openGalleryViewer(id) { viewerIndex = galleryState.images.findIndex(i => i.id === id); if (viewerIndex < 0) return; viewerZoom = 1; showViewerImage(); }
+
+function openFullImage(filepath, filename) {
+    // ponytail: some callers pass pre-encoded paths — normalize before encoding exactly once
+    let clean = filepath || "";
+    try { clean = decodeURIComponent(clean); } catch (e) {}
+    let url = clean ? `/api/gallery/file/${clean.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(filename || '')}`;
+    window.open(url, '_blank');
+}
 function showViewerImage() {
     const viewer = document.getElementById("galleryViewer");
     const viewerImg = document.getElementById("galleryViewerImg");
@@ -1178,6 +1314,7 @@ function showViewerImage() {
     const isVideo = ['mp4','webm','mov','avi','mkv'].includes(ext);
     viewerImg.className = '';
     viewerImg.style.transform = '';
+    viewerImg.style.transformOrigin = '';
     viewerDrag.active = false;
     const zl = document.getElementById("galleryViewerZoom");
     zl.textContent = '100%';
@@ -1224,18 +1361,222 @@ function showViewerImage() {
         video.play();
     } else { viewerImg.style.display = ''; viewerImg.src = fullSrc; }
     document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡';
+    
+    // === پنل اطلاعات و تگ‌ها پایین صفحه ===
+    const metaPanel = document.getElementById("galleryViewerMeta");
+    if(metaPanel) {
+        let tagsHtml = (img.tags || []).map(t => `<span class="g-tag-pill" onclick="document.getElementById('gallerySearch').value='${t}'; loadGallery(1); closeGalleryViewer();">${t}</span>`).join('');
+        let ratingHtml = "";
+        let pLow = ((img.filepath || "") + " " + (img.tags || []).join(' ')).toLowerCase();
+        if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
+            ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
+        } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
+            ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Sensitive</span>`;
+        } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) { 
+            ratingHtml = `<span style="background:rgba(243, 156, 18, 0.15); color:#f39c12; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Questionable</span>`;
+        } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:g')) {
+            ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Safe</span>`;
+        }
+        let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+
+        metaPanel.innerHTML = `
+            <div class="g-meta-header">
+                <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
+                <div class="g-meta-badges">${siteBadge} ${ratingHtml}</div>
+            </div>
+            <div class="g-meta-tags">${tagsHtml}</div>
+        `;
+    }
+    
     viewer.style.display = 'flex';
 }
 function closeGalleryViewer() { document.getElementById("galleryViewer").style.display = 'none'; document.getElementById("galleryViewerImg").src = ''; document.getElementById("galleryViewerImg").className = ''; document.getElementById("galleryViewerImg").style.transform = ''; document.getElementById("galleryViewerImg").style.transformOrigin = ''; const vw = document.querySelector('.gallery-video-wrap'); if (vw) { vw.remove(); } viewerZoom = 1; viewerIndex = -1; viewerDrag.active = false; }
 function viewerNav(dir) { const total = galleryState.images.length; const newIdx = viewerIndex + dir; if (newIdx < 0 && currentGalleryPage > 1) { loadGalleryPage(currentGalleryPage - 1, () => { viewerIndex = galleryState.images.length - 1; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage < galleryState.total_pages) { loadGalleryPage(currentGalleryPage + 1, () => { viewerIndex = 0; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage >= galleryState.total_pages) { showToast("Last image"); return; } if (newIdx < 0 && currentGalleryPage <= 1) { return; } viewerIndex = newIdx; viewerZoom = 1; showViewerImage(); }
 function toggleViewerFav() { const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡'; fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
+async function copyViewerImage() {
+    const img = galleryState.images[viewerIndex];
+    if (!img) return;
+    const rel = (img.filepath || "").replace(/\\/g, '/');
+    try {
+        const url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
+        let blob = await (await fetch(url)).blob();
+        if (blob.type.startsWith('image/')) {
+            if (blob.type !== 'image/png') {
+                const bmp = await createImageBitmap(blob);
+                const c = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+                c.getContext('2d').drawImage(bmp, 0, 0);
+                blob = await new Promise(r => c.toBlob(r, 'image/png'));
+            }
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            showToast("📋 Image copied to clipboard");
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
+                showToast("📋 File copied to clipboard");
+            } catch (err) {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = img.filename || 'file';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showToast("⬇️ Clipboard can't hold this file type — saved to PC instead");
+            }
+        }
+    } catch (e) { showToast("⚠️ Copy failed: " + e.message); }
+}
 function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
-function setViewerTransform(tx, ty) { const img = document.getElementById("galleryViewerImg"); const zoomed = viewerZoom > 1; img.className = zoomed ? 'zoomed' : ''; if (zoomed) { img.style.transformOrigin = '0 0'; img.style.transform = `translate(${tx}px, ${ty}px) scale(${viewerZoom})`; } else { img.style.transformOrigin = ''; img.style.transform = ''; } }
-function zoomViewer(delta, cx, cy) { const img = document.getElementById("galleryViewerImg"); if (img.style.display === 'none') return; const old = viewerZoom; viewerZoom = Math.max(0.25, Math.min(10, viewerZoom + delta)); const zoomed = viewerZoom > 1; if (!zoomed) { setViewerTransform(0, 0); stopViewerDrag(); const label = document.getElementById("galleryViewerZoom"); label.textContent = Math.round(viewerZoom * 100) + '%'; label.classList.remove('show'); return; } const rect = img.getBoundingClientRect(); const [tx, ty] = getViewerTransform(); const ratio = viewerZoom / old; let newTx, newTy; if (cx != null && cy != null) { const mx = cx - rect.left; const my = cy - rect.top; newTx = tx + mx * (1 - ratio); newTy = ty + my * (1 - ratio); } else { newTx = tx + (rect.width / 2) * (1 - ratio); newTy = ty + (rect.height / 2) * (1 - ratio); } setViewerTransform(newTx, newTy); const label = document.getElementById("galleryViewerZoom"); label.textContent = Math.round(viewerZoom * 100) + '%'; label.classList.add('show'); }
-document.addEventListener('keydown', function(e) { if (document.getElementById("galleryViewer").style.display !== 'flex') return; if (e.key === 'Escape') closeGalleryViewer(); else if (e.key === 'ArrowLeft') viewerNav(-1); else if (e.key === 'ArrowRight') viewerNav(1); else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2); else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2); });
+function setViewerTransform(tx, ty) {
+    const img = document.getElementById("galleryViewerImg");
+
+
+    if (viewerZoom > 1) {
+        img.classList.add('zoomed');
+        img.style.transformOrigin = '0 0';
+        img.style.transform = `translate(${tx}px, ${ty}px) scale(${viewerZoom})`;
+    } else {
+        img.classList.remove('zoomed');
+        img.style.transformOrigin = '50% 50%';
+        img.style.transform = '';
+    }
+}
+function zoomViewer(delta, cx, cy) {
+    const img = document.getElementById("galleryViewerImg");
+    const viewer = document.getElementById("galleryViewer");
+
+
+    if (!img || !viewer || img.style.display === 'none') return;
+    if (!img.complete || img.naturalWidth === 0) return;
+
+
+    const oldZoom = viewerZoom;
+    const newZoom = Math.max(0.25, Math.min(10, oldZoom + delta));
+
+
+    if (newZoom === oldZoom) return;
+
+
+    /*
+     * IMPORTANT:
+     *
+     * At 100% the image is still using:
+     *   max-width: 95vw
+     *   max-height: 90vh
+     *
+     * We get its ORIGINAL untransformed rectangle here.
+     *
+     * Once zoomed, getBoundingClientRect() contains the transform,
+     * so we reconstruct the original rectangle using the current
+     * translation and zoom.
+     */
+
+
+    const rect = img.getBoundingClientRect();
+    const [oldTx, oldTy] = getViewerTransform();
+
+
+    // Position of the image before transform.
+    const baseLeft = rect.left - oldTx;
+    const baseTop = rect.top - oldTy;
+
+
+    // Mouse position. If called from keyboard, use viewer center.
+    if (cx == null || cy == null) {
+        const viewerRect = viewer.getBoundingClientRect();
+        cx = viewerRect.left + viewerRect.width / 2;
+        cy = viewerRect.top + viewerRect.height / 2;
+    }
+
+
+    /*
+     * Find which point on the ORIGINAL image is underneath
+     * the mouse cursor.
+     *
+     * This is the key calculation.
+     */
+    const imageX = (cx - baseLeft - oldTx) / oldZoom;
+    const imageY = (cy - baseTop - oldTy) / oldZoom;
+
+
+    /*
+     * Calculate the new translation so the SAME image pixel
+     * remains underneath the mouse.
+     */
+    const newTx = cx - baseLeft - imageX * newZoom;
+    const newTy = cy - baseTop - imageY * newZoom;
+
+
+    viewerZoom = newZoom;
+
+
+    const label = document.getElementById("galleryViewerZoom");
+
+
+    if (label) {
+        label.textContent = Math.round(viewerZoom * 100) + '%';
+
+
+        if (viewerZoom > 1) {
+            label.classList.add('show');
+        } else {
+            label.classList.remove('show');
+        }
+    }
+
+
+    if (viewerZoom <= 1) {
+        setViewerTransform(0, 0);
+        stopViewerDrag();
+    } else {
+        setViewerTransform(newTx, newTy);
+    }
+}
+document.addEventListener('keydown', function(e) { 
+    const viewer = document.getElementById("galleryViewer");
+    if (viewer.style.display !== 'flex') return; 
+    
+    if (e.key === 'Escape') {
+        if (viewer.classList.contains("focus")) {
+            viewer.classList.remove("focus");
+        } else {
+            closeGalleryViewer();
+        }
+    }
+    else if (e.key === 'ArrowLeft') viewerNav(-1); 
+    else if (e.key === 'ArrowRight') viewerNav(1); 
+    else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
+    else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
+    else if (e.key === 'Delete') { deleteViewerImage(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { copyViewerImage(); }
+});
+let _resizeTimer = null;
+window.addEventListener('resize', function() { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(() => { if (document.getElementById("galleryGrid")) loadGallery(); }, 300); });
 let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
 document.getElementById("galleryViewer").addEventListener('click', function(e) { if (e.target === this) closeGalleryViewer(); });
-let zoomThrottle = 0; document.getElementById("galleryViewer").addEventListener('wheel', function(e) { if (!e.ctrlKey) return; e.preventDefault(); const now = Date.now(); if (now - zoomThrottle < 80) return; zoomThrottle = now; zoomViewer(e.deltaY < 0 ? 0.05 : -0.05, e.clientX, e.clientY); }, { passive: false });
+let zoomThrottle = 0;
+
+
+document.getElementById("galleryViewer").addEventListener('wheel', function(e) {
+    e.preventDefault();
+
+
+    const now = performance.now();
+
+
+    // Ignore duplicate/high-frequency wheel events.
+    if (now - zoomThrottle < 40) return;
+    zoomThrottle = now;
+
+
+    const delta = e.deltaY < 0 ? 0.05 : -0.05;
+
+
+    zoomViewer(
+        delta,
+        e.clientX,
+        e.clientY
+    );
+}, { passive: false });
 function stopViewerDrag() { viewerDrag.active = false; const img = document.getElementById("galleryViewerImg"); if (img) img.classList.remove('dragging'); }
 document.getElementById("galleryViewerImg").addEventListener('mousedown', function(e) { if (viewerZoom <= 1 || e.button !== 0) return; e.preventDefault(); viewerDrag.active = true; viewerDrag.startX = e.clientX; viewerDrag.startY = e.clientY; const t = getViewerTransform(); viewerDrag.imgX = t[0]; viewerDrag.imgY = t[1]; this.classList.add('dragging'); });
 document.addEventListener('mousemove', function(e) { if (!viewerDrag.active) return; e.preventDefault(); const dx = e.clientX - viewerDrag.startX; const dy = e.clientY - viewerDrag.startY; setViewerTransform(viewerDrag.imgX + dx, viewerDrag.imgY + dy); });
@@ -1243,12 +1584,45 @@ document.addEventListener('mouseup', stopViewerDrag); document.addEventListener(
 async function importGallery() { if (localStorage.getItem('gallery_imported')) return; try { let resp = await fetch("/api/gallery/import", {method: "POST"}); let data = await resp.json(); if (data.success) { localStorage.setItem('gallery_imported', '1'); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
 async function rescanGallery() { try { let resp = await fetch("/api/gallery/rescan", {method: "POST"}); let data = await resp.json(); if (data.success) { alert(`Rescan complete. Added ${data.added} new images.`); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
 function toggleCheck(el) { const cb = el.querySelector('input[type="checkbox"]'); const menu = el.closest('.gallery-dropdown-menu'); if (cb.value !== '') { const allCheck = menu.querySelector('input[value=""]'); if (allCheck && allCheck.checked) allCheck.checked = false; } cb.checked = !cb.checked; if (menu.id === 'sourceDropdown') onSourceChange(); else if (menu.id === 'ratingDropdown') onRatingChange(); else if (menu.id === 'typeDropdown') onTypeChange(); }
-async function populateGallerySiteFilter() { const container = document.getElementById("sourceDropdown"); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; try { let resp = await fetch("/api/gallery/sources"); const counts = await resp.json(); const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); } catch (e) {} updateSourceDropdown(); }
+let _siteFilterSeq = 0;
+async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
 function toggleDropdown(id) { const menu = document.getElementById(id); document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); }); menu.classList.toggle('open'); }
 function onSourceChange() { const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateRatingDropdown(); loadGallery(1); }
 function onRatingChange() { const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾'; updateSourceDropdown(); loadGallery(1); }
 function onTypeChange() { const checks = document.querySelectorAll('#typeDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'typeDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('typeDropdown', 'All Types') + ' ▾'; loadGallery(1); }
 function selectSort(el, value) { document.getElementById("sortDropdown").dataset.sort = value; const btn = document.querySelector('[onclick="toggleDropdown(\'sortDropdown\')"]'); btn.textContent = el.textContent.trim() + ' ▾'; document.getElementById("sortDropdown").classList.remove('open'); loadGallery(1); }
 document.addEventListener('click', function(e) { if (!e.target.closest('.gallery-dropdown')) { document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open')); } });
+
+// تابع حذف تصویر خراب
+async function deleteViewerImage() {
+    const img = galleryState.images[viewerIndex];
+    if (!img) return;
+    if (!confirm("Are you sure you want to delete this image? It will be removed from disk.")) return;
+    try {
+        let resp = await fetch("/api/gallery/delete", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) });
+        if (resp.ok) {
+            showToast("🗑️ Image deleted completely!");
+            let card = document.querySelector(`.gallery-card[onclick="openGalleryViewer('${img.id}')"]`);
+            if (card) card.remove();
+            galleryState.images.splice(viewerIndex, 1);
+            if (galleryState.images.length > 0) {
+                if (viewerIndex >= galleryState.images.length) {
+                    viewerIndex = galleryState.images.length - 1;
+                }
+                showViewerImage(); 
+            } else {
+                closeGalleryViewer();
+            }
+        }
+    } catch (e) {
+        console.error("Delete error", e);
+    }
+}
+
+// تابع حالت تمرکز
+function toggleFocusMode() {
+    const viewer = document.getElementById("galleryViewer");
+    if (viewer) viewer.classList.toggle("focus");
+}
 
 

@@ -1,7 +1,7 @@
-﻿import os, re
+﻿import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history
+from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, register_download_hash
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -23,10 +23,12 @@ class AnimeDlWorker(BaseDownloader):
 
         for attempt in range(self.dl_retries):
             try:
+                self.log(f"Downloading {filename} (attempt {attempt + 1}/{self.dl_retries})...")
+                # ponytail: flat 600s cap; switch to streaming + stall detection if bigger files crawl
                 resp = await asyncio.to_thread(
                     self.curl_session.get, 
                     url, 
-                    timeout=120, 
+                    timeout=600, 
                     headers={"Referer": "https://anime-pictures.net/"}
                 )
                 if resp.status_code != 200 or len(resp.content) <= 1000:
@@ -40,6 +42,16 @@ class AnimeDlWorker(BaseDownloader):
                     self.enqueued_count -= 1
                     return False
 
+                # pHash dedupe: delete the new file if an identical image is already saved
+                try:
+                    is_dup, orig = await asyncio.to_thread(register_download_hash, filepath)
+                except Exception:
+                    is_dup, orig = False, None
+                if is_dup:
+                    self.enqueued_count -= 1
+                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
+                    return False
+
                 self.downloaded_count += 1
                 self.downloaded_bytes += len(resp.content)
                 self.dl_history.add(filename)
@@ -49,15 +61,17 @@ class AnimeDlWorker(BaseDownloader):
                     target_total = max(self.amount, self.enqueued_count)
                 else:
                     target_total = max(self.enqueued_count, self.downloaded_count)
-                    
+
                 pct = int((self.downloaded_count / target_total) * 100) if target_total > 0 else 0
-                
+
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+
                 self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
-                
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
+
+                # ponytail: metadata must land before gallery publish, else thumbs read a half-written file
                 write_image_metadata(filepath, tags_list, artists, self.name)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
                 send_tags(self.name, filename, tags_list, artists, rel_path)
                 return True
 
@@ -84,8 +98,6 @@ class AnimeDlWorker(BaseDownloader):
         if self.net_config.get("use_proxy"):
             p = self.net_config.get("proxy_url", "")
             s.proxies = {"http": p, "https": p}
-        else:
-            s.proxies = {"http": "", "https": ""}
         s.cookies.set("time_zone", "UTC", domain=".anime-pictures.net")
         s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
         self.curl_session = s

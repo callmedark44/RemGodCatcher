@@ -23,14 +23,13 @@ import io
 import time
 import hashlib
 import zipfile
-import json
 import asyncio
 from datetime import datetime
 from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER, log_msg
+from shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"

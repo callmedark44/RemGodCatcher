@@ -39,7 +39,6 @@ class SankakuWorker(BaseWorker):
         sanka_password = _os.getenv("SANKA_PASSWORD")
 
         if not access_token and sanka_login and sanka_password:
-            import aiohttp as _aiohttp
             for login_url in (f"{API_BASE}/auth/token", "https://login.sankakucomplex.com/auth/token"):
                 try:
                     async with session.post(login_url, json={"login": sanka_login, "password": sanka_password}) as r:
@@ -174,7 +173,6 @@ class SankakuWorker(BaseWorker):
                 if ext == "gif" and "-gif" in self.exclusions:
                     continue
 
-                is_video = ext in self.video_exts
                 filename = f"{post.get('id')}.{ext}"
 
                 rating_label = self.rating_map.get(post_rating, "Unknown")

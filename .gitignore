@@ -67,3 +67,4 @@ android/local.properties
 android/.idea/
 *.iml
 *.hprof
+image_phashes.json

@@ -27,6 +27,7 @@
                 <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
                 <button class="tab-btn" onclick="openTab('EShuushuu', this)">e-shuushuu</button>
                 <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
+                <button class="tab-btn" onclick="openTab('Gsbooru', this)">Gsbooru</button>
                 <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
                 <button class="tab-btn" onclick="openTab('Neko', this)">Nekos.best</button>
                 <button class="tab-btn" onclick="openTab('NekosLife', this)">Nekos.life</button>
@@ -192,10 +193,10 @@
                             <h3>Appearance Mode</h3>
                             <div class="field-row">
                                 <label>Theme Mode:</label>
-                                <div style="display: flex; gap: 15px;">
-                                    <label><input type="radio" name="themeMode" value="dark" onchange="changeThemeMode(this.value)"> Dark</label>
-                                    <label><input type="radio" name="themeMode" value="light" onchange="changeThemeMode(this.value)"> Light</label>
-                                    <label><input type="radio" name="themeMode" value="system" onchange="changeThemeMode(this.value)"> System Auto</label>
+                                <div class="theme-mode-group">
+                                    <label><input type="radio" name="themeMode" value="dark" onchange="changeThemeMode(this.value)"><span>Dark</span></label>
+                                    <label><input type="radio" name="themeMode" value="light" onchange="changeThemeMode(this.value)"><span>Light</span></label>
+                                    <label><input type="radio" name="themeMode" value="system" onchange="changeThemeMode(this.value)"><span>System Auto</span></label>
                                 </div>
                             </div>
                         </div>
@@ -317,12 +318,21 @@
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
                 <div id="galleryViewer" class="gallery-viewer" style="display: none;">
-                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">&times;</button>
+                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
                     <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
+                    <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard">📋</button>
+                    <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image">🗑️</button>
+                    <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)">👁️</button>
+                    
                     <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
-                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">‹</button>
-                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">›</button>
+                    
+                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">❮</button>
+                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">❯</button>
+                    
                     <img id="galleryViewerImg" src="">
+                    
+                    <!-- پنل نمایش اطلاعات و تگ‌ها (کپسول شیشه‌ای) -->
+                    <div id="galleryViewerMeta" class="gallery-viewer-meta"></div>
                 </div>
             </div>
 
@@ -366,6 +376,35 @@
                 </div>
             </div>
 
+            <div id="Gsbooru" class="tab-content" style="display: none;">
+                <h2>Gsbooru Downloader</h2>
+                <div class="input-group">
+                    <label>Tags:</label>
+                    <div style="flex:1; position: relative;">
+                        <input style="width: 100%;" autocomplete="off" type="text" id="gsbooruTag" placeholder="e.g. 1girl blue_hair">
+                    </div>
+                    <label>Limit:</label>
+                    <input type="number" id="gsbooruLimit" value="50" min="0" style="width: 80px;">
+                    <select id="gsbooruRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="rating:g">Safe</option>
+                        <option value="rating:s">Sensitive</option>
+                        <option value="rating:q">Questionable</option>
+                        <option value="rating:e">NSFW</option>
+                    </select>
+                    <button class="action-btn" onclick="startWorker('gsbooru')">START</button>
+                    <button class="action-btn stop-btn" onclick="stopWorker('gsbooru')">STOP</button>
+                </div>
+                <div class="dual-progress-container" id="dualProgress_gsbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_gsbooru">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_gsbooru"></div></div>
+                </div>
+                <div class="console-wrapper">
+                    <button class="clear-log-btn" onclick="clearLog('gsbooru')">Clear</button>
+                    <div id="consoleLog_gsbooru" class="console-log"></div>
+                </div>
+            </div>
+
             <div id="History" class="tab-content" style="display: none;">
                 <div class="options-scroll">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -395,7 +434,7 @@
                     <select id="konaRating" style="width: 110px;">
                         <option value="">All Ratings</option>
                         <option value="rating:s">Safe</option>
-                        <option value="rating:q">Moderate</option>
+                        <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
                     <button class="action-btn" onclick="startWorker('kona')">START</button>
@@ -510,6 +549,17 @@
                         </div>
 
                         <div class="settings-card">
+                            <h3>🔑 Gsbooru Credentials</h3>
+                            <div class="field-row"><label>API Key:</label><input type="password" id="gsKey" placeholder="Gsbooru API Key (Bearer)" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>🔑 Konachan Credentials</h3>
+                            <div class="field-row"><label>Username:</label><input type="text" id="konaLogin" placeholder="Konachan Username" style="flex:1;"></div>
+                            <div class="field-row"><label>Password:</label><input type="password" id="konaPassword" placeholder="Password" style="flex:1;"></div>
+                        </div>
+
+                        <div class="settings-card">
                             <h3>🔑 Sankaku Credentials</h3>
                             <div class="field-row"><label>Login:</label><input type="text" id="sankaLogin" placeholder="Email / Username" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="sankaPassword" placeholder="Password" style="flex:1;"></div>
@@ -567,9 +617,9 @@
                     <label>Limit:</label>
                     <input type="number" id="pinterestLimit" value="30" min="0" style="width: 80px;">
                     <label>Min W:</label>
-                    <input type="number" id="pinterestMinW" value="0" min="0" placeholder="0" style="width: 70px;">
+                    <input type="number" id="pinterestMinW" value="0" min="0" style="width: 70px;">
                     <label>Min H:</label>
-                    <input type="number" id="pinterestMinH" value="0" min="0" placeholder="0" style="width: 70px;">
+                    <input type="number" id="pinterestMinH" value="0" min="0" style="width: 70px;">
                     <label>Mode:</label>
                     <select id="pinterestMode" style="width: 100px;">
                         <option value="scrape">URL Scrape</option>
@@ -589,9 +639,10 @@
                 </div>
             </div>
 
+            <!-- PIXIV DOWNLOADER -->
             <div id="Pixiv" class="tab-content" style="display: none;">
                 <h2>Pixiv Downloader</h2>
-                <div class="input-group">
+                <div class="input-group" style="margin-bottom: 10px;">
                     <label>Mode:</label>
                     <select id="pixivMode" style="width: 120px;" onchange="updatePixivMode()">
                         <option value="artworks">Artworks</option>
@@ -599,6 +650,7 @@
                         <option value="search">Search</option>
                         <option value="ranking">Ranking</option>
                     </select>
+
                     <select id="pixivRankingMode" style="width: 175px; display: none;">
                         <option value="day">Daily</option>
                         <option value="week">Weekly</option>
@@ -608,6 +660,7 @@
                         <option value="week_original">Weekly Original</option>
                         <option value="week_rookie">Weekly Rookie</option>
                     </select>
+
                     <label>Value:</label>
                     <input type="text" id="pixivTag" placeholder="User ID or Tag" style="width: 180px;">
                     <label>Limit:</label>
@@ -621,10 +674,7 @@
                     <button class="action-btn" onclick="startWorker('pixiv')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
                 </div>
-                <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_pixiv">0%</span></div>
-                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pixiv"></div></div>
-                </div>
+                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div><span class="progress-text" id="progressText_pixiv">0%</span></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
                     <div id="consoleLog_pixiv" class="console-log"></div>
@@ -641,7 +691,7 @@
                             <div style="display:flex; gap:6px; position: relative;">
                                 <input type="text" id="rule34TagInput" autocomplete="off" placeholder="e.g. rem blue_hair -maid" style="flex:1; padding: 4px 8px; font-size: 13px;" onkeydown="if(event.key==='Enter') addRule34Tag()">
                                 <div id="rule34Autosuggest" class="autosuggest-dropdown" style="display:none;"></div>
-                                <button class="action-btn" onclick="addRule34Tag()">Add</button>
+                                <button class="action-btn" onclick="addRule34Tag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
                             </div>
                             <div id="rule34TagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                         </div>
@@ -650,32 +700,32 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 60px; font-size: 13px;">Method:</label>
-                            <select id="rule34Method" style="flex: 1;">
+                            <select id="rule34Method" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
                                 <option value="and">AND (All)</option>
                                 <option value="or">OR (Any)</option>
                             </select>
                         </div>
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 40px; font-size: 13px;">Sort:</label>
-                            <select id="rule34SortType" style="flex: 1;">
+                            <select id="rule34SortType" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
                                 <option value="id">Newest (ID)</option>
                                 <option value="score">Score</option>
                             </select>
-                            <select id="rule34SortOrder" style="flex: 1; width: 60px;">
+                            <select id="rule34SortOrder" style="margin-left: 6px; padding: 2px 6px; font-size: 12px; height: 26px; width: 60px;">
                                 <option value="desc">Desc</option>
                                 <option value="asc">Asc</option>
                             </select>
                         </div>
                         <div class="input-group" style="margin-top: 0;">
                             <label style="min-width: 60px; font-size: 13px;">Format:</label>
-                            <select id="rule34Format" style="flex: 1;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
+                            <select id="rule34Format" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
                                 <option value="images">Images Only</option>
                                 <option value="gifs">GIFs Only</option>
                                 <option value="all">Images & Videos</option>
                                 <option value="videos">Videos Only</option>
                             </select>
                         </div>
-                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px;">
+                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px; font-size: 12px;">
                             <label style="min-width: 60px; font-size: 13px;">Exclude:</label>
                             <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
                             <input type="checkbox" id="exComic"><label for="exComic">Comic</label>

@@ -1,4 +1,4 @@
-import os, re
+import os, re, hashlib
 import asyncio
 from workers import BaseWorker
 
@@ -33,6 +33,17 @@ class KonachanWorker(BaseWorker):
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
 
+        auth = {}
+        kona_user = os.getenv("KONACHAN_USERNAME", "")
+        kona_pass = os.getenv("KONACHAN_PASSWORD", "")
+        if kona_user and kona_pass:
+            # moebooru salt per their API docs
+            pw_hash = hashlib.sha1(f"So-I-Heard-You-Like-Mupkids-?--{kona_pass}--".encode()).hexdigest()
+            auth = {"login": kona_user, "password_hash": pw_hash}
+            self.log(f"Authenticating as '{kona_user}' (needed for questionable/explicit).")
+        else:
+            self.log("No Konachan credentials loaded - running as anonymous (safe content only).")
+
         collected_count = 0
         page = 1
 
@@ -41,7 +52,7 @@ class KonachanWorker(BaseWorker):
                 self.log(f"Scanning API... (Page {page})")
                 limit_val = min(100, self.amount - collected_count if self.amount > 0 else 100)
 
-                resp = await self.session.get("https://konachan.com/post.json", params={"tags": self.api_tag, "page": page, "limit": limit_val})
+                resp = await self.session.get("https://konachan.com/post.json", params={"tags": self.api_tag, "page": page, "limit": limit_val, **auth})
                 if resp.status in [403, 429]:
                     self.log(f"ERROR {resp.status}. Change proxy.")
                     break
@@ -51,6 +62,11 @@ class KonachanWorker(BaseWorker):
                 if not text_resp or text_resp == "[]" or text_resp == "null":
                     if page == 1:
                         self.log(f"ZERO images found for '{self.api_tag}'.")
+                        if self.rating and self.rating.split(":")[-1] in ("q", "e"):
+                            if auth:
+                                self.log("Authenticated, got 0 non-safe posts. Check 'Show explicit content' is enabled in your konachan.com profile settings.")
+                            else:
+                                self.log("No Konachan credentials configured (Options tab) - non-safe content needs a logged-in account.")
                     break
 
                 raw_data = await resp.json()

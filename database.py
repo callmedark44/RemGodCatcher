@@ -65,13 +65,14 @@ class DatabaseManager:
         DatabaseManager.save_json(IMAGE_HISTORY_FILE, data)
 
     @staticmethod
-    def add_image_history(worker_name, filename, tags_list, artist_list):
+    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None):
         hist = DatabaseManager.load_image_history()
         entry = {
             "site": worker_name,
             "filename": filename,
             "tags": [t.strip() for t in tags_list if t.strip()],
-            "artists": [a.strip() for a in artist_list if a.strip()]
+            "artists": [a.strip() for a in artist_list if a.strip()],
+            "filepath": filepath
         }
         hist.insert(0, entry)
         hist = hist[:100]
@@ -318,6 +319,9 @@ class SettingsManager:
             "RULE34_USER_ID": data.get("rule34_user_id", ""),
             "GELBOORU_API_KEY": data.get("gelbooru_api_key", ""),
             "GELBOORU_USER_ID": data.get("gelbooru_user_id", ""),
+            "GSBOORU_API_KEY": data.get("gsbooru_api_key", ""),
+            "KONACHAN_USERNAME": data.get("konachan_login", ""),
+            "KONACHAN_PASSWORD": data.get("konachan_password", ""),
             "SANKA_LOGIN": data.get("sanka_login", ""),
             "SANKA_PASSWORD": data.get("sanka_password", ""),
             "ZEROCHAN_LOGIN": data.get("zerochan_login", ""),
@@ -345,6 +349,9 @@ class SettingsManager:
             "rule34_user_id": config.get("RULE34_USER_ID", ""),
             "gelbooru_api_key": config.get("GELBOORU_API_KEY", ""),
             "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
+            "gsbooru_api_key": config.get("GSBOORU_API_KEY", ""),
+            "konachan_login": config.get("KONACHAN_USERNAME", ""),
+            "konachan_password": config.get("KONACHAN_PASSWORD", ""),
             "sanka_login": config.get("SANKA_LOGIN", ""),
             "sanka_password": config.get("SANKA_PASSWORD", ""),
             "zerochan_login": config.get("ZEROCHAN_LOGIN", config.get("ZEROCHAN_USERNAME", "")),

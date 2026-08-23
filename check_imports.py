@@ -8,21 +8,11 @@ try:
     import Rem_catcher
     import database
     import shared
-    import multi_agent
     import workers
-    from workers import pinterest_worker
-    from workers import anime_dl
-    from workers import zerochan
-    from workers import sankaku
-    from workers import konachan
-    from workers import yande
-    from workers import waifu_im
-    from workers import nekos_life
-    from workers import nekos_best
-    from workers import safebooru
-    from workers import rule34
-    from workers import gelbooru
-    from workers import danbooru
+    for m in ("pinterest_worker", "anime_dl", "zerochan", "sankaku", "konachan",
+              "yande", "waifu_im", "nekos_life", "nekos_best", "safebooru",
+              "rule34", "gelbooru", "gsbooru", "danbooru", "eshuushuu", "nekosia", "pixiv"):
+        __import__(f"workers.{m}")
     print("All imports successful!")
 except ImportError as e:
     print(f"Import error: {e}")

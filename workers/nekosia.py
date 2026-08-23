@@ -18,7 +18,8 @@ class NekosiaWorker(BaseDownloader):
         batch_size = 50
 
         while collected < need and not self.stop_event.is_set():
-            params = {"count": min(batch_size, need - collected)}
+            # ponytail: nekosia.cat returns an empty array for count=1; always ask for >=2
+            params = {"count": max(2, min(batch_size, need - collected))}
 
             try:
                 # The endpoint is /api/v1/images/{category/tag}

@@ -1,15 +1,11 @@
 import os
 import sys
-import time
 import threading
 import requests
 import urllib3
 import urllib.parse
 import random
-import re
-import json
 import hashlib
-import io
 import webbrowser
 from PIL import Image
 from datetime import datetime
@@ -39,6 +35,7 @@ from workers.zerochan import worker_zerochan
 from workers.waifu_im import worker_waifu
 from workers.nekos_best import worker_nekos_best
 from workers.gelbooru import worker_gelbooru
+from workers.gsbooru import worker_gsbooru
 from workers.nekos_life import worker_nekos_life
 from workers.yande import worker_yande
 from workers.konachan import worker_konachan
@@ -57,8 +54,8 @@ SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
 DAN_TAGS_DB = []
-GELBOORU_TAGS_DB = []
 SANKAKU_TAGS_DB = []
+GELBOORU_TAGS_DB = []
 ANIME_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
@@ -67,24 +64,30 @@ NEKOSAPI_TAGS_DB = []
 NEKOSIA_TAGS_DB = []
 
 if settings.get("use_proxy"):
-    os.environ.setdefault("HTTP_PROXY", settings.get("proxy_url"))
-    os.environ.setdefault("HTTPS_PROXY", settings.get("proxy_url"))
+    os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
+    os.environ["HTTPS_PROXY"] = str(settings.get("proxy_url") or "")
+else:
+    os.environ["HTTP_PROXY"] = ""
+    os.environ["HTTPS_PROXY"] = ""
+    os.environ["no_proxy"] = "*"
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# ponytail: pin threading mode — gevent (installed) buffers emits from our native worker threads
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 shutdown_timer = None
 
 
 def log_msg(worker_name, msg):
+    print(f"[{worker_name.upper()}] {msg}", flush=True)
     try: socketio.emit("python_log", {"worker": worker_name, "msg": msg})
-    except Exception: print(f"[{worker_name.upper()}] {msg}")
+    except Exception: pass
 
 shared.log_callback = log_msg
 
 def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None):
     try:
-        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list)
+        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath)
         socketio.emit("update_history")
     except Exception as e:
         print("Image Tag Save Error:", e)
@@ -172,6 +175,13 @@ def config_manager():
         data = request.json
         settings.update(data)
         settings.save_config()
+        if data.get("use_proxy"):
+            os.environ["HTTP_PROXY"] = str(data.get("proxy_url") or "")
+            os.environ["HTTPS_PROXY"] = str(data.get("proxy_url") or "")
+        else:
+            os.environ["HTTP_PROXY"] = ""
+            os.environ["HTTPS_PROXY"] = ""
+            os.environ["no_proxy"] = "*"
         return jsonify({"success": True})
     return jsonify(settings.config)
 
@@ -193,13 +203,20 @@ def api_settings_manager():
 
 @app.route("/api/tags/waifu", methods=["POST"])
 def get_waifu_tags():
-    if WAIFU_TAGS_DB: return jsonify([t["name"] for t in WAIFU_TAGS_DB])
     net_config = request.json
+    # ponytail: live list first (slugs, only tags with images), stale tags.json as offline fallback
     try:
         session = get_session("waifu", net_config)
         resp = session.get("https://api.waifu.im/tags", timeout=10)
-        return jsonify(sorted(list(set([t.get("name", t.get("slug")) for t in resp.json().get("items", []) if t]))))
-    except Exception: return jsonify(['maid', 'waifu', 'oppai', 'ero', 'ass', 'hentai', 'milf', 'paizuri', 'ecchi'])
+        items = resp.json().get("items", [])
+        live = sorted({t["slug"] for t in items if t.get("slug") and t.get("imageCount", 0) > 0})
+        if live:
+            return jsonify(live)
+    except Exception:
+        pass
+    if WAIFU_TAGS_DB:
+        return jsonify([t["name"] for t in WAIFU_TAGS_DB])
+    return jsonify(['maid', 'waifu', 'oppai', 'ero', 'ass', 'hentai', 'milf', 'paizuri', 'ecchi'])
 
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
@@ -240,12 +257,6 @@ def get_rule34_suggestions():
     except Exception: pass
     return jsonify([])
 
-@app.route("/api/tags/gelbooru", methods=["POST"])
-def get_gelbooru_suggestions():
-    query = request.json.get("query", "").lower()
-    if not GELBOORU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
-
 @app.route("/api/tags/yande", methods=["POST"])
 def get_yande_suggestions():
     query = request.json.get("query", "").lower()
@@ -269,6 +280,12 @@ def get_sankaku_suggestions():
     query = request.json.get("query", "").lower()
     if not SANKAKU_TAGS_DB: return jsonify([])
     return jsonify([t for t in SANKAKU_TAGS_DB if t.startswith(query)][:50])
+
+@app.route("/api/tags/gelbooru", methods=["POST"])
+def get_gelbooru_suggestions():
+    query = request.json.get("query", "").lower()
+    if not GELBOORU_TAGS_DB: return jsonify([])
+    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
 
 @app.route("/api/tags/anime_dl", methods=["POST"])
 def get_anime_dl_suggestions():
@@ -346,38 +363,7 @@ def _build_filepath_cache():
                 cache[fn] = os.path.relpath(os.path.join(root, fn), MASTER_FOLDER)
     return cache
 
-@app.route("/api/gallery", methods=["GET"])
-def get_gallery():
-    search = request.args.get("search", "").lower().strip()
-    site_filter_raw = request.args.get("site", "").lower().strip()
-    site_filters = [s.strip() for s in site_filter_raw.split(",") if s.strip()] if site_filter_raw else []
-    fav_only = request.args.get("favourites", "").lower() == "true"
-    sort_by = request.args.get("sort", "newest")
-    type_filter_raw = request.args.get("type", "all").lower().strip()
-    type_filters = [t.strip() for t in type_filter_raw.split(",") if t.strip()] if type_filter_raw and type_filter_raw != "all" else []
-    rating_filter_raw = request.args.get("rating", "").lower().strip()
-    rating_filters = [r.strip() for r in rating_filter_raw.split(",") if r.strip()] if rating_filter_raw else []
-    page = max(1, int(request.args.get("page", 1)))
-    per_page = min(120, max(1, int(request.args.get("per_page", 24))))
-
-    gallery = shared.load_gallery()
-    images = gallery.get("images", [])
-    fp_cache = _build_filepath_cache()
-    dirty = False
-    for img in images:
-        cached = fp_cache.get(img.get("filename", ""))
-        if cached:
-            if img.get("filepath") != cached:
-                img["filepath"] = cached
-                dirty = True
-        elif img.get("filepath"):
-            del img["filepath"]
-            dirty = True
-    if dirty:
-        shared.save_gallery(gallery)
-        images = gallery.get("images", [])
-    images = [i for i in images if i.get("filepath")]
-
+def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters, rating_filters):
     if search:
         images = [i for i in images if any(search in t.lower() for t in i.get("tags", []))]
     if site_filters:
@@ -397,6 +383,7 @@ def get_gallery():
         SUPPORTED_RATINGS = {
             "dan": {"safe", "sensitive", "questionable", "explicit"},
             "gelbooru": {"safe", "sensitive", "questionable", "explicit"},
+            "gsbooru": {"safe", "sensitive", "questionable", "explicit"},
             "kona": {"safe", "explicit"},
             "yande": {"safe", "explicit"},
             "sankaku": {"safe", "questionable", "explicit"},
@@ -424,6 +411,40 @@ def get_gallery():
                         return True
             return False
         images = [i for i in images if matches_any_rating(i)]
+    return images
+
+@app.route("/api/gallery", methods=["GET"])
+def get_gallery():
+    search = request.args.get("search", "").lower().strip()
+    site_filter_raw = request.args.get("site", "").lower().strip()
+    site_filters = [s.strip() for s in site_filter_raw.split(",") if s.strip()] if site_filter_raw else []
+    fav_only = request.args.get("favourites", "").lower() == "true"
+    sort_by = request.args.get("sort", "newest")
+    type_filter_raw = request.args.get("type", "all").lower().strip()
+    type_filters = [t.strip() for t in type_filter_raw.split(",") if t.strip()] if type_filter_raw and type_filter_raw != "all" else []
+    rating_filter_raw = request.args.get("rating", "").lower().strip()
+    rating_filters = [r.strip() for r in rating_filter_raw.split(",") if r.strip()] if rating_filter_raw else []
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(400, max(1, int(request.args.get("per_page", 24))))
+
+    gallery = shared.load_gallery()
+    images = gallery.get("images", [])
+    fp_cache = _build_filepath_cache()
+    dirty = False
+    for img in images:
+        cached = fp_cache.get(img.get("filename", ""))
+        if cached:
+            if img.get("filepath") != cached:
+                img["filepath"] = cached
+                dirty = True
+        elif img.get("filepath"):
+            del img["filepath"]
+            dirty = True
+    if dirty:
+        shared.save_gallery(gallery)
+        images = gallery.get("images", [])
+    images = [i for i in images if i.get("filepath")]
+    images = _apply_gallery_filters(images, search, site_filters, fav_only, type_filters, rating_filters)
 
     def _sort_key(img):
         ts = img.get("downloaded_at", "")
@@ -477,21 +498,6 @@ def toggle_gallery_fav():
             return jsonify({"success": True, "favourite": img["favourite"]})
     return jsonify({"success": False, "error": "not found"}), 404
 
-@app.route("/api/gallery/delete/<img_id>", methods=["DELETE"])
-def delete_gallery_image(img_id):
-    gallery = shared.load_gallery()
-    for i, img in enumerate(gallery["images"]):
-        if str(img.get("id")) == str(img_id):
-            fp = img.get("filepath")
-            if fp:
-                full = os.path.normpath(os.path.join(MASTER_FOLDER, fp))
-                if os.path.isfile(full):
-                    os.remove(full)
-            gallery["images"].pop(i)
-            shared.save_gallery(gallery)
-            return jsonify({"success": True})
-    return jsonify({"success": False, "error": "not found"}), 404
-
 @app.route("/api/gallery/tags", methods=["GET"])
 def get_gallery_tags():
     gallery = shared.load_gallery()
@@ -509,6 +515,35 @@ def gallery_file(filepath):
     if os.path.isfile(full):
         return send_file(full)
     return "Not found", 404
+
+@app.route("/api/thumb_by_name/<filename>")
+def thumb_by_name(filename):
+    full = os.path.join(MASTER_FOLDER, filename)
+    if not os.path.isfile(full):
+        # Search subdirectories
+        for root, _, files in os.walk(MASTER_FOLDER):
+            if filename in files:
+                full = os.path.join(root, filename)
+                break
+        else:
+            return "Not found", 404
+    return redirect_to_thumb(full, filename)
+
+def redirect_to_thumb(full_path, rel_filename):
+    cache_key = hashlib.sha256(rel_filename.encode()).hexdigest()[:16]
+    cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
+    if os.path.exists(cache_path):
+        return send_file(cache_path, mimetype='image/jpeg')
+    try:
+        img = Image.open(full_path)
+        img.draft('RGB', (300, 300))
+        if img.mode in ('RGBA', 'P', 'LA'):
+            img = img.convert('RGB')
+        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+        img.save(cache_path, format='JPEG', quality=85)
+        return send_file(cache_path, mimetype='image/jpeg')
+    except Exception:
+        return "Thumbnail generation failed", 415
 
 THUMB_CACHE = os.path.join(DATABASE_DIR, "thumb_cache")
 os.makedirs(THUMB_CACHE, exist_ok=True)
@@ -530,7 +565,6 @@ def gallery_thumb(filepath):
 
     if ext in EXTENSIONS_VIDEO:
         import subprocess
-        # Generate thumbnail from first frame
         subprocess.run(["ffmpeg", "-y", "-i", full, "-vframes", "1", "-ss", "0", "-vf", "scale=300:300:force_original_aspect_ratio=decrease,pad=300:300:(ow-iw)/2:(oh-ih)/2", cache_path],
                        capture_output=True, timeout=10)
         if os.path.exists(cache_path):
@@ -539,29 +573,53 @@ def gallery_thumb(filepath):
 
     try:
         img = Image.open(full)
-        img.draft('RGB', (600, 600))
-        img.thumbnail((300, 300), reducing_gap=2.0)
-        png_cache = os.path.join(THUMB_CACHE, cache_key + ".png")
-        use_png = ext in ('png', 'gif') or img.mode in ('RGBA', 'P', 'L', 'LA', '1')
-        if use_png:
-            img.save(png_cache, format='PNG')
-            return send_file(png_cache, mimetype='image/png')
-        else:
-            if img.mode in ('RGBA', 'P', 'LA'):
-                img = img.convert('RGB')
-            img.save(cache_path, format='JPEG', quality=85)
-            return send_file(cache_path, mimetype='image/jpeg')
-    except Exception:
-        return "Preview unavailable", 415
+        # ponytail: cap memory usage for very large images; decompress bomb protection
+        img.draft('RGB', (300, 300))
+        if img.mode in ('RGBA', 'P', 'LA'):
+            img = img.convert('RGB')
+        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+        img.save(cache_path, format='JPEG', quality=85)
+        return send_file(cache_path, mimetype='image/jpeg')
+    except Exception as e:
+        print("Thumb generation error:", e)
+        # اگه ارور داد، همون عکس اصلی رو بفرست تا والپیپر سیاه نشون نده!
+        return send_file(full)
 
 @app.route("/api/gallery/sources", methods=["GET"])
 def get_gallery_sources():
-    gallery = shared.load_gallery()
+    search = request.args.get("search", "").lower().strip()
+    fav_only = request.args.get("favourites", "").lower() == "true"
+    type_filter_raw = request.args.get("type", "all").lower().strip()
+    type_filters = [t.strip() for t in type_filter_raw.split(",") if t.strip()] if type_filter_raw and type_filter_raw != "all" else []
+    rating_filter_raw = request.args.get("rating", "").lower().strip()
+    rating_filters = [r.strip() for r in rating_filter_raw.split(",") if r.strip()] if rating_filter_raw else []
+    images = shared.load_gallery().get("images", [])
+    images = _apply_gallery_filters(images, search, [], fav_only, type_filters, rating_filters)
     counts = {}
-    for img in gallery.get("images", []):
-        s = img.get("site", "unknown")
+    for img in images:
+        s = img.get("site", "unknown").lower()
         counts[s] = counts.get(s, 0) + 1
     return jsonify(counts)
+
+@app.route("/api/gallery/delete", methods=["POST"])
+def delete_gallery_image():
+    data = request.json
+    img_id = data.get("id")
+    gallery = shared.load_gallery()
+    for i, img in enumerate(gallery["images"]):
+        if img["id"] == img_id:
+            # پاک کردن فیزیکی فایل از روی هارد
+            full_path = os.path.join(shared.MASTER_FOLDER, img.get("filepath", ""))
+            try:
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+            except Exception as e:
+                print("Error deleting file:", e)
+            # حذف از دیتابیس گالری
+            gallery["images"].pop(i)
+            shared.save_gallery(gallery)
+            return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Not found"}), 404 
 
 @app.route("/api/gallery/rescan", methods=["POST"])
 def rescan_gallery():
@@ -656,6 +714,7 @@ def handle_disconnect():
 
     shutdown_timer = threading.Timer(3.0, shutdown_server)
     shutdown_timer.start()
+
 # ==========================================
 
 @socketio.on("start_worker")
@@ -672,7 +731,7 @@ def handle_start_worker(data):
             print("History Save Error:", e)
 
     if worker == "zero":
-        net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN", "")
+        net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
         net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
         threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
     elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), int(data.get("limit", 30)), data.get("nsfw", False), net_config), daemon=True).start()
@@ -680,6 +739,9 @@ def handle_start_worker(data):
     elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gsbooru":
+        net_config["gsbooru_api_key"] = os.getenv("GSBOORU_API_KEY", "")
+        threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
     elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
@@ -692,6 +754,7 @@ def handle_start_worker(data):
         net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
         threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config, int(data.get("min_w", 0) or 0), int(data.get("min_h", 0) or 0)), daemon=True).start()
     elif worker == "pixiv":
+        net_config["pixiv_refresh_token"] = os.getenv("PIXIV_REFRESH_TOKEN", "")
         threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "eshuushuu":
         from workers.eshuushuu import worker_eshuushuu
@@ -754,13 +817,17 @@ if __name__ == "__main__":
     YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
     KONA_TAGS_DB = DatabaseManager.load_kona_tags()
     DAN_TAGS_DB = DatabaseManager.load_dan_tags()
-    GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
     SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
+    GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
     ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
     ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
     NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
     NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
     startup_rescan()
+    def _warm_phash_index():
+        try: shared._get_phash_index()
+        except Exception as e: print("pHash index bootstrap failed:", e)
+    threading.Thread(target=_warm_phash_index, daemon=True).start()
     port = 5000
     url = f"http://127.0.0.1:{port}"
     print(f"Starting Rem God Catcher Web UI on {url} ...")
