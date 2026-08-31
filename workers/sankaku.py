@@ -69,7 +69,7 @@ class SankakuWorker(BaseWorker):
     def get_tags(self):
         return [self.original_tag]
 
-    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None):
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
         if artists is None: artists = []
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
             return False
@@ -183,13 +183,25 @@ class SankakuWorker(BaseWorker):
 
                 raw_tags = post.get("tags", [])
                 if raw_tags and isinstance(raw_tags[0], dict):
-                    tags_list = [t.get("name", "") for t in raw_tags if t.get("name")]
                     artists = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 1]
+                    characters = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 4]
+                    copyrights = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 3]
+                    metadata_tags = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 7]
+                    general_names = {t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") in (0, None)}
+                    tags_list = [t.get("name", "") for t in raw_tags if t.get("name") and t.get("type") in (0, None)]
                 else:
                     tags_list = post.get("tag_names", [])
                     artists = []
+                    characters = []
+                    copyrights = []
+                    metadata_tags = []
 
-                if await self.enqueue_download(url, filepath, filename, tags_list, artists):
+                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
+                rt = rating_tag_map.get(post_rating)
+                if rt:
+                    tags_list.append(rt)
+
+                if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

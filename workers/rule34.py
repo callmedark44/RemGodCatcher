@@ -2,6 +2,7 @@ import os, re, random
 import asyncio
 from workers import BaseWorker
 from rule34Py import rule34Py
+from rule34Py.tag import TagType
 
 
 class Rule34Worker(BaseWorker):
@@ -144,13 +145,30 @@ class Rule34Worker(BaseWorker):
                 filename = f"{post_id}.{ext}"
                 filepath = os.path.join(self.tag_dir, filename)
 
-                tags_raw = getattr(result, 'tags', "")
-                if isinstance(tags_raw, str):
+                tags_raw = getattr(result, 'tags', [])
+                if isinstance(tags_raw, list):
+                    artists = [t.tag for t in tags_raw if hasattr(t, 'type') and t.type == TagType.ARTIST]
+                    characters = [t.tag for t in tags_raw if hasattr(t, 'type') and t.type == TagType.CHARACTER]
+                    copyrights = [t.tag for t in tags_raw if hasattr(t, 'type') and t.type == TagType.COPYRIGHT]
+                    metadata_tags = [t.tag for t in tags_raw if hasattr(t, 'type') and t.type == TagType.METADATA]
+                    tags_list = [t.tag for t in tags_raw if hasattr(t, 'type') and t.type == TagType.TAG]
+                elif isinstance(tags_raw, str):
                     tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
+                    artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
+                    tags_list = [t for t in tags_list if not t.startswith("artist:")]
+                    characters = [t.replace("character:", "", 1) for t in tags_list if t.startswith("character:")]
+                    tags_list = [t for t in tags_list if not t.startswith("character:")]
+                    copyrights = [t.replace("copyright:", "", 1) for t in tags_list if t.startswith("copyright:")]
+                    tags_list = [t for t in tags_list if not t.startswith("copyright:")]
+                    metadata_tags = [t.replace("meta:", "", 1) for t in tags_list if t.startswith("meta:")]
+                    tags_list = [t for t in tags_list if not t.startswith("meta:")]
                 else:
                     tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+                    artists, characters, copyrights, metadata_tags = [], [], [], []
 
-                if await self.enqueue_download(file_url, filepath, filename, tags_list, []):
+                tags_list.append("rating:e")
+
+                if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

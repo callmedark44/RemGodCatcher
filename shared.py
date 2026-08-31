@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import json
 import time
@@ -33,70 +34,175 @@ def default_logger(worker_name, msg): print(f"[{worker_name.upper()}] {msg}")
 log_callback = default_logger
 def log_msg(worker_name, msg): log_callback(worker_name, msg)
 
-def default_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None): pass
+def default_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None): pass
 tag_callback = default_tag_handler
-def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None):
+TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag"]
+
+SITE_CANONICAL = {
+    "dan": "danbooru", "danbooru": "danbooru",
+    "eshuushuu": "eshuushuu", "e-shuushuu": "eshuushuu",
+    "gelbooru": "gelbooru", "gsbooru": "gsbooru",
+    "konachan": "konachan", "kona": "konachan", "yande": "yande", "yande.re": "yande",
+    "sankaku": "sankaku", "safebooru": "safebooru", "safe": "safebooru", "rule34": "rule34",
+    "pinterest": "pinterest", "pixiv": "pixiv",
+    "zero": "zerochan", "zerochan": "zerochan",
+    "neko": "nekos.life", "nekos.life": "nekos.life",
+    "nekos.best": "nekos.best", "nekosapi": "nekosapi", "nekosia": "nekosia",
+    "waifu": "waifu.im", "waifu.im": "waifu.im",
+    "anime_dl": "anime_dl", "animepictures": "anime_dl",
+}
+
+def normalize_site(site):
+    return SITE_CANONICAL.get(site.lower().strip(), site.lower().strip())
+
+def categorize_tag(tag):
+    """Determine the category of a tag based on common booru prefix patterns."""
+    tag_lower = tag.lower().strip()
+    for cat in TAG_CATEGORIES:
+        prefix = cat + ":"
+        if tag_lower.startswith(prefix):
+            return cat
+    return "tag"
+
+def sort_tags_by_category(tags_dict):
+    """Sort a tags dict by category order. Returns new ordered dict."""
+    from collections import OrderedDict
+    result = OrderedDict()
+    for cat in TAG_CATEGORIES:
+        if cat in tags_dict and tags_dict[cat]:
+            result[cat] = sorted(tags_dict[cat])
+    return result
+
+def flatten_tags(tags_dict):
+    """Flatten a tags dict into a single sorted list (for search/filter)."""
+    result = []
+    for cat in TAG_CATEGORIES:
+        if cat in tags_dict:
+            result.extend(tags_dict[cat])
+    return result
+
+def tags_dict_from_lists(tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
+    """Build a categorized tags dict from flat lists."""
+    result = {"artist": [], "character": [], "copyright": [], "metadata": [], "tag": []}
+    if artists:
+        result["artist"] = [a.strip() for a in artists if a.strip()]
+    if characters:
+        result["character"] = [c.strip() for c in characters if c.strip()]
+    if copyrights:
+        result["copyright"] = [c.strip() for c in copyrights if c.strip()]
+    if metadata_tags:
+        result["metadata"] = [m.strip() for m in metadata_tags if m.strip()]
+    if tags_list:
+        result["tag"] = [t.strip() for t in tags_list if t.strip()]
+    return sort_tags_by_category(result)
+
+def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None, characters=None, copyrights=None, metadata_tags=None):
     if artist_list is None: artist_list = []
-    tag_callback(worker_name, filename, tags_list, artist_list, filepath)
+    tag_callback(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags)
 
 def default_emit(event, data): pass
 emit_callback = default_emit
 def socketio_emit(event, data): emit_callback(event, data)
 
 GALLERY_FILE = os.path.join(BASE_DIR, "database", "gallery.json")
+TAG_CACHE_DIR = os.path.join(BASE_DIR, "database", "tag_caches")
+TAG_TYPE_MAP = {0: "tag", 1: "artist", 3: "copyright", 4: "character", 5: "metadata"}
+
+def load_tag_cache(site="gelbooru"):
+    os.makedirs(TAG_CACHE_DIR, exist_ok=True)
+    path = os.path.join(TAG_CACHE_DIR, f"{site}_tags.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_tag_cache(data, site="gelbooru"):
+    os.makedirs(TAG_CACHE_DIR, exist_ok=True)
+    path = os.path.join(TAG_CACHE_DIR, f"{site}_tags.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
 
 def load_gallery():
     if os.path.exists(GALLERY_FILE):
         try:
             with open(GALLERY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            _migrate_gallery_tags(data)
+            return data
         except Exception:
             return {"images": []}
     return {"images": []}
+
+def _migrate_gallery_tags(data):
+    """Convert old flat-list tags to categorized dicts and normalize site names in-place."""
+    changed = False
+    for img in data.get("images", []):
+        tags = img.get("tags")
+        if isinstance(tags, list):
+            img["tags"] = tags_dict_from_lists(tags)
+            changed = True
+        site = img.get("site", "")
+        canon = normalize_site(site)
+        if canon != site:
+            img["site"] = canon
+            changed = True
+    if changed:
+        save_gallery(data)
 
 def save_gallery(data):
     with open(GALLERY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-def add_to_gallery(site, filename, filepath, tags_list, artists):
+def add_to_gallery(site, filename, filepath, tags_list, artists, characters=None, copyrights=None, metadata_tags=None):
     gallery = load_gallery()
     for img in gallery["images"]:
         if img["filename"] == filename:
             return
+    tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
     gallery["images"].insert(0, {
         "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
         "filename": filename,
         "filepath": filepath,
-        "site": site,
-        "tags": [t.strip() for t in tags_list if t.strip()],
-        "artists": [a.strip() for a in artists if a.strip()],
+        "site": normalize_site(site),
+        "tags": dict(tags_dict),
         "favourite": False,
         "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%S")
     })
     save_gallery(gallery)
 
-def write_image_metadata(filepath, tags_list, artists, site):
+def write_image_metadata(filepath, tags_list, artists, site, characters=None, copyrights=None, metadata_tags=None):
     ext = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
-    try:
-        img = Image.open(filepath)
-        meta_lines = [f"site:{site}"]
-        meta_lines += [f"tag:{t}" for t in tags_list]
-        meta_lines += [f"artist:{a}" for a in artists]
-        meta_text = "\n".join(meta_lines)
+    tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
+    meta_lines = [f"site:{site}"]
+    for cat in TAG_CATEGORIES:
+        for t in tags_dict.get(cat, []):
+            meta_lines.append(f"{cat}:{t}")
+    meta_text = "\n".join(meta_lines)
 
+    try:
         if ext in ('jpg', 'jpeg'):
-            exif = img.getexif()
-            exif[0x9286] = meta_text
-            img.save(filepath, exif=exif, quality=95, subsampling=0)
+            # inject a COM segment at byte level — saving through PIL here would
+            # recompress the image (3MB originals were shrinking to ~1.4MB)
+            payload = b"RemGodCatcher\n" + meta_text.encode("utf-8")
+            payload = payload[:65531]
+            with open(filepath, "rb") as f:
+                data = f.read()
+            if not data.startswith(b"\xff\xd8"):
+                return
+            seg = b"\xff\xfe" + len(payload).to_bytes(2, "big") + payload
+            tmp = filepath + ".meta"
+            with open(tmp, "wb") as f:
+                f.write(data[:2] + seg + data[2:])
+            os.replace(tmp, filepath)
         elif ext == 'png':
             pnginfo = PngImagePlugin.PngInfo()
             pnginfo.add_text("RemGodCatcher", meta_text)
-            img.save(filepath, pnginfo=pnginfo)
-        elif ext == 'webp':
-            img.save(filepath, exif=meta_text.encode())
-        elif ext == 'gif':
-            img.info['comment'] = meta_text
-            img.save(filepath, save_all=True)
+            img = Image.open(filepath)
+            img.save(filepath, pnginfo=pnginfo)  # lossless for PNG
+        # webp/gif skipped: embedding would re-encode and lose quality
     except Exception as e:
         print(f"Metadata write error on {filepath}: {e}")
 
@@ -129,79 +235,6 @@ def remove_gallery_files(paths):
         save_gallery(gal)
     return removed
 
-PHASH_LOCK = threading.Lock()
-_PHASH_INDEX = None
-
-def _get_phash_index():
-    """Load the saved hash list; on first use, seed it from existing downloads."""
-    global _PHASH_INDEX
-    if _PHASH_INDEX is None:
-        import phash_util
-        idx = phash_util.load_index()
-        if not idx and os.path.isdir(MASTER_FOLDER):
-            # first run: hash every existing image so future downloads can be compared;
-            # duplicates among them are resolved by the most-populated-subfolder rule
-            from collections import defaultdict
-            groups = defaultdict(list)
-            cache_path = os.path.join(MASTER_FOLDER, phash_util.CACHE_NAME)
-            try:
-                import json as _json
-                cache = _json.load(open(cache_path))
-            except Exception:
-                cache = {}
-            for path in phash_util.iter_images(MASTER_FOLDER):
-                try:
-                    st = os.stat(path)
-                    ent = cache.get(path)
-                    if ent and ent[0] == st.st_mtime and ent[1] == st.st_size:
-                        h = ent[2]
-                    else:
-                        h = phash_util.phash(path)
-                        cache[path] = [st.st_mtime, st.st_size, h]
-                    groups[h].append(path)
-                except Exception:
-                    continue
-            try:
-                import json as _json
-                _json.dump(cache, open(cache_path, "w"))
-            except Exception:
-                pass
-            losers = []
-            for h, paths in groups.items():
-                keep = paths[0] if len(paths) == 1 else phash_util.pick_keeper(paths)
-                idx[h] = os.path.relpath(keep, MASTER_FOLDER).replace("\\", "/")
-                losers.extend(p for p in paths if p != keep)
-            for p in losers:
-                try: os.remove(p)
-                except OSError: pass
-            remove_gallery_files(losers)
-            phash_util.save_index(idx)
-            log_msg("main", f"pHash index seeded from library: {len(idx)} unique images, {len(losers)} duplicates deleted.")
-        else:
-            log_msg("main", f"pHash index loaded: {len(idx)} hashes.")
-        _PHASH_INDEX = idx
-    return _PHASH_INDEX
-
-def register_download_hash(filepath):
-    """Hash a newly downloaded image. If its pHash is already stored, delete the
-    file and return (True, existing_path). Otherwise save the hash and return
-    (False, None)."""
-    import phash_util
-    try:
-        h = phash_util.phash(filepath)
-    except Exception:
-        return False  # never delete a download because hashing failed
-    with PHASH_LOCK:
-        idx = _get_phash_index()
-        rel = os.path.relpath(filepath, MASTER_FOLDER).replace("\\", "/")
-        old_rel = idx.get(h)
-        if old_rel:
-            try: os.remove(filepath)
-            except OSError: pass
-            return True, old_rel
-        idx[h] = rel
-        phash_util.save_index(idx)
-        return False, None
 
 # ==========================================
 # === OOP ASYNCIO ENGINE ===
@@ -214,9 +247,9 @@ class BaseDownloader:
         self.net_config = net_config
 
         self.stop_event = threading.Event()
-        if name not in STOP_EVENTS:
-            STOP_EVENTS[name] = []
-        STOP_EVENTS[name].append(self.stop_event)
+        # ponytail: replace, not append — stale events from dead runs must never let
+        # one STOP press kill a freshly started worker. One live worker per name.
+        STOP_EVENTS[name] = [self.stop_event]
 
         self.anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
         self.dl_retries = int(net_config.get("download_retries", 3))
@@ -237,11 +270,12 @@ class BaseDownloader:
         self.queued_items = set()
 
     def check_amount_warning(self, total_found):
-        """Helper to warn the user if they requested more images than are available."""
+        """Helper to warn the user if they requested more images than were retrieved."""
         if total_found > 0:
             self.log(f"Total valid items found: {total_found}")
             if self.amount > 0 and total_found < self.amount:
-                self.log(f"⚠️ Notice: You requested {self.amount} images, but only {total_found} exist.")
+                extra = f" ({self.failed_count} failed)" if self.failed_count else ""
+                self.log(f"⚠️ Notice: You requested {self.amount} images, but only {total_found} were downloaded{extra}. The site may have blocked further pages, or downloads failed.")
 
     # --- aiohttp session factory (override in subclasses for curl_cffi etc.) ---
     async def _create_session(self):
@@ -272,7 +306,7 @@ class BaseDownloader:
 
     def log(self, msg): log_msg(self.name, msg)
 
-    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None):
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
         if artists is None: artists = []
         
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
@@ -287,52 +321,64 @@ class BaseDownloader:
             
         self.total_bytes += file_size
         self.queued_items.add(filename)
-        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, file_size))
+        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, file_size, characters, copyrights, metadata_tags))
         self.enqueued_count += 1
         return True
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
 
+        part_path = filepath + ".part"
         for attempt in range(self.dl_retries):
             try:
                 referer = self.session.headers.get("Referer") or url
                 # ponytail: downloads need way more than the API's 30s total timeout
-                async with self.session.get(url, headers={"Referer": referer}, timeout=aiohttp.ClientTimeout(total=600)) as resp:
+                # sock_read kills stalled/trickling connections fast; a bare
+                # total timeout lets a dead stream hang for minutes looking
+                # like the worker "stopped"
+                async with self.session.get(url, headers={"Referer": referer}, timeout=aiohttp.ClientTimeout(total=300, connect=10, sock_read=30)) as resp:
                     resp.raise_for_status()
                     content_length = int(resp.headers.get('Content-Length', 0)) or file_size
                     if content_length and (content_length != file_size):
                         self.total_bytes += (content_length - file_size)
 
                     downloaded = 0
-                    with open(filepath, 'wb') as f:
+                    with open(part_path, 'wb') as f:
                         async for chunk in resp.content.iter_chunked(65536):
                             if self.stop_event.is_set(): break
                             f.write(chunk)
                             downloaded += len(chunk)
 
-                    # ponytail: proxies can drop the tail silently; verify against Content-Length
-                    if not resp.headers.get('Content-Encoding'):
+                    # ponytail: proxies can drop the tail silently; verify against
+                    # Content-Length, or against the enqueue-time HEAD size when the
+                    # response is content-encoded (CL then describes compressed bytes)
+                    if not resp.headers.get('Content-Encoding') or file_size:
                         expected = int(resp.headers.get('Content-Length', 0)) or file_size
                         if expected and downloaded != expected:
                             raise Exception(f"Incomplete download: got {downloaded} of {expected} bytes")
 
                 if self.stop_event.is_set():
-                    if os.path.exists(filepath): os.remove(filepath)
+                    if os.path.exists(part_path): os.remove(part_path)
                     self.enqueued_count -= 1
                     return False
 
-                # pHash dedupe: delete the new file if an identical image is already saved
-                try:
-                    is_dup, orig = await asyncio.to_thread(register_download_hash, filepath)
-                except Exception:
-                    is_dup, orig = False, None
-                if is_dup:
-                    self.enqueued_count -= 1
-                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
-                    return False
+                # booru filenames embed their md5 (-<32hex>.ext); a CDN serving a
+                # stale recompressed variant passes size checks, so verify content
+                m = re.search(r'-([0-9a-f]{32})\.[^.]+$', filename, re.I)
+                if m:
+                    h = hashlib.md5()
+                    with open(part_path, 'rb') as f:
+                        for chunk in iter(lambda: f.read(1 << 20), b''):
+                            h.update(chunk)
+                    if h.hexdigest() != m.group(1).lower():
+                        os.remove(part_path)
+                        raise Exception("md5 mismatch: server sent a different/degraded file")
+
+                # publish under the real name only after full verification — a
+                # killed app must never leave a truncated file posing as complete
+                os.replace(part_path, filepath)
 
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded
@@ -352,13 +398,14 @@ class BaseDownloader:
 
                 # ponytail: metadata + gallery publish BEFORE the SUCCESS log — the log card
                 # requests its thumb instantly and would otherwise read a half-written file
-                write_image_metadata(filepath, tags_list, artists, self.name)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
                 self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
-                send_tags(self.name, filename, tags_list, artists, rel_path)
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
                 return True
 
             except Exception as e:
+                if os.path.exists(part_path): os.remove(part_path)
                 if self.stop_event.is_set():
                     self.enqueued_count -= 1
                     break
@@ -390,7 +437,7 @@ class BaseDownloader:
             self.download_queue = asyncio.Queue()
             self.is_scanning = True
 
-            num_workers = 4
+            num_workers = 2
             download_tasks = [asyncio.create_task(self._download_worker()) for _ in range(num_workers)]
 
             self.log("Phase 1: Gathering links from API... Please wait.")
@@ -398,18 +445,22 @@ class BaseDownloader:
             except Exception as e: self.log(f"Scraper Error: {e}")
 
             self.is_scanning = False
-            self.total_to_download = self.download_queue.qsize() + self.downloaded_count
-
-            if self.total_to_download > 0 and not self.stop_event.is_set():
+            # ponytail: always join the queue so in-flight downloads finish
+            # before we check counts or cancel workers.  Previously we
+            # skipped join() when total_to_download looked like 0 (qsize
+            # doesn't count in-flight items), which cancelled workers mid-
+            # download via BaseException — file landed on disk but gallery,
+            # metadata, history, and SUCCESS log were never written.
+            if not self.stop_event.is_set():
                 await self.download_queue.join()
-                for t in download_tasks: t.cancel()
-                if self.failed_count > 0:
-                    self.log(f"--- Task finished: {self.downloaded_count} downloaded successfully, {self.failed_count} failed to download! ---")
-                else:
-                    self.log(f"--- All {self.downloaded_count} downloads completed successfully! ---")
-            else:
-                for t in download_tasks: t.cancel()
-                if not self.stop_event.is_set(): self.log("Task finished. No new images to download.")
+            for t in download_tasks: t.cancel()
+
+            if self.downloaded_count > 0 and self.failed_count > 0:
+                self.log(f"--- Task finished: {self.downloaded_count} downloaded successfully, {self.failed_count} failed to download! ---")
+            elif self.downloaded_count > 0:
+                self.log(f"--- All {self.downloaded_count} downloads completed successfully! ---")
+            elif not self.stop_event.is_set():
+                self.log("Task finished. No new images to download.")
         except Exception as critical_e:
             self.log(f"CRITICAL ERROR: {critical_e}")
         finally:

@@ -105,10 +105,24 @@ class DanbooruWorker(BaseWorker):
 
                 tags_raw = post.get("tag_string", "")
                 tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-                artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
-                tags_list = [t for t in tags_list if not t.startswith("artist:")]
 
-                if await self.enqueue_download(url, filepath, filename, tags_list, artists):
+                artists = [t.strip() for t in post.get("tag_string_artist", "").split() if t.strip()]
+                characters = [t.strip() for t in post.get("tag_string_character", "").split() if t.strip()]
+                copyrights = [t.strip() for t in post.get("tag_string_copyright", "").split() if t.strip()]
+                metadata_tags = [t.strip() for t in post.get("tag_string_meta", "").split() if t.strip()]
+
+                artist_set = set(artists)
+                char_set = set(characters)
+                copy_set = set(copyrights)
+                meta_set = set(metadata_tags)
+                tags_list = [t for t in tags_list if t not in artist_set and t not in char_set and t not in copy_set and t not in meta_set]
+
+                rating_tag_map = {"g": "rating:g", "s": "rating:s", "q": "rating:q", "e": "rating:e"}
+                rt = rating_tag_map.get(post_rating)
+                if rt:
+                    tags_list.append(rt)
+
+                if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

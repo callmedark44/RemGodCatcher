@@ -62,10 +62,12 @@ WAIFU_TAG_MAP = {}
 ESHUUSHUU_TAGS_DB = []
 NEKOSAPI_TAGS_DB = []
 NEKOSIA_TAGS_DB = []
+GSBOORU_TAGS_DB = []
 
 if settings.get("use_proxy"):
     os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
     os.environ["HTTPS_PROXY"] = str(settings.get("proxy_url") or "")
+    os.environ.pop("no_proxy", None)
 else:
     os.environ["HTTP_PROXY"] = ""
     os.environ["HTTPS_PROXY"] = ""
@@ -85,9 +87,9 @@ def log_msg(worker_name, msg):
 
 shared.log_callback = log_msg
 
-def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None):
+def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
     try:
-        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath)
+        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags)
         socketio.emit("update_history")
     except Exception as e:
         print("Image Tag Save Error:", e)
@@ -136,7 +138,7 @@ def get_session(site, net_config):
         session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "text/html,application/json,*/*"})
         adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=2.0, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"]))
         session.mount("https://", adapter); session.mount("http://", adapter)
-    elif site in ["waifu", "neko"]: session.headers.update({"Accept": "application/json"})
+    elif site in ["waifu", "neko"]: session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
     elif site == "yande": session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
     return session
 
@@ -178,6 +180,7 @@ def config_manager():
         if data.get("use_proxy"):
             os.environ["HTTP_PROXY"] = str(data.get("proxy_url") or "")
             os.environ["HTTPS_PROXY"] = str(data.get("proxy_url") or "")
+            os.environ.pop("no_proxy", None)
         else:
             os.environ["HTTP_PROXY"] = ""
             os.environ["HTTPS_PROXY"] = ""
@@ -216,7 +219,7 @@ def get_waifu_tags():
         pass
     if WAIFU_TAGS_DB:
         return jsonify([t["name"] for t in WAIFU_TAGS_DB])
-    return jsonify(['maid', 'waifu', 'oppai', 'ero', 'ass', 'hentai', 'milf', 'paizuri', 'ecchi'])
+    return jsonify(['ass', 'ecchi', 'ero', 'genshin-impact', 'hentai', 'kamisato-ayaka', 'maid', 'marin-kitagawa', 'milf', 'mori-calliope', 'nami', 'one-piece', 'oppai', 'oral', 'paizuri', 'raiden-shogun', 'rem', 'selfies', 'uniform', 'waifu'])
 
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
@@ -311,6 +314,12 @@ def get_nekosia_suggestions():
     if not NEKOSIA_TAGS_DB: return jsonify([])
     return jsonify([t for t in NEKOSIA_TAGS_DB if t.lower().startswith(query)][:50])
 
+@app.route("/api/tags/gsbooru", methods=["POST"])
+def get_gsbooru_suggestions():
+    query = request.json.get("query", "").lower()
+    if not GSBOORU_TAGS_DB: return jsonify([])
+    return jsonify([t for t in GSBOORU_TAGS_DB if t.lower().startswith(query)][:50])
+
 # --- TAG HISTORY & FAVORITES API ---
 @app.route("/api/history", methods=["GET"])
 def get_tag_history(): return jsonify(DatabaseManager.load_tag_history())
@@ -364,8 +373,18 @@ def _build_filepath_cache():
     return cache
 
 def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters, rating_filters):
+    def _get_all_tags(img):
+        tags = img.get("tags", {})
+        if isinstance(tags, dict):
+            result = []
+            for v in tags.values():
+                if isinstance(v, list):
+                    result.extend(v)
+            return result
+        return tags if isinstance(tags, list) else []
+
     if search:
-        images = [i for i in images if any(search in t.lower() for t in i.get("tags", []))]
+        images = [i for i in images if any(search in t.lower() for t in _get_all_tags(i))]
     if site_filters:
         images = [i for i in images if i.get("site", "").lower() in site_filters]
     if fav_only:
@@ -381,22 +400,29 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         images = [i for i in images if matches_type(i)]
     if rating_filters:
         SUPPORTED_RATINGS = {
+            "safe": {"safe"},
             "dan": {"safe", "sensitive", "questionable", "explicit"},
             "gelbooru": {"safe", "sensitive", "questionable", "explicit"},
             "gsbooru": {"safe", "sensitive", "questionable", "explicit"},
-            "kona": {"safe", "explicit"},
-            "yande": {"safe", "explicit"},
+            "kona": {"safe", "questionable", "explicit"},
+            "yande": {"safe", "questionable", "explicit"},
             "sankaku": {"safe", "questionable", "explicit"},
+            "rule34": {"explicit"},
+            "safebooru": {"safe"},
+            "nekosapi": {"safe", "sensitive", "questionable", "explicit"},
+            "nekosia": {"safe", "sensitive"},
+            "waifu.im": {"safe", "explicit"},
         }
         rating_aliases = {
             "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
-            "sensitive": ["sensitive", "rating:sensitive", "rating:s"],
-            "questionable": ["questionable", "rating:questionable", "rating:q"],
+            "sensitive": ["sensitive", "suggestive", "rating:sensitive", "rating:s"],
+            "questionable": ["questionable", "borderline", "rating:questionable", "rating:q"],
             "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw"],
         }
         def matches_any_rating(img):
-            site = img.get("site", "").lower()
+            site = shared.normalize_site(img.get("site", ""))
             fpl = img.get("filepath", "").lower()
+            all_tags = _get_all_tags(img)
             for rf in rating_filters:
                 supported = SUPPORTED_RATINGS.get(site)
                 if supported is None:
@@ -405,7 +431,7 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
                     continue
                 patterns = rating_aliases.get(rf, [rf])
                 for p in patterns:
-                    if any(p in t.lower() for t in img.get("tags", [])):
+                    if any(p in t.lower() for t in all_tags):
                         return True
                     if p in fpl:
                         return True
@@ -503,8 +529,15 @@ def get_gallery_tags():
     gallery = shared.load_gallery()
     tags = set()
     for img in gallery.get("images", []):
-        for t in img.get("tags", []):
-            tags.add(t)
+        img_tags = img.get("tags", {})
+        if isinstance(img_tags, dict):
+            for v in img_tags.values():
+                if isinstance(v, list):
+                    for t in v:
+                        tags.add(t)
+        elif isinstance(img_tags, list):
+            for t in img_tags:
+                tags.add(t)
     return jsonify(sorted(tags))
 
 @app.route("/api/gallery/file/<path:filepath>")
@@ -597,7 +630,7 @@ def get_gallery_sources():
     images = _apply_gallery_filters(images, search, [], fav_only, type_filters, rating_filters)
     counts = {}
     for img in images:
-        s = img.get("site", "unknown").lower()
+        s = shared.normalize_site(img.get("site", "unknown"))
         counts[s] = counts.get(s, 0) + 1
     return jsonify(counts)
 
@@ -638,7 +671,7 @@ def rescan_gallery():
             site = parts[0] if len(parts) > 1 else "unknown"
 
             tag = parts[1] if len(parts) > 2 else ""
-            tags = [tag] if tag else []
+            tags = {"tag": [tag]} if tag else {"tag": []}
             if fn in by_fn:
                 existing = by_fn[fn]
                 if not existing.get("filepath"):
@@ -651,7 +684,7 @@ def rescan_gallery():
                 gallery["images"].append({
                     "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
                     "filename": fn, "filepath": rel, "site": site,
-                    "tags": tags, "artists": [], "favourite": False,
+                    "tags": tags, "favourite": False,
                     "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
                 })
                 by_fn[fn] = gallery["images"][-1]
@@ -661,6 +694,7 @@ def rescan_gallery():
 
 @app.route("/api/gallery/import", methods=["POST"])
 def import_gallery_from_history():
+    from shared import tags_dict_from_lists
     hist = DatabaseManager.load_image_history()
     gallery = shared.load_gallery()
     existing = {i["filename"] for i in gallery["images"]}
@@ -669,13 +703,18 @@ def import_gallery_from_history():
     for entry in hist:
         fn = entry.get("filename", "")
         if fn and fn not in existing:
+            entry_tags = entry.get("tags", {})
+            entry_artists = entry.get("artists", [])
+            if isinstance(entry_tags, dict):
+                tags = entry_tags
+            else:
+                tags = tags_dict_from_lists(entry_tags, entry_artists)
             gallery["images"].append({
                 "id": hashlib.sha256(f"{entry.get('site','')}:{fn}".encode()).hexdigest()[:12],
                 "filename": fn,
                 "filepath": fp_cache.get(fn, ""),
                 "site": entry.get("site", ""),
-                "tags": entry.get("tags", []),
-                "artists": entry.get("artists", []),
+                "tags": tags,
                 "favourite": False,
                 "downloaded_at": ""
             })
@@ -739,9 +778,7 @@ def handle_start_worker(data):
     elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gsbooru":
-        net_config["gsbooru_api_key"] = os.getenv("GSBOORU_API_KEY", "")
-        threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
     elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
@@ -761,11 +798,11 @@ def handle_start_worker(data):
         threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), int(data.get("limit", 50)), [], data.get("user_id", ""), net_config), daemon=True).start()
     elif worker == "nekosapi":
         from workers.nekosapi import worker_nekosapi
-        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "nekosia":
         try:
             from workers.nekosia import worker_nekosia
-            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", "safe"), net_config), daemon=True).start()
         except ImportError:
             pass # در صورتی که بعدا خواستی فایل nekosia.py رو بسازی ارور نده
 
@@ -791,7 +828,7 @@ def startup_rescan():
             parts = rel.replace('\\', '/').split('/')
             site = parts[0] if len(parts) > 1 else "unknown"
             tag = parts[1] if len(parts) > 2 else ""
-            tags = [tag] if tag else []
+            tags = {"tag": [tag]} if tag else {"tag": []}
             if fn in by_fn:
                 existing = by_fn[fn]
                 if not existing.get("tags"):
@@ -801,14 +838,24 @@ def startup_rescan():
             gallery["images"].append({
                 "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
                 "filename": fn, "filepath": rel, "site": site,
-                "tags": tags, "artists": [], "favourite": False,
+                "tags": tags, "favourite": False,
                 "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
             })
             by_fn[fn] = gallery["images"][-1]
             count += 1
     if count:
-        shared.save_gallery(gallery)
         print(f"Rescanned {count} new images into gallery")
+
+    # prune entries whose file no longer exists (deleted manually or by cleanups)
+    kept = [i for i in gallery["images"]
+            if os.path.isfile(os.path.join(MASTER_FOLDER, i.get("filepath", "")))]
+    removed = len(gallery["images"]) - len(kept)
+    if removed:
+        gallery["images"] = kept
+        print(f"Pruned {removed} dead gallery entries")
+
+    if count or removed:
+        shared.save_gallery(gallery)
 
 if __name__ == "__main__":
     SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
@@ -823,11 +870,8 @@ if __name__ == "__main__":
     ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
     NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
     NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
+    GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
     startup_rescan()
-    def _warm_phash_index():
-        try: shared._get_phash_index()
-        except Exception as e: print("pHash index bootstrap failed:", e)
-    threading.Thread(target=_warm_phash_index, daemon=True).start()
     port = 5000
     url = f"http://127.0.0.1:{port}"
     print(f"Starting Rem God Catcher Web UI on {url} ...")

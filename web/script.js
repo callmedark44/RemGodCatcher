@@ -2,6 +2,84 @@ let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false
 let uiConfig = {};
 let currentActiveTheme = 'dark';
 
+const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag", "mangaka", "game", "outfit", "theme", "source", "meta", "vtuber", "series", "group", "studio"];
+
+function getTagCategoryClass(cat) {
+    return 'tag-' + cat;
+}
+
+function categorizeTag(tag) {
+    let t = tag.toLowerCase().trim();
+    for (let i = 0; i < TAG_CATEGORIES.length; i++) {
+        let prefix = TAG_CATEGORIES[i] + ':';
+        if (t.startsWith(prefix)) return TAG_CATEGORIES[i];
+    }
+    return "tag";
+}
+
+function normalizeTags(tagsInput) {
+    if (Array.isArray(tagsInput)) {
+        let result = {};
+        TAG_CATEGORIES.forEach(c => result[c] = []);
+        tagsInput.forEach(t => {
+            let cat = categorizeTag(t);
+            let clean = t;
+            let prefix = cat + ':';
+            if (t.toLowerCase().startsWith(prefix)) clean = t.substring(prefix.length);
+            result[cat].push(clean);
+        });
+        return result;
+    }
+    if (tagsInput && typeof tagsInput === 'object') {
+        let result = {};
+        TAG_CATEGORIES.forEach(c => result[c] = []);
+        TAG_CATEGORIES.forEach(c => {
+            if (tagsInput[c] && Array.isArray(tagsInput[c])) {
+                result[c] = tagsInput[c];
+            }
+        });
+        let known = new Set(TAG_CATEGORIES);
+        Object.keys(tagsInput).forEach(k => {
+            if (!known.has(k) && Array.isArray(tagsInput[k])) {
+                result[k] = tagsInput[k];
+            }
+        });
+        return result;
+    }
+    let result = {};
+    TAG_CATEGORIES.forEach(c => result[c] = []);
+    return result;
+}
+
+function renderCategorizedTags(tagsInput, clickable) {
+    let tagsDict = normalizeTags(tagsInput);
+    let html = '';
+    TAG_CATEGORIES.forEach(cat => {
+        if (cat === "artist") return;
+        let tags = tagsDict[cat] || [];
+        tags.forEach(t => {
+            let cls = getTagCategoryClass(cat);
+            let safeT = t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            if (clickable) {
+                html += `<span class="g-tag-pill ${cls}" onclick="document.getElementById('gallerySearch').value='${safeT}'; loadGallery(1); closeGalleryViewer();">${t}</span>`;
+            } else {
+                html += `<span class="g-tag-pill ${cls}">${t}</span>`;
+            }
+        });
+    });
+    return html;
+}
+
+function renderCategorizedTagsForLog(tagsInput) {
+    let tagsDict = normalizeTags(tagsInput);
+    let parts = [];
+    TAG_CATEGORIES.forEach(cat => {
+        if (cat === "artist") return;
+        (tagsDict[cat] || []).forEach(t => parts.push(t));
+    });
+    return parts.join(', ') || 'No tags';
+}
+
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
     if (uiConfig.theme_mode === 'system') applyRenderTheme(e.matches ? 'dark' : 'light');
 });
@@ -254,7 +332,10 @@ function logToConsole(tabID, msg) {
 
         let ratingHtml = "";
         let pLow = rawPath.toLowerCase().replace(/\\/g, '/');
-        if (pLow.includes('/nsfw') || pLow.includes('explicit')) {
+        if (pLow.includes('/rule34/') || pLow.includes('\\rule34\\') || pLow.includes('rule34')) {
+            ratingHtml = `<div class="img-card-rating" style="background:rgba(231, 76, 60, 0.15); color:#e74c3c;">Rating: NSFW</div>`;
+        }
+        else if (pLow.includes('/nsfw') || pLow.includes('explicit')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(231, 76, 60, 0.15); color:#e74c3c;">Rating: NSFW</div>`;
         }
         else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
@@ -263,7 +344,7 @@ function logToConsole(tabID, msg) {
         else if (pLow.includes('moderate') || pLow.includes('questionable')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(243, 156, 18, 0.15); color:#f39c12;">Rating: Questionable</div>`;
         }
-        else if (pLow.includes('/safe') || pLow.includes('/general')) {
+        else if (pLow.includes('/safe') || pLow.includes('/general') || pLow.includes('safebooru')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(46, 204, 113, 0.15); color:#2ecc71;">Rating: Safe</div>`;
         }
 
@@ -289,7 +370,7 @@ function logToConsole(tabID, msg) {
             </div>
             <div class="img-card-right">
                 <div class="img-card-title" title="${safeFn}">${fn}</div>
-                <div class="img-card-tags">${tagsStr}</div>
+                <div class="img-card-tags">${renderCategorizedTagsForLog(tagsStr.split(', '))}</div>
                 ${ratingHtml}
             </div>
             <div class="img-card-number">${countNum}</div>
@@ -626,11 +707,12 @@ document.addEventListener("DOMContentLoaded", function() {
     setupAutosuggest("sankakuTag", "sankakuAutosuggest", "/api/tags/sankaku");
     setupAutosuggest("yandeTag", "yandeAutosuggest", "/api/tags/yande");
     setupAutosuggest("zeroTag", "zeroAutosuggest", "/api/tags/zerochan");
+    setupAutosuggest("gsbooruTag", "gsbooruAutosuggest", "/api/tags/gsbooru");
 
 
     document.addEventListener("click", function(e) {
-        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "animeDlAutosuggest", "danAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "zeroAutosuggest"];
-        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "animeDlTag", "danTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "zeroTag"];
+        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "animeDlAutosuggest", "danAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "zeroAutosuggest", "gsbooruAutosuggest"];
+        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "animeDlTag", "danTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "zeroTag", "gsbooruTag"];
         for (let i = 0; i < dropdowns.length; i++) {
             let dp = document.getElementById(dropdowns[i]);
             let inp = document.getElementById(inputs[i]);
@@ -877,10 +959,12 @@ function startWorker(workerName) {
     else if (workerName === 'nekosapi') {
         payload.tag = document.getElementById('nekosapiTag').value;
         payload.limit = document.getElementById('nekosapiLimit').value;
+        payload.rating = document.getElementById('nekosapiRating').value;
     }
     else if (workerName === 'nekosia') {
         payload.tag = document.getElementById('nekosiaTag').value;
         payload.limit = document.getElementById('nekosiaLimit').value;
+        payload.rating = document.getElementById('nekosiaRating').value;
     }
     
     socket.emit("start_worker", payload);
@@ -916,7 +1000,6 @@ async function loadApiSettings() {
     document.getElementById("r34Uid").value = settings.rule34_user_id || "";
     document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
     document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
-    document.getElementById("gsKey").value = settings.gsbooru_api_key || "";
     document.getElementById("konaLogin").value = settings.konachan_login || "";
     document.getElementById("konaPassword").value = settings.konachan_password || "";
     document.getElementById("sankaLogin").value = settings.sanka_login || "";
@@ -935,7 +1018,6 @@ async function saveApiSettings() {
         rule34_user_id: document.getElementById("r34Uid").value.trim(),
         gelbooru_api_key: document.getElementById("gelKey").value.trim(),
         gelbooru_user_id: document.getElementById("gelUid").value.trim(),
-        gsbooru_api_key: document.getElementById("gsKey").value.trim(),
         konachan_login: document.getElementById("konaLogin").value.trim(),
         konachan_password: document.getElementById("konaPassword").value.trim(),
         sanka_login: document.getElementById("sankaLogin").value.trim(),
@@ -996,7 +1078,9 @@ function renderHistory() {
         historyTags.forEach(item => {
             let isFav = isFavorite(item.site, item.tag);
             let heartIcon = isFav ? "★" : "☆";
-            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${item.tag}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color);" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
+            let heartColor = isFav ? "#ff6b6b" : "var(--text-color)";
+            let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";
+            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${item.tag}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1018,12 +1102,16 @@ function renderFavorites() {
 
 async function toggleFavorite(site, tag) {
     let action = isFavorite(site, tag) ? "remove" : "add";
-    let resp = await fetch("/api/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag, action: action }) });
-    let data = await resp.json();
-    favoriteTags = data.favorites;
+    if (action === "add") { favoriteTags.push({ site, tag }); } else { favoriteTags = favoriteTags.filter(x => !(x.site === site && x.tag === tag)); }
     renderHistory();
     renderFavorites();
-    renderImageHistory();
+    try {
+        let resp = await fetch("/api/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag, action: action }) });
+        let data = await resp.json();
+        favoriteTags = data.favorites;
+        renderHistory();
+        renderFavorites();
+    } catch(e) {}
 }
 
 async function removeFromHistory(site, tag) { await fetch("/api/history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag }) }); await loadTagsData(); }
@@ -1056,11 +1144,17 @@ function renderImageHistory() {
         htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No images downloaded yet.</p>";
     } else {
         imageHistory.forEach(img => {
-            let tagsStr = (img.tags || []).map(t => `<span class="g-tag-pill">${t}</span>`).join('');
+            let tagsStr = renderCategorizedTags(img.tags || {}, false);
             
             let ratingHtml = "";
-            let pLow = ((img.filepath || img.filename) + " " + (img.tags || []).join(' ')).toLowerCase(); 
-            if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
+            let allTags = [];
+            let tagsDict = normalizeTags(img.tags || {});
+            TAG_CATEGORIES.forEach(c => { if (tagsDict[c]) allTags.push(...tagsDict[c]); });
+            let pLow = ((img.filepath || img.filename) + " " + allTags.join(' ')).toLowerCase(); 
+            let siteLower = (img.site || "").toLowerCase();
+            if (siteLower === "rule34") {
+                ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">NSFW</span>`;
+            } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
                 ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">NSFW</span>`;
             } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
                 ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Sensitive</span>`;
@@ -1074,6 +1168,8 @@ function renderImageHistory() {
             let safeFn = (img.filename || "").replace(/"/g, '&quot;');
             let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
             let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+            let artistName = (img.tags?.artist || [])[0] || "";
+            let artistHtml = artistName ? `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,140,0,0.4);">${artistName}</span>` : "";
 
             htmlStr += `
             <div class="image-card-log" style="position: relative; align-items: stretch; background: rgba(15, 15, 20, 0.75);">
@@ -1090,7 +1186,7 @@ function renderImageHistory() {
                         ${tagsStr}
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; margin-top: auto;">
-                        ${siteBadge} ${ratingHtml}
+                        ${siteBadge} ${ratingHtml} ${artistHtml}
                     </div>
                 </div>
             </div>`;
@@ -1108,7 +1204,7 @@ async function clearImageHistory() { if(confirm("Delete all image tag history?")
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
-const SOURCE_RATINGS = { dan: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], kona: ['safe', 'explicit'], yande: ['safe', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], pinterest: [], pixiv: [] };
+const SOURCE_RATINGS = { safe: ['safe'], dan: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], kona: ['safe', 'questionable', 'explicit'], yande: ['safe', 'questionable', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], rule34: ['explicit'], safebooru: ['safe'], nekosapi: ['safe', 'sensitive', 'questionable', 'explicit'], nekosia: ['safe', 'sensitive'], 'waifu.im': ['safe', 'explicit'], pinterest: [], pixiv: [] };
 // ... [rest of gallery code stays intact] ...
 function updateRatingDropdown() {
     const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]');
@@ -1365,10 +1461,16 @@ function showViewerImage() {
     // === پنل اطلاعات و تگ‌ها پایین صفحه ===
     const metaPanel = document.getElementById("galleryViewerMeta");
     if(metaPanel) {
-        let tagsHtml = (img.tags || []).map(t => `<span class="g-tag-pill" onclick="document.getElementById('gallerySearch').value='${t}'; loadGallery(1); closeGalleryViewer();">${t}</span>`).join('');
+        let tagsHtml = renderCategorizedTags(img.tags || {}, true);
         let ratingHtml = "";
-        let pLow = ((img.filepath || "") + " " + (img.tags || []).join(' ')).toLowerCase();
-        if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
+        let _viewerTd = normalizeTags(img.tags || {});
+        let _viewerAllTags = [];
+        TAG_CATEGORIES.forEach(c => { if (_viewerTd[c]) _viewerAllTags.push(..._viewerTd[c]); });
+        let pLow = ((img.filepath || "") + " " + _viewerAllTags.join(' ')).toLowerCase();
+        let vSiteLower = (img.site || "").toLowerCase();
+        if (vSiteLower === "rule34") {
+            ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
+        } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
             ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
         } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
             ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Sensitive</span>`;
@@ -1378,11 +1480,13 @@ function showViewerImage() {
             ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Safe</span>`;
         }
         let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+        let artistName = (img.tags?.artist || [])[0] || "";
+        let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,140,0,0.4);">${artistName}</span>` : "";
 
         metaPanel.innerHTML = `
             <div class="g-meta-header">
                 <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
-                <div class="g-meta-badges">${siteBadge} ${ratingHtml}</div>
+                <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
             </div>
             <div class="g-meta-tags">${tagsHtml}</div>
         `;
@@ -1557,6 +1661,7 @@ let zoomThrottle = 0;
 
 
 document.getElementById("galleryViewer").addEventListener('wheel', function(e) {
+    if (e.target.closest('.gallery-viewer-meta')) return;
     e.preventDefault();
 
 
@@ -1585,7 +1690,7 @@ async function importGallery() { if (localStorage.getItem('gallery_imported')) r
 async function rescanGallery() { try { let resp = await fetch("/api/gallery/rescan", {method: "POST"}); let data = await resp.json(); if (data.success) { alert(`Rescan complete. Added ${data.added} new images.`); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
 function toggleCheck(el) { const cb = el.querySelector('input[type="checkbox"]'); const menu = el.closest('.gallery-dropdown-menu'); if (cb.value !== '') { const allCheck = menu.querySelector('input[value=""]'); if (allCheck && allCheck.checked) allCheck.checked = false; } cb.checked = !cb.checked; if (menu.id === 'sourceDropdown') onSourceChange(); else if (menu.id === 'ratingDropdown') onRatingChange(); else if (menu.id === 'typeDropdown') onTypeChange(); }
 let _siteFilterSeq = 0;
-async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
+async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site.charAt(0).toUpperCase() + site.slice(1)} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
 function toggleDropdown(id) { const menu = document.getElementById(id); document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); }); menu.classList.toggle('open'); }
 function onSourceChange() { const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateRatingDropdown(); loadGallery(1); }
 function onRatingChange() { const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾'; updateSourceDropdown(); loadGallery(1); }

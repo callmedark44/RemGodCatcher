@@ -3,7 +3,7 @@ import asyncio
 from shared import BaseDownloader
 
 class NekosApiWorker(BaseDownloader):
-    def __init__(self, tags, amount, net_config):
+    def __init__(self, tags, amount, rating, net_config):
         super().__init__("nekosapi", "NekosAPI", amount, net_config)
         self.tags = [t.strip() for t in tags.split(",") if t.strip()]
         self.exclusions = []
@@ -13,10 +13,11 @@ class NekosApiWorker(BaseDownloader):
                 self.tags.remove(t)
         if not self.tags:
             self.tags = ["kemonomimi"]
-        self.rating = (net_config or {}).get("rating", "safe")
+        self.rating = rating or "safe"
+        self.rating_label = {"safe": "Safe", "suggestive": "Sensitive", "borderline": "Questionable", "explicit": "NSFW"}.get(self.rating.lower(), "Safe")
         self.api_base = "https://api.nekosapi.com/v4"
         self.tag_dir = os.path.join(self.site_root, "_".join(self.tags))
-        self.rating_dir = os.path.join(self.tag_dir, "NSFW" if self.rating.lower() == "explicit" else self.rating.capitalize())
+        self.rating_dir = os.path.join(self.tag_dir, self.rating_label)
         os.makedirs(self.rating_dir, exist_ok=True)
 
     def _validate_rating(self):
@@ -27,7 +28,6 @@ class NekosApiWorker(BaseDownloader):
     async def scraper_task(self):
         self._validate_rating()
         self.log(f"Initializing worker for tags: {self.tags}")
-        self.log(f"Exclusions: {self.exclusions}")
         self.log(f"Rating: {self.rating}")
 
         need = self.amount or 200
@@ -68,6 +68,10 @@ class NekosApiWorker(BaseDownloader):
                 filename = f"{img_id}.{ext}"
                 filepath = os.path.join(self.rating_dir, filename)
                 tag_list = self.tags + [t for t in img.get("tags", []) if t]
+                rating_tag_map = {"safe": "rating:safe", "suggestive": "rating:s", "borderline": "rating:q", "explicit": "rating:e"}
+                rt = rating_tag_map.get(self.rating.lower())
+                if rt:
+                    tag_list.append(rt)
                 artist_name = img.get("artist_name")
                 artists = [artist_name] if artist_name else []
                 if await self.enqueue_download(url, filepath, filename, tag_list, artists):
@@ -85,5 +89,5 @@ class NekosApiWorker(BaseDownloader):
         asyncio.run(self.run_async_loop(self.scraper_task))
         self.log("--- Worker Terminated ---")
 
-def worker_nekosapi(tags, amount, net_config):
-    NekosApiWorker(tags, amount, net_config).run()
+def worker_nekosapi(tags, amount, rating, net_config):
+    NekosApiWorker(tags, amount, rating, net_config).run()

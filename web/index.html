@@ -144,6 +144,13 @@
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="nekosapiLimit" value="50" min="0" style="width: 80px;">
+                    <select id="nekosapiRating" style="width: 130px;">
+                        <option value="">All Ratings</option>
+                        <option value="safe">Safe</option>
+                        <option value="suggestive">Suggestive</option>
+                        <option value="borderline">Questionable</option>
+                        <option value="explicit">NSFW</option>
+                    </select>
                     <button class="action-btn" onclick="startWorker('nekosapi')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('nekosapi')">STOP</button>
                 </div>
@@ -169,6 +176,10 @@
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="nekosiaLimit" value="50" min="0" style="width: 80px;">
+                    <select id="nekosiaRating" style="width: 130px;">
+                        <option value="safe">Safe</option>
+                        <option value="suggestive">Suggestive</option>
+                    </select>
                     <button class="action-btn" onclick="startWorker('nekosia')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('nekosia')">STOP</button>
                 </div>
@@ -382,6 +393,7 @@
                     <label>Tags:</label>
                     <div style="flex:1; position: relative;">
                         <input style="width: 100%;" autocomplete="off" type="text" id="gsbooruTag" placeholder="e.g. 1girl blue_hair">
+                        <div id="gsbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="gsbooruLimit" value="50" min="0" style="width: 80px;">
@@ -390,7 +402,6 @@
                         <option value="rating:g">Safe</option>
                         <option value="rating:s">Sensitive</option>
                         <option value="rating:q">Questionable</option>
-                        <option value="rating:e">NSFW</option>
                     </select>
                     <button class="action-btn" onclick="startWorker('gsbooru')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('gsbooru')">STOP</button>
@@ -549,11 +560,6 @@
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Gsbooru Credentials</h3>
-                            <div class="field-row"><label>API Key:</label><input type="password" id="gsKey" placeholder="Gsbooru API Key (Bearer)" style="flex:1;"></div>
-                        </div>
-
-                        <div class="settings-card">
                             <h3>🔑 Konachan Credentials</h3>
                             <div class="field-row"><label>Username:</label><input type="text" id="konaLogin" placeholder="Konachan Username" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="konaPassword" placeholder="Password" style="flex:1;"></div>
@@ -622,8 +628,8 @@
                     <input type="number" id="pinterestMinH" value="0" min="0" style="width: 70px;">
                     <label>Mode:</label>
                     <select id="pinterestMode" style="width: 100px;">
-                        <option value="scrape">URL Scrape</option>
                         <option value="search">Search</option>
+                        <option value="scrape">URL Scrape</option>
                     </select>
                     <button class="action-btn" onclick="startWorker('pinterest')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('pinterest')">STOP</button>
@@ -645,9 +651,9 @@
                 <div class="input-group" style="margin-bottom: 10px;">
                     <label>Mode:</label>
                     <select id="pixivMode" style="width: 120px;" onchange="updatePixivMode()">
+                        <option value="search">Search</option>
                         <option value="artworks">Artworks</option>
                         <option value="bookmark">Bookmarks</option>
-                        <option value="search">Search</option>
                         <option value="ranking">Ranking</option>
                     </select>
 
@@ -843,7 +849,7 @@
                     <select id="yandeRating" style="width: 110px;">
                         <option value="">All Ratings</option>
                         <option value="rating:s">Safe</option>
-                        <option value="rating:q">Moderate</option>
+                        <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
                     <button class="action-btn" onclick="startWorker('yande')">START</button>

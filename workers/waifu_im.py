@@ -24,8 +24,8 @@ class WaifuImWorker(BaseWorker):
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        self.subdir = "NSFW" if is_nsfw else "Safe"
-        os.makedirs(os.path.join(self.tag_dir, self.subdir), exist_ok=True)
+        for sub in ("Safe", "NSFW"):
+            os.makedirs(os.path.join(self.tag_dir, sub), exist_ok=True)
 
     def get_tags(self):
         return [self.original_tag]
@@ -43,13 +43,14 @@ class WaifuImWorker(BaseWorker):
         page = 1
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected_count < self.amount):
-            params = {"IncludedTags": self.slug, "page": page}
+            # ponytail: API shuffles per request, so tags > pageSize can dupe/miss across pages; dedupe keeps it correct, bump pageSize if big tags matter
+            params = {"IncludedTags": self.slug, "pageSize": 50, "page": page}
             if self.is_nsfw:
-                params["IsNsfw"] = "true"
+                params["IsNsfw"] = "all"
 
             try:
                 self.log(f"Scanning API... (Page {page})")
-                resp = await self.session.get("https://api.waifu.im/images", params=params)
+                resp = await self.session.get("https://api.waifu.im/images", params=params, headers={"User-Agent": "Mozilla/5.0"})
                 if resp.status == 404:
                     self.log("ERROR 404: Tag not found!")
                     break
@@ -81,9 +82,19 @@ class WaifuImWorker(BaseWorker):
                     continue
 
                 filename = url.split('/')[-1]
-                filepath = os.path.join(self.tag_dir, self.subdir, filename)
+                subdir = "NSFW" if img.get("isNsfw") else "Safe"
+                filepath = os.path.join(self.tag_dir, subdir, filename)
 
-                if await self.enqueue_download(url, filepath, filename, [self.original_tag], []):
+                tags = [t.get("slug", "").replace("-", "_") for t in img.get("tags", []) if t.get("slug")]
+                if self.original_tag not in tags:
+                    tags.append(self.original_tag)
+                if img.get("isNsfw"):
+                    tags.append("rating:e")
+                else:
+                    tags.append("rating:g")
+                artists = [a.get("name", "") for a in img.get("artists", []) if a.get("name")]
+
+                if await self.enqueue_download(url, filepath, filename, tags, artists):
                     collected_count += 1
 
             page += 1

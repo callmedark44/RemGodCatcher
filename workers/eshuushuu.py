@@ -133,7 +133,14 @@ class EShuushuuWorker(BaseDownloader):
                     if ext in ("jpg", "jpeg", "png", "webp") and "-image" in self.exclusions: continue
                     if ext == "gif" and "-gif" in self.exclusions: continue
 
-                    tags = re.findall(r'title:"([^"]+)"', ph)
+                    tags_raw = re.findall(r'\{tag_id:\d+,title:"([^"]+)",type:(\d+),', ph)
+                    artists, characters, copyrights, general = [], [], [], []
+                    for title, ttype in tags_raw:
+                        if ttype == "3": artists.append(title)
+                        elif ttype == "4": characters.append(title)
+                        elif ttype == "2": copyrights.append(title)
+                        else: general.append(title)
+
                     out_name = f"{img_id}.{ext}"
 
                     if self.user_id and username:
@@ -144,9 +151,8 @@ class EShuushuuWorker(BaseDownloader):
                         download_dir = self.tag_dir
                     os.makedirs(download_dir, exist_ok=True)
                     filepath = os.path.join(download_dir, out_name)
-                    artists = [f"__user__:{username}"] if username else []
 
-                    if await self.enqueue_download(cdn_url, filepath, out_name, tags, artists):
+                    if await self.enqueue_download(cdn_url, filepath, out_name, general, artists, characters, copyrights, []):
                         collected += 1
 
                 except Exception as e:

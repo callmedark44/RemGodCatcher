@@ -1,6 +1,7 @@
 import os, re
 import asyncio
 from workers import BaseWorker
+from shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
 
 
 class GelbooruWorker(BaseWorker):
@@ -24,6 +25,8 @@ class GelbooruWorker(BaseWorker):
         self.tag_dir = os.path.join(self.site_root, self.safe_tag_name)
         os.makedirs(self.tag_dir, exist_ok=True)
 
+        self.tag_cache = load_tag_cache("gelbooru")
+
     def get_tags(self):
         return [self.original_tag]
 
@@ -32,6 +35,48 @@ class GelbooruWorker(BaseWorker):
 
     async def fetch_posts(self):
         await self.scraper_task()
+
+    async def _fetch_tag_types(self, tag_names):
+        api_key = os.getenv("GELBOORU_API_KEY", "")
+        user_id = os.getenv("GELBOORU_USER_ID", "")
+        uncached = [t for t in tag_names if t not in self.tag_cache]
+        if not uncached:
+            return
+        sem = asyncio.Semaphore(4)
+        async def query_one(tag_name):
+            async with sem:
+                params = {"page": "dapi", "s": "tag", "q": "index", "name": tag_name, "json": 1}
+                if api_key and user_id:
+                    params["api_key"] = api_key
+                    params["user_id"] = user_id
+                try:
+                    resp = await self.session.get("https://gelbooru.com/index.php", params=params)
+                    if resp.status == 200:
+                        data = await resp.json()
+                        tags = data.get("tag", [])
+                        if tags:
+                            t = tags[0]
+                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(t.get("type", 0), "tag")
+                        else:
+                            self.tag_cache[tag_name] = "tag"
+                    else:
+                        self.tag_cache[tag_name] = "tag"
+                except Exception:
+                    self.tag_cache[tag_name] = "tag"
+                await asyncio.sleep(0.2)
+        await asyncio.gather(*[query_one(t) for t in uncached])
+        save_tag_cache(self.tag_cache, "gelbooru")
+
+    def _categorize_tags(self, tag_names):
+        artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
+        for t in tag_names:
+            cat = self.tag_cache.get(t, "tag")
+            if cat == "artist": artists.append(t)
+            elif cat == "character": characters.append(t)
+            elif cat == "copyright": copyrights.append(t)
+            elif cat == "metadata": metadata_tags.append(t)
+            else: general.append(t)
+        return general, artists, characters, copyrights, metadata_tags
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
@@ -72,6 +117,17 @@ class GelbooruWorker(BaseWorker):
                 await asyncio.sleep(5)
                 continue
 
+            all_tags = set()
+            for post in posts:
+                if isinstance(post, dict):
+                    for t in post.get("tags", "").split():
+                        all_tags.add(t.strip())
+            if all_tags:
+                uncached_count = len([t for t in all_tags if t not in self.tag_cache])
+                if uncached_count:
+                    self.log(f"Categorizing {len(all_tags)} tags ({uncached_count} uncached)...")
+                    await self._fetch_tag_types(all_tags)
+
             had_valid = False
             for post in posts:
                 if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount): break
@@ -93,15 +149,14 @@ class GelbooruWorker(BaseWorker):
                 filename = file_url.split('/')[-1].split('?')[0]
                 rating_label = self.rating_label_map.get(post_rating, "Unknown")
 
-                tags_list = [t.strip() for t in post.get("tags", "").split() if t.strip()]
-                artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
-                tags_list = [t for t in tags_list if not t.startswith("artist:")]
+                raw_tags = [t.strip() for t in post.get("tags", "").split() if t.strip()]
+                tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(raw_tags)
 
                 rating_dir = os.path.join(self.tag_dir, rating_label, "images")
                 os.makedirs(rating_dir, exist_ok=True)
                 filepath = os.path.join(rating_dir, filename)
 
-                if await self.enqueue_download(file_url, filepath, filename, tags_list, artists):
+                if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

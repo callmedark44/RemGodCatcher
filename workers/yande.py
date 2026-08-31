@@ -1,6 +1,8 @@
 import os, re
 import asyncio
+import xml.etree.ElementTree as ET
 from workers import BaseWorker
+import shared
 
 
 class YandeWorker(BaseWorker):
@@ -13,7 +15,7 @@ class YandeWorker(BaseWorker):
         if self.rating:
             self.api_tag = f"{self.original_tag} {self.rating}".strip()
 
-        self.rating_map = {"s": "Safe", "q": "Moderate", "e": "NSFW"}
+        self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
         FORMAT_WORDS = {"video", "image"}
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
@@ -29,6 +31,40 @@ class YandeWorker(BaseWorker):
 
     async def fetch_posts(self):
         await self.scraper_task()
+
+    async def _fetch_tag_types(self, tag_names):
+        cache = shared.load_tag_cache("yande")
+        uncached = [t for t in tag_names if t not in cache]
+        if uncached:
+            self.log(f"Fetching types for {len(uncached)} tags...")
+            for tag_name in uncached:
+                try:
+                    resp = await self.session.get("https://yande.re/tag.xml", params={
+                        "name": tag_name, "limit": 1
+                    })
+                    if resp.status != 200:
+                        cache[tag_name] = 0
+                        continue
+                    text = await resp.text()
+                    root = ET.fromstring(text)
+                    tag_el = root.find("tag")
+                    if tag_el is not None:
+                        tag_type = int(tag_el.get("type", 0))
+                    else:
+                        tag_type = 0
+                    cache[tag_name] = tag_type
+                except Exception:
+                    cache[tag_name] = 0
+            shared.save_tag_cache(cache, "yande")
+        return cache
+
+    def _categorize_tags(self, tag_names, cache):
+        result = {"artist": [], "character": [], "copyright": [], "metadata": [], "tag": []}
+        for t in tag_names:
+            tag_type = cache.get(t, 0)
+            category = shared.TAG_TYPE_MAP.get(tag_type, "tag")
+            result[category].append(t)
+        return result
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
@@ -76,6 +112,15 @@ class YandeWorker(BaseWorker):
                 await asyncio.sleep(5)
                 continue
 
+            all_tag_names = set()
+            for post in posts:
+                if not isinstance(post, dict):
+                    continue
+                tags_raw = post.get("tags", "")
+                all_tag_names.update(t.strip() for t in tags_raw.split() if t.strip())
+
+            cache = await self._fetch_tag_types(all_tag_names)
+
             had_valid = False
             for post in posts:
                 if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
@@ -104,11 +149,19 @@ class YandeWorker(BaseWorker):
                 filepath = os.path.join(rating_dir, filename)
 
                 tags_raw = post.get("tags", "")
-                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-                artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
-                tags_list = [t for t in tags_list if not t.startswith("artist:")]
+                tag_names = [t.strip() for t in tags_raw.split() if t.strip()]
+                cats = self._categorize_tags(tag_names, cache)
+                artists = cats["artist"]
+                characters = cats["character"]
+                copyrights = cats["copyright"]
+                metadata_tags = cats["metadata"]
+                tags_list = cats["tag"]
+                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
+                rt = rating_tag_map.get(post_rating)
+                if rt:
+                    tags_list.append(rt)
 
-                if await self.enqueue_download(url, filepath, filename, tags_list, artists):
+                if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

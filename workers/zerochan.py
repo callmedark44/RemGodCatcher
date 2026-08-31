@@ -1,10 +1,67 @@
 import os, re, urllib.parse, subprocess
 import asyncio
+from html.parser import HTMLParser
 from requests.adapters import HTTPAdapter
 from shared import BaseDownloader
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+class _ZerochanTagParser(HTMLParser):
+    """Parse categorized tags from Zerochan post HTML."""
+
+    def __init__(self):
+        super().__init__()
+        self.tags = []
+        self._in_tag_list = False
+        self._current_tag = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+
+        if tag == "ul" and attrs_dict.get("id") == "tags":
+            self._in_tag_list = True
+            return
+
+        if self._in_tag_list and tag == "li":
+            classes = attrs_dict.get("class", "").split()
+            data_tag = attrs_dict.get("data-tag", "")
+
+            if data_tag and classes:
+                category = classes[0]
+                primary = "primary" in classes
+                favorite = "fav" in classes
+                self._current_tag = {
+                    "tag": data_tag,
+                    "category": category,
+                    "primary": primary,
+                    "favorite": favorite,
+                }
+
+    def handle_endtag(self, tag):
+        if tag == "ul" and self._in_tag_list:
+            self._in_tag_list = False
+        if tag == "li" and self._current_tag is not None:
+            self.tags.append(self._current_tag)
+            self._current_tag = None
+
+
+def parse_zerochan_tags(html):
+    """Extract categorized tags from raw Zerochan post HTML.
+
+    Returns a list of dicts:
+        [{"tag": "Mavuika", "category": "character", "primary": True, "favorite": False}, ...]
+
+    The category comes from the actual CSS class on the <li>, so new
+    categories added by Zerochan are handled automatically.
+    """
+    parser = _ZerochanTagParser()
+    try:
+        parser.feed(html)
+    except Exception:
+        pass
+    return parser.tags
 
 
 def _derive_img_url(item):
@@ -66,101 +123,146 @@ class ZerochanWorker(BaseDownloader):
         self.log(f"Configured: tag='{self.original_tag}' encoded='{self.encoded_tag}' "
                  f"amount={amount} UA='{self.ua}'")
 
-    def _gallery_dl_enumerate(self, tag):
-        """Enumerate all post IDs for a tag via gallery-dl (primary source)."""
+    def _gallery_dl_enumerate(self, tag, page=1):
+        """Fetch one page of posts via gallery-dl."""
+        import json as _json
+        import threading
+
         username = self._zerochan_user
         password = self._zerochan_pass
-        cmd = ["gallery-dl", "--cookies-from-browser", "chrome"]
+
+        base_cmd = ["gallery-dl", "--cookies-from-browser", "chrome"]
 
         if username and password:
-            cmd.extend(["-u", username, "-p", password])
-            self.log("Using Zerochan credentials for gallery-dl.")
+            base_cmd.extend(["-u", username, "-p", password])
         else:
             self.log("For more access, please set your Zerochan Login in the Settings tab.")
 
         if self.net_config.get("use_proxy"):
-            cmd.extend(["--proxy", self.net_config["proxy_url"]])
-            
-        # ponytail: no --range, no early stop — enumerate ALL posts so the
-        # worker loop can skip past duplicates until amount is reached
-        cmd.extend(["-g", f"https://www.zerochan.net/{tag}"])
-        self.log(f"Running gallery-dl enumeration for '{tag}'...")
-        import threading
+            base_cmd.extend(["--proxy", self.net_config["proxy_url"]])
+
+        base_cmd.extend([
+            "-j",
+            "-o", "extractor.zerochan.metadata=true",
+            "-o", "extractor.zerochan.page-html=true",
+        ])
+
+        PAGE_SIZE = 2
+        start = (page - 1) * PAGE_SIZE + 1
+        end = page * PAGE_SIZE
+
+        cmd = base_cmd + [
+            "--range", f"{start}-{end}",
+            f"https://www.zerochan.net/{tag}",
+        ]
+
+        proc = None
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
             watchdog = threading.Timer(600, proc.kill)
             watchdog.start()
-            post_ids, seen = [], set()
-            for line in proc.stdout:
-                line = line.strip()
-                if line.startswith('https://static.zerochan.net/.full.'):
-                    parts = line.split('.full.')
-                    if len(parts) > 1:
-                        pid_str = parts[-1].split('.')[0]
-                        if pid_str.isdigit():
-                            pid = int(pid_str)
-                            if pid not in seen:
-                                seen.add(pid)
-                                post_ids.append(pid)
+            stdout, _ = proc.communicate(timeout=580)
             watchdog.cancel()
-            proc.communicate()
-            self.log(f"gallery-dl found {len(post_ids)} posts for '{tag}'")
-            return post_ids
-        except FileNotFoundError:
-            self.log("gallery-dl not installed")
-            return []
+
+            data = _json.loads(stdout)
+
+            posts = []
+            seen = set()
+            for msg in data:
+                if not isinstance(msg, list) or len(msg) < 2:
+                    continue
+                msg_type = msg[0]
+                if msg_type == 3 and len(msg) >= 3:
+                    kwdict = msg[2] if isinstance(msg[2], dict) else {}
+                elif msg_type == 2 and isinstance(msg[1], dict):
+                    kwdict = msg[1]
+                else:
+                    continue
+                pid = kwdict.get("id")
+                if pid is None or pid in seen:
+                    continue
+                seen.add(pid)
+                posts.append(kwdict)
+
+            self.log(f"Page {page}: {len(posts)} posts")
+            return posts
+
         except Exception as e:
-            err = ""
-            try: err = (proc.stderr.read() or "").strip()
-            except Exception: pass
-            self.log(f"gallery-dl failed for '{tag}': {e} {err[:200]}")
+            if proc and proc.poll() is None:
+                proc.kill()
+            self.log(f"gallery-dl page {page} failed: {e}")
             return []
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.original_tag}'")
         collected_count = 0
+        page = 1
+        MAX_PAGES = 50
 
-        ids = await asyncio.to_thread(self._gallery_dl_enumerate, self.encoded_tag)
-        if not ids:
-            self.log("No posts found via gallery-dl.")
-        else:
-            self.log(f"gallery-dl found {len(ids)} posts. Fetching details...")
-
-        for pid in ids:
-            if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
+        while page <= MAX_PAGES:
+            if self.stop_event.is_set():
+                break
+            if self.amount > 0 and collected_count >= self.amount:
                 break
 
-            try:
-                det_resp = await asyncio.to_thread(
-                    self.req_session.get,
-                    f"https://www.zerochan.net/{pid}?json",
-                    timeout=30
-                )
-                det_resp.raise_for_status()
-                json_data = det_resp.json()
-            except Exception as e:
-                self.log(f"Failed to get details for post {pid}: {e}")
-                continue
+            posts = await asyncio.to_thread(self._gallery_dl_enumerate, self.encoded_tag, page)
+            if not posts:
+                self.log("No more posts available from gallery-dl.")
+                break
 
-            img_url = _derive_img_url(json_data)
-            if not img_url:
-                self.log(f"No image URL found for post {pid}, skipping.")
-                continue
+            enqueued_this_page = 0
+            for post in posts:
+                if self.stop_event.is_set():
+                    break
+                if self.amount > 0 and collected_count >= self.amount:
+                    break
 
-            tags_raw = json_data.get("tags", [])
-            if isinstance(tags_raw, str):
-                tags_list = [t.strip() for t in tags_raw.replace(",", " ").split() if t.strip()]
-            else:
-                tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+                try:
+                    pid = post.get("id")
+                    img_url = post.get("file_url")
 
-            filename = urllib.parse.unquote(img_url.split('/')[-1])
-            filepath = os.path.join(self.tag_dir, filename)
+                    if not img_url:
+                        img_url = _derive_img_url(post)
+                    if not img_url:
+                        self.log(f"No image URL found for post {pid}, skipping.")
+                        continue
 
-            if await self.enqueue_download(img_url, filepath, filename, tags_list, []):
-                collected_count += 1
-                self.log(f"Enqueued download for {filename} "
-                         f"(total enqueued: {collected_count})")
-            await asyncio.sleep(self.anti_ban_pause)
+                    page_html = post.get("page_html", "")
+                    if page_html:
+                        categorized = parse_zerochan_tags(page_html)
+                        artists = [t["tag"] for t in categorized if t["category"] in ("mangaka",)]
+                        characters = [t["tag"] for t in categorized if t["category"] in ("character",)]
+                        copyrights = [t["tag"] for t in categorized if t["category"] in ("game",)]
+                        metadata_tags = [t["tag"] for t in categorized if t["category"] in ("meta",)]
+                        tags_list = [t["tag"] for t in categorized if t["category"] in ("theme", "source", "vtuber", "outfit", "series", "group", "studio")]
+                    else:
+                        tags_raw = post.get("tags", [])
+                        artists = []
+                        characters = []
+                        copyrights = []
+                        metadata_tags = []
+                        if isinstance(tags_raw, str):
+                            tags_list = [t.strip() for t in tags_raw.replace(",", " ").split() if t.strip()]
+                        else:
+                            tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
+
+                    filename = urllib.parse.unquote(img_url.split('/')[-1])
+                    filepath = os.path.join(self.tag_dir, filename)
+
+                    if await self.enqueue_download(img_url, filepath, filename, tags_list, artists=artists, characters=characters, copyrights=copyrights, metadata_tags=metadata_tags):
+                        collected_count += 1
+                        enqueued_this_page += 1
+                        self.log(f"Enqueued {filename} ({collected_count}/{self.amount})")
+                    await asyncio.sleep(self.anti_ban_pause)
+
+                except Exception as e:
+                    self.log(f"Error processing post {post.get('id', '?')}: {e}")
+                    continue
+
+            self.log(f"Page {page}: enqueued {enqueued_this_page} new images (total: {collected_count})")
+            page += 1
 
         actual = collected_count + (self.download_queue.qsize() if self.download_queue else 0)
         if actual == 0:

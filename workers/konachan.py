@@ -1,6 +1,7 @@
 import os, re, hashlib
 import asyncio
 from workers import BaseWorker
+from shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
 
 
 class KonachanWorker(BaseWorker):
@@ -9,6 +10,7 @@ class KonachanWorker(BaseWorker):
         self.original_tag = tag.strip().lower()
         self.rating = rating
         self.exclusions = exclusions
+        self.tag_cache = load_tag_cache("konachan")
 
         self.api_tag = self.original_tag
         if self.rating:
@@ -30,6 +32,43 @@ class KonachanWorker(BaseWorker):
     async def fetch_posts(self):
         await self.scraper_task()
 
+    async def _fetch_tag_types(self, tag_names):
+        uncached = [t for t in tag_names if t not in self.tag_cache]
+        if not uncached:
+            return
+        sem = asyncio.Semaphore(4)
+        async def query_one(tag_name):
+            async with sem:
+                try:
+                    resp = await self.session.get(
+                        "https://konachan.com/tag.json",
+                        params={"name": tag_name, "order": "count"}
+                    )
+                    if resp.status == 200:
+                        tags = await resp.json()
+                        if tags:
+                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(tags[0].get("type", 0), "tag")
+                        else:
+                            self.tag_cache[tag_name] = "tag"
+                    else:
+                        self.tag_cache[tag_name] = "tag"
+                except Exception:
+                    self.tag_cache[tag_name] = "tag"
+                await asyncio.sleep(0.2)
+        await asyncio.gather(*[query_one(t) for t in uncached])
+        save_tag_cache(self.tag_cache, "konachan")
+
+    def _categorize_tags(self, tag_names):
+        artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
+        for t in tag_names:
+            cat = self.tag_cache.get(t, "tag")
+            if cat == "artist": artists.append(t)
+            elif cat == "character": characters.append(t)
+            elif cat == "copyright": copyrights.append(t)
+            elif cat == "metadata": metadata_tags.append(t)
+            else: general.append(t)
+        return general, artists, characters, copyrights, metadata_tags
+
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.api_tag}'")
 
@@ -37,7 +76,6 @@ class KonachanWorker(BaseWorker):
         kona_user = os.getenv("KONACHAN_USERNAME", "")
         kona_pass = os.getenv("KONACHAN_PASSWORD", "")
         if kona_user and kona_pass:
-            # moebooru salt per their API docs
             pw_hash = hashlib.sha1(f"So-I-Heard-You-Like-Mupkids-?--{kona_pass}--".encode()).hexdigest()
             auth = {"login": kona_user, "password_hash": pw_hash}
             self.log(f"Authenticating as '{kona_user}' (needed for questionable/explicit).")
@@ -93,6 +131,18 @@ class KonachanWorker(BaseWorker):
                 continue
 
             had_valid = False
+
+            all_tags = set()
+            for post in posts:
+                if isinstance(post, dict):
+                    for t in post.get("tags", "").split():
+                        all_tags.add(t.strip())
+            if all_tags:
+                uncached_count = len([t for t in all_tags if t not in self.tag_cache])
+                if uncached_count:
+                    self.log(f"Categorizing {len(all_tags)} tags ({uncached_count} uncached)...")
+                    await self._fetch_tag_types(all_tags)
+
             for post in posts:
                 if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
                     break
@@ -127,10 +177,14 @@ class KonachanWorker(BaseWorker):
 
                 tags_raw = post.get("tags", "")
                 tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-                artists = [t.replace("artist:", "", 1) for t in tags_list if t.startswith("artist:")]
-                tags_list = [t for t in tags_list if not t.startswith("artist:")]
+                tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(tags_list)
 
-                if await self.enqueue_download(url, filepath, filename, tags_list, artists):
+                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
+                rt = rating_tag_map.get(post_rating)
+                if rt:
+                    tags_list.append(rt)
+
+                if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

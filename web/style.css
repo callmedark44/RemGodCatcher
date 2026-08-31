@@ -647,7 +647,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 @keyframes toastSlideOut { 0% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
 
 /* ===== GALLERY TAB (Do not touch) ===== */
-.gallery-tab { background: #0f1420; border: 1px solid rgba(45, 212, 191, 0.3); border-radius: 8px; gap: 0 !important; padding: 12px; flex-direction: column !important; overflow: hidden; }
+.gallery-tab { background: #0f1420; border: 1px solid rgba(45, 212, 191, 0.3); border-radius: 8px; gap: 0 !important; padding: 12px; flex-direction: column !important; }
 .gallery-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-bottom: 10px; flex-shrink: 0; }
 .gallery-toolbar select, .gallery-toolbar input { background: #0a0e17; border: 1px solid rgba(45, 212, 191, 0.25); border-radius: 6px; color: #e0e0e0; padding: 6px 10px; font-size: 13px; outline: none; }
 .gallery-dropdown { position: relative; display: inline-block; }
@@ -741,6 +741,39 @@ select option:hover, select option:checked { background: var(--title-color); col
 .g-meta-tags::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
 .g-tag-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 20px; font-size: 11px; cursor: pointer; transition: 0.2s; white-space: nowrap; color: #ccc;}
 .g-tag-pill:hover { background: var(--title-color); color: #000; border-color: var(--title-color); }
+
+/* Tag category colors */
+.tag-artist { background: rgba(255, 140, 0, 0.15); border-color: rgba(255, 140, 0, 0.4); color: #e67e00; }
+.tag-artist:hover { background: #e67e00; color: #000; border-color: #e67e00; }
+.tag-character { background: rgba(0, 128, 0, 0.15); border-color: rgba(0, 128, 0, 0.4); color: #228b22; }
+.tag-character:hover { background: #228b22; color: #000; border-color: #228b22; }
+.tag-copyright { background: rgba(255, 105, 180, 0.15); border-color: rgba(255, 105, 180, 0.4); color: #ff69b4; }
+.tag-copyright:hover { background: #ff69b4; color: #000; border-color: #ff69b4; }
+.tag-metadata { background: rgba(255, 165, 0, 0.15); border-color: rgba(255, 165, 0, 0.4); color: #ffa500; }
+.tag-metadata:hover { background: #ffa500; color: #000; border-color: #ffa500; }
+.tag-tag { background: rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); color: #00e5e5; }
+.tag-tag:hover { background: #00e5e5; color: #000; border-color: #00e5e5; }
+.tag-mangaka { background: rgba(255, 69, 0, 0.15); border-color: rgba(255, 69, 0, 0.4); color: #ff4500; }
+.tag-mangaka:hover { background: #ff4500; color: #000; border-color: #ff4500; }
+.tag-game { background: rgba(138, 43, 226, 0.15); border-color: rgba(138, 43, 226, 0.4); color: #b266e6; }
+.tag-game:hover { background: #8a2be2; color: #000; border-color: #8a2be2; }
+.tag-outfit { background: rgba(219, 112, 147, 0.15); border-color: rgba(219, 112, 147, 0.4); color: #db7093; }
+.tag-outfit:hover { background: #db7093; color: #000; border-color: #db7093; }
+.tag-theme { background: rgba(65, 105, 225, 0.15); border-color: rgba(65, 105, 225, 0.4); color: #6495ed; }
+.tag-theme:hover { background: #4169e1; color: #000; border-color: #4169e1; }
+.tag-source { background: rgba(169, 169, 169, 0.15); border-color: rgba(169, 169, 169, 0.4); color: #a9a9a9; }
+.tag-source:hover { background: #a9a9a9; color: #000; border-color: #a9a9a9; }
+.tag-meta { background: rgba(128, 128, 128, 0.15); border-color: rgba(128, 128, 128, 0.4); color: #999; }
+.tag-meta:hover { background: #808080; color: #000; border-color: #808080; }
+.tag-vtuber { background: rgba(255, 110, 199, 0.15); border-color: rgba(255, 110, 199, 0.4); color: #ff6ec7; }
+.tag-vtuber:hover { background: #ff6ec7; color: #000; border-color: #ff6ec7; }
+.tag-series { background: rgba(0, 191, 255, 0.15); border-color: rgba(0, 191, 255, 0.4); color: #00bfff; }
+.tag-series:hover { background: #00bfff; color: #000; border-color: #00bfff; }
+.tag-group { background: rgba(189, 183, 107, 0.15); border-color: rgba(189, 183, 107, 0.4); color: #bdb76b; }
+.tag-group:hover { background: #bdb76b; color: #000; border-color: #bdb76b; }
+.tag-studio { background: rgba(188, 143, 143, 0.15); border-color: rgba(188, 143, 143, 0.4); color: #bc8f8f; }
+.tag-studio:hover { background: #bc8f8f; color: #000; border-color: #bc8f8f; }
+
 .g-expand-hint { font-size: 10px; color: #888; margin-left: 10px; animation: gPulse 2s infinite; display: inline-block;}
 @keyframes gPulse { 0% {opacity: 0.4;} 50% {opacity: 1;} 100% {opacity: 0.4;} }
 

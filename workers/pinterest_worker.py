@@ -48,6 +48,9 @@ class PinterestWorker(BaseWorker):
 
     async def _create_session(self):
         """Pinterest uses its own library, not aiohttp – return None."""
+        self.proxy = None
+        if self.net_config.get("use_proxy"):
+            self.proxy = self.net_config.get("proxy_url")
         return None
 
     def _apply_proxy(self, session):
@@ -175,15 +178,6 @@ class PinterestWorker(BaseWorker):
             try:
                 path = await asyncio.to_thread(downloader.download, media, Path(self.site_root), download_streams=True)
                 filename = os.path.basename(path)
-
-                # pHash dedupe: delete the new file if an identical image is already saved
-                try:
-                    is_dup, orig = await asyncio.to_thread(shared.register_download_hash, str(path))
-                except Exception:
-                    is_dup, orig = False, None
-                if is_dup:
-                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
-                    continue
 
                 rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
                 tags = [media.alt] if media.alt else []

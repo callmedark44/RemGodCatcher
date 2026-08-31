@@ -58,20 +58,31 @@ class DatabaseManager:
     # --- Image History ---
     @staticmethod
     def load_image_history():
-        return DatabaseManager.load_json(IMAGE_HISTORY_FILE)
+        from shared import tags_dict_from_lists
+        data = DatabaseManager.load_json(IMAGE_HISTORY_FILE)
+        changed = False
+        for entry in data:
+            tags = entry.get("tags")
+            if isinstance(tags, list):
+                entry["tags"] = tags_dict_from_lists(tags, entry.get("artists", []))
+                changed = True
+        if changed:
+            DatabaseManager.save_image_history(data)
+        return data
 
     @staticmethod
     def save_image_history(data):
         DatabaseManager.save_json(IMAGE_HISTORY_FILE, data)
 
     @staticmethod
-    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None):
+    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
+        from shared import tags_dict_from_lists
         hist = DatabaseManager.load_image_history()
+        tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags)
         entry = {
             "site": worker_name,
             "filename": filename,
-            "tags": [t.strip() for t in tags_list if t.strip()],
-            "artists": [a.strip() for a in artist_list if a.strip()],
+            "tags": dict(tags_dict),
             "filepath": filepath
         }
         hist.insert(0, entry)
@@ -189,6 +200,16 @@ class DatabaseManager:
     @staticmethod
     def load_gelbooru_tags():
         return DatabaseManager._load_tag_db("gelbooru_tag_names.json")
+
+    @staticmethod
+    def load_gsbooru_tags():
+        tags = DatabaseManager._load_tag_db("gsbooru_tag_names.json")
+        if not tags:
+            return []
+        # gsbooru format: [{"count": N, "tag": "name"}, ...]
+        if isinstance(tags[0], dict):
+            return [t.get("tag", "") for t in tags if isinstance(t, dict) and t.get("tag")]
+        return tags
 
     @staticmethod
     def load_sankaku_tags():
@@ -319,7 +340,6 @@ class SettingsManager:
             "RULE34_USER_ID": data.get("rule34_user_id", ""),
             "GELBOORU_API_KEY": data.get("gelbooru_api_key", ""),
             "GELBOORU_USER_ID": data.get("gelbooru_user_id", ""),
-            "GSBOORU_API_KEY": data.get("gsbooru_api_key", ""),
             "KONACHAN_USERNAME": data.get("konachan_login", ""),
             "KONACHAN_PASSWORD": data.get("konachan_password", ""),
             "SANKA_LOGIN": data.get("sanka_login", ""),
@@ -349,7 +369,6 @@ class SettingsManager:
             "rule34_user_id": config.get("RULE34_USER_ID", ""),
             "gelbooru_api_key": config.get("GELBOORU_API_KEY", ""),
             "gelbooru_user_id": config.get("GELBOORU_USER_ID", ""),
-            "gsbooru_api_key": config.get("GSBOORU_API_KEY", ""),
             "konachan_login": config.get("KONACHAN_USERNAME", ""),
             "konachan_password": config.get("KONACHAN_PASSWORD", ""),
             "sanka_login": config.get("SANKA_LOGIN", ""),

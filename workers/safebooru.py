@@ -1,6 +1,8 @@
 import os, re
 import asyncio
+import xml.etree.ElementTree as ET
 from workers import BaseWorker
+import shared
 
 
 class SafebooruWorker(BaseWorker):
@@ -22,6 +24,45 @@ class SafebooruWorker(BaseWorker):
 
     async def fetch_posts(self):
         await self.scraper_task()
+
+    async def _fetch_tag_types(self, tag_names):
+        cache = shared.load_tag_cache("safebooru")
+        uncached = [t for t in tag_names if t not in cache]
+        if uncached:
+            self.log(f"Fetching types for {len(uncached)} tags...")
+            for i in range(0, len(uncached), 100):
+                batch = uncached[i:i+100]
+                for tag_name in batch:
+                    try:
+                        resp = await self.session.get("https://safebooru.org/index.php", params={
+                            "page": "dapi", "s": "tag", "q": "index",
+                            "name": tag_name, "limit": 1
+                        })
+                        if resp.status != 200:
+                            cache[tag_name] = 0
+                            continue
+                        text = await resp.text()
+                        root = ET.fromstring(text)
+                        tag_el = root.find("tag")
+                        if tag_el is not None:
+                            tag_type = int(tag_el.get("type", 0))
+                        else:
+                            tag_type = 0
+                        cache[tag_name] = tag_type
+                    except Exception:
+                        cache[tag_name] = 0
+                if i + 100 < len(uncached):
+                    await asyncio.sleep(0.2)
+            shared.save_tag_cache(cache, "safebooru")
+        return cache
+
+    def _categorize_tags(self, tag_names, cache):
+        result = {"artist": [], "character": [], "copyright": [], "metadata": [], "tag": []}
+        for t in tag_names:
+            tag_type = cache.get(t, 0)
+            category = shared.TAG_TYPE_MAP.get(tag_type, "tag")
+            result[category].append(t)
+        return result
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.original_tag}'")
@@ -66,6 +107,15 @@ class SafebooruWorker(BaseWorker):
                 await asyncio.sleep(5)
                 continue
 
+            all_tag_names = set()
+            for post in posts:
+                if not isinstance(post, dict):
+                    continue
+                tags_raw = post.get("tag_string", post.get("tags", ""))
+                all_tag_names.update(t.strip() for t in tags_raw.split() if t.strip())
+
+            cache = await self._fetch_tag_types(all_tag_names)
+
             had_valid = False
             for post in posts:
                 if self.stop_event.is_set() or (self.amount > 0 and collected_count >= self.amount):
@@ -86,13 +136,21 @@ class SafebooruWorker(BaseWorker):
                     continue
 
                 filename = f"{post.get('id')}.{ext}"
-                filepath = os.path.join(self.tag_dir, filename)
+                safe_dir = os.path.join(self.tag_dir, "Safe", "images")
+                os.makedirs(safe_dir, exist_ok=True)
+                filepath = os.path.join(safe_dir, filename)
 
                 tags_raw = post.get("tag_string", post.get("tags", ""))
-                tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
-                artists = [t.strip() for t in post.get("tag_string_artist", "").split() if t.strip()]
+                tag_names = [t.strip() for t in tags_raw.split() if t.strip()]
+                cats = self._categorize_tags(tag_names, cache)
+                artists = cats["artist"]
+                characters = cats["character"]
+                copyrights = cats["copyright"]
+                metadata_tags = cats["metadata"]
+                tags_list = cats["tag"]
+                tags_list.append("rating:g")
 
-                if await self.enqueue_download(file_url, filepath, filename, tags_list, artists):
+                if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
 

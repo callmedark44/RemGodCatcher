@@ -1,7 +1,7 @@
 ﻿import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, register_download_hash
+from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -16,7 +16,7 @@ class AnimeDlWorker(BaseDownloader):
         
         self.curl_session = None
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -42,16 +42,6 @@ class AnimeDlWorker(BaseDownloader):
                     self.enqueued_count -= 1
                     return False
 
-                # pHash dedupe: delete the new file if an identical image is already saved
-                try:
-                    is_dup, orig = await asyncio.to_thread(register_download_hash, filepath)
-                except Exception:
-                    is_dup, orig = False, None
-                if is_dup:
-                    self.enqueued_count -= 1
-                    self.log(f"[DUPLICATE] {filename}: same image as '{orig}' — deleted.")
-                    return False
-
                 self.downloaded_count += 1
                 self.downloaded_bytes += len(resp.content)
                 self.dl_history.add(filename)
@@ -70,9 +60,9 @@ class AnimeDlWorker(BaseDownloader):
                 self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
 
                 # ponytail: metadata must land before gallery publish, else thumbs read a half-written file
-                write_image_metadata(filepath, tags_list, artists, self.name)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists)
-                send_tags(self.name, filename, tags_list, artists, rel_path)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
                 return True
 
             except Exception as e:
@@ -149,8 +139,21 @@ class AnimeDlWorker(BaseDownloader):
                 ext = file_url.rsplit(".", 1)[-1]
                 filename = f"{self.tag_slug}_{post_id}.{ext}"
                 filepath = os.path.join(self.tag_dir, filename)
-                
-                if await self.enqueue_download(dl_url, filepath, filename, [self.tag], []):
+
+                raw_tags = detail.get("tags", [])
+                artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
+                for t in raw_tags:
+                    tag_info = t.get("tag", {}) if isinstance(t, dict) else {}
+                    tag_name = tag_info.get("tag", "")
+                    tag_type = tag_info.get("type", 0)
+                    if not tag_name: continue
+                    if tag_type == 4: artists.append(tag_name)
+                    elif tag_type == 1: characters.append(tag_name)
+                    elif tag_type == 5: copyrights.append(tag_name)
+                    elif tag_type == 7: metadata_tags.append(tag_name)
+                    else: general.append(tag_name)
+
+                if await self.enqueue_download(dl_url, filepath, filename, general, artists, characters, copyrights, metadata_tags):
                     collected += 1
 
             if collected >= need or not posts: break

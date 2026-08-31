@@ -3,15 +3,19 @@ import asyncio
 from shared import BaseDownloader
 
 class NekosiaWorker(BaseDownloader):
-    def __init__(self, tag, amount, net_config):
+    def __init__(self, tag, amount, rating, net_config):
         super().__init__("nekosia", "Nekosia", amount, net_config)
         self.tag = tag.strip().lower() if tag else "catgirl"
+        self.rating = rating or "safe"
+        self.rating_label = {"safe": "Safe", "sensitive": "Sensitive"}.get(self.rating.lower(), "Safe")
         self.api_base = "https://api.nekosia.cat/api/v1/images"
         self.tag_dir = os.path.join(self.site_root, self.tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        self.rating_dir = os.path.join(self.tag_dir, self.rating_label)
+        os.makedirs(self.rating_dir, exist_ok=True)
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: {self.tag}")
+        self.log(f"Rating: {self.rating}")
 
         need = self.amount or 200
         collected = 0
@@ -20,6 +24,8 @@ class NekosiaWorker(BaseDownloader):
         while collected < need and not self.stop_event.is_set():
             # ponytail: nekosia.cat returns an empty array for count=1; always ask for >=2
             params = {"count": max(2, min(batch_size, need - collected))}
+            if self.rating:
+                params["rating"] = self.rating
 
             try:
                 # The endpoint is /api/v1/images/{category/tag}
@@ -54,14 +60,20 @@ class NekosiaWorker(BaseDownloader):
                 img_id = img.get("id", "unknown")
                 ext = url_data.get("extension", "jpg")
                 filename = f"{img_id}.{ext}"
-                filepath = os.path.join(self.tag_dir, filename)
+                filepath = os.path.join(self.rating_dir, filename)
                 
                 tags = img.get("tags", [])
+                rating_tag_map = {"safe": "rating:safe", "sensitive": "rating:s"}
+                rt = rating_tag_map.get(self.rating.lower())
+                if rt:
+                    tags = list(tags) + [rt]
                 attr = img.get("attribution", {})
                 artist_name = attr.get("artist", {}).get("username")
                 artists = [artist_name] if artist_name else []
+                copyright_str = attr.get("copyright", "")
+                copyrights = [copyright_str] if copyright_str else []
                 
-                if await self.enqueue_download(url, filepath, filename, tags, artists):
+                if await self.enqueue_download(url, filepath, filename, tags, artists, copyrights=copyrights):
                     collected += 1
 
             if collected >= need or not images: break
@@ -75,5 +87,5 @@ class NekosiaWorker(BaseDownloader):
         asyncio.run(self.run_async_loop(self.scraper_task))
         self.log("--- Worker Terminated ---")
 
-def worker_nekosia(tag, amount, net_config):
-    NekosiaWorker(tag, amount, net_config).run()
+def worker_nekosia(tag, amount, rating, net_config):
+    NekosiaWorker(tag, amount, rating, net_config).run()
