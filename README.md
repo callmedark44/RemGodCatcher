@@ -1,6 +1,6 @@
 <div align="center">
 
-# Rem God Catcher 5.0
+# Rem God Catcher 5.1
 
 **A massive multi-threaded image & media scraping application with a beautiful glass-morphism web UI.**
 
@@ -8,7 +8,7 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-5.0.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-5.1.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md)
 
@@ -16,7 +16,14 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 ---
 
-## ✨ New in Version 5.0
+## ✨ New in Version 5.1
+- **Zerochan Categorized Tags:** HTML tag parser extracts categories (mangaka, character, game, theme, source, vtuber, outfit, series, etc.) with color-coded badges.
+- **Rating System Fix:** All workers now properly tag ratings (`rating:g`, `rating:s`, `rating:q`, `rating:e`) for gallery filtering. Nekosapi, Nekosia, and Waifu.im added to rating filters.
+- **Zerochan Pagination:** Page-by-page gallery-dl enumeration — stops as soon as enough non-duplicate posts are found.
+- **Gallery-dl Patch:** Modified extractor included in `gallery_dl_patch/` for categorized tag parsing.
+- **GSBooru Rewrite:** Full tag caching and categorization for Gelbooru.
+
+## ✨ Previous (5.0)
 - **Beautiful Auto-Suggest:** Fully restyled interactive tag suggestions for ALL workers with keyboard support.
 - **Immersive Gallery:** "Focus Mode" for pure image viewing, instant next-image on delete.
 - **New Platforms:** Nekosia, NekosAPI, and e-shuushuu added to the fleet.
@@ -48,7 +55,7 @@ pip install gallery-dl
 bash gallery_dl_patch/install.sh
 ```
 
-### 3. Configure (Optional)
+### 4. Configure (Optional)
 
 Edit `.env` or use the **Options** tab in the Web UI:
 
@@ -104,7 +111,7 @@ Entering credentials in the **Settings** tab unlocks higher API limits and restr
 
 ## Features
 
-- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
+- **Multi-Platform** -- Built-in modules for 14 imageboard APIs
 - **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
 - **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
 - **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
@@ -113,6 +120,8 @@ Entering credentials in the **Settings** tab unlocks higher API limits and restr
 - **Real-Time Logs** -- Live console output via WebSocket (Socket.IO) with per-tab clear button
 - **Full UI Customization** -- Custom colors for text, accents, buttons, and tab backgrounds; per-tab wallpapers with dark/light mode
 - **Advanced Search** -- AND/OR tag queries, exclusions (`-video`, `-image`), custom sorting, category-based browsing
+- **Rating Filtering** -- Filter gallery by Safe/Sensitive/Questionable/NSFW across all platforms with proper rating tags
+- **Categorized Tags** -- Zerochan tags parsed into 10+ categories (mangaka, character, game, theme, source, vtuber, outfit, series, group, studio) with color-coded badges
 - **Anti-Ban Engine** -- Tactical delays, retry loops, rate-limit handling
 - **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
 - **API Key Management** -- Manage Rule34 credentials directly from the Web UI
@@ -128,12 +137,16 @@ Rem God Catcher/
 ├── Rem_catcher.py          # Python backend (Flask + Socket.IO)
 ├── shared.py               # Core utilities, tag handler, and logging bridge
 ├── workers/                # API-specific download modules
+├── gallery_dl_patch/       # Modified gallery-dl extractor for Zerochan
+│   ├── zerochan.py             # Patched extractor with page_html support
+│   └── install.sh              # Auto-installer script
 ├── tags.json               # Waifu.im tag database (name -> slug mapping)
 ├── database/               # Tag databases & user data
 │   ├── dan_tag_names.json      # Danbooru offline tag database
 │   ├── safe_tag_names.json     # Safebooru offline tag database
 │   ├── yande_tag_names.json    # Yande.re offline tag database
 │   ├── kona_tag_names.json     # Konachan offline tag database (82k+ tags)
+│   ├── tag_caches/             # Per-site tag type caches
 │   ├── tag_history.json        # Search history database (git-ignored)
 │   ├── fav_tags.json           # User favorites database (git-ignored)
 │   ├── image_history.json      # Per-image tag archive (git-ignored)
@@ -154,18 +167,22 @@ Rem God Catcher/
 
 ## Supported Platforms
 
-| Platform | Tags | NSFW | Notes |
-|----------|------|------|-------|
-| **Rule34** | Full search with AND/OR, exclusions, sorting, video format support | Yes | Requires API key for best results |
-| **Safebooru** | Standard tag search, video format support, artist extraction | No | May require proxy (Cloudflare) |
-| **Gelbooru** | Full search, format exclusions, video/GIF support, artist extraction | Yes | Danbooru-style rating system (Safe/Sensitive/Questionable/NSFW) |
-| **Danbooru** | Full tag search, rating filter, artist extraction, offline tag DB, video/image separation | Yes | Sorts into Safe/Sensitive/Questionable/NSFW folders, separates videos |
-| **Zerochan** | Tag search with live suggestions | No | Built-in retry & rate limiting |
-| **Waifu.im** | Name-to-slug conversion, NSFW toggle | Yes | Uses local `tags.json` for suggestions |
-| **Nekos.best** | Category-based (PNG / GIF) | No | Multiple format support |
-| **Nekos.life** | Category-based with type indicators (GIF/Static/Mixed) | Yes | Animated neko, hug, pat, cuddle, and more |
-| **Yande.re** | Full tag search, rating filter, artist extraction, local tag DB | Yes | Moebooru API, images only, sorts into Safe/Moderate/NSFW folders |
-| **Konachan** | Full tag search, rating filter, artist extraction, local tag DB, video/GIF format filtering | Yes | Moebooru API, sorts into Safe/Moderate/Explicit folders |
+| Platform | Tags | Ratings | Notes |
+|----------|------|---------|-------|
+| **Rule34** | AND/OR queries, exclusions, sorting, video format support | NSFW | Requires API key for best results |
+| **Safebooru** | Standard tag search, artist extraction, tag categorization | Safe | May require proxy (Cloudflare) |
+| **Gelbooru** | Full search, format exclusions, video/GIF support, artist extraction | All 4 | Uses Danbooru-style rating system |
+| **Danbooru** | Full tag search, artist extraction, offline tag DB, video/image separation | All 4 | Sorts into Safe/Sensitive/Questionable/NSFW folders |
+| **Zerochan** | HTML tag parser with 10+ categories (mangaka, character, theme, vtuber, etc.) | None | Uses patched gallery-dl, page-by-page enumeration |
+| **Waifu.im** | Name-to-slug conversion, NSFW toggle | Safe/NSFW | Uses local `tags.json` for suggestions |
+| **Nekos.best** | Category-based (PNG / GIF) | None | Multiple format support |
+| **Nekos.life** | Category-based with type indicators (GIF/Static/Mixed) | None | Animated neko, hug, pat, cuddle, and more |
+| **Yande.re** | Full tag search, artist extraction, local tag DB | Safe/Questionable/NSFW | Moebooru API, images only |
+| **Konachan** | Full tag search, artist extraction, local tag DB, video/GIF format filtering | Safe/Questionable/NSFW | Moebooru API |
+| **NekosAPI** | Tag search, artist extraction | All 4 | REST API with rating filter |
+| **Nekosia** | Tag search, artist extraction | Safe/Sensitive | REST API |
+| **e-shuushuu** | Tag search | None | XML API |
+| **Pinterest** | Board-based scraping | None | Requires cookies for auth |
 
 ---
 
