@@ -39,6 +39,15 @@ cd RemGodCatcher
 pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
 ```
 
+### 3. Install gallery-dl Patch (Required for Zerochan)
+
+The Zerochan worker uses a modified gallery-dl extractor for categorized tag parsing. Install it after gallery-dl:
+
+```bash
+pip install gallery-dl
+bash gallery_dl_patch/install.sh
+```
+
 ### 3. Configure (Optional)
 
 Edit `.env` or use the **Options** tab in the Web UI:
