@@ -172,6 +172,7 @@ Rem God Catcher/
 | **Rule34** | AND/OR queries, exclusions, sorting, video format support | NSFW | Requires API key for best results |
 | **Safebooru** | Standard tag search, artist extraction, tag categorization | Safe | May require proxy (Cloudflare) |
 | **Gelbooru** | Full search, format exclusions, video/GIF support, artist extraction | All 4 | Uses Danbooru-style rating system |
+| **GSBooru** | Full search with tag caching and categorization, artist extraction | All 4 | Gelbooru-style API, offline tag DB |
 | **Danbooru** | Full tag search, artist extraction, offline tag DB, video/image separation | All 4 | Sorts into Safe/Sensitive/Questionable/NSFW folders |
 | **Zerochan** | HTML tag parser with 10+ categories (mangaka, character, theme, vtuber, etc.) | None | Uses patched gallery-dl, page-by-page enumeration |
 | **Waifu.im** | Name-to-slug conversion, NSFW toggle | Safe/NSFW | Uses local `tags.json` for suggestions |
