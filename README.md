@@ -126,7 +126,6 @@ Entering credentials in the **Settings** tab unlocks higher API limits and restr
 - **Proxy Support** -- Full proxy configuration from the UI (v2rayN, Clash, etc.)
 - **API Key Management** -- Manage Rule34 credentials directly from the Web UI
 - **Tag Auto-Suggest** -- Live autocomplete for all platforms including offline Konachan tag DB
-- **Hydrus Sidecar Files** -- Auto-generates `.filename.txt` sidecar files with tags, artists, and source for Hydrus Network import
 - **Persistent Settings** -- Proxy, API keys, and download settings saved in `.env`
 
 

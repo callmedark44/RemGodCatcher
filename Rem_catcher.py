@@ -103,26 +103,6 @@ def socketio_emit(event, data):
 
 shared.emit_callback = socketio_emit
 
-def write_hydrus_sidecar(worker_name, filename, tags_list, artist_list):
-    try:
-        match = None
-        for root, _, files in os.walk(MASTER_FOLDER):
-            if filename in files:
-                match = os.path.join(root, filename)
-                break
-        if not match:
-            return
-        directory = os.path.dirname(match)
-        base = os.path.basename(match)
-        sidecar_path = os.path.join(directory, f".{base}.txt")
-        lines = [t.strip() for t in tags_list if t.strip()]
-        lines += [f"creator:{a.strip()}" for a in artist_list if a.strip()]
-        lines.append(f"site:{worker_name}")
-        with open(sidecar_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
-    except Exception as e:
-        print("Hydrus sidecar error:", e)
-
 
 def get_session(site, net_config):
     session = requests.Session()

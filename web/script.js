@@ -756,7 +756,6 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
-            document.getElementById("hydrusSidecarToggle").checked = config.write_hydrus_sidecar !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -1041,7 +1040,6 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
-    globalNetConfig.write_hydrus_sidecar = document.getElementById("hydrusSidecarToggle").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);

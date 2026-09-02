@@ -272,7 +272,6 @@ class SettingsManager:
             "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
             "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
             "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
-            "write_hydrus_sidecar": os.getenv("WRITE_HYDRUS_SIDECAR", "true").lower() == "true"
         }
 
     def get(self, key, default=None):
@@ -330,7 +329,6 @@ class SettingsManager:
             "RETRY_WAIT": str(self.config['retry_wait']),
             "ANTI_BAN_PAUSE": str(self.config['anti_ban_pause']),
             "DOWNLOAD_RETRIES": str(self.config['download_retries']),
-            "WRITE_HYDRUS_SIDECAR": str(self.config['write_hydrus_sidecar']).lower()
         }
         self._upsert_env_keys(env_keys)
 
