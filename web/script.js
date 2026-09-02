@@ -51,6 +51,8 @@ function normalizeTags(tagsInput) {
     return result;
 }
 
+function cleanTagDisplay(t) { return t.replace(/_/g, ' '); }
+
 function renderCategorizedTags(tagsInput, clickable) {
     let tagsDict = normalizeTags(tagsInput);
     let html = '';
@@ -60,10 +62,11 @@ function renderCategorizedTags(tagsInput, clickable) {
         tags.forEach(t => {
             let cls = getTagCategoryClass(cat);
             let safeT = t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let display = cleanTagDisplay(t);
             if (clickable) {
-                html += `<span class="g-tag-pill ${cls}" onclick="document.getElementById('gallerySearch').value='${safeT}'; loadGallery(1); closeGalleryViewer();">${t}</span>`;
+                html += `<span class="g-tag-pill ${cls}" onclick="document.getElementById('gallerySearch').value='${safeT}'; loadGallery(1); closeGalleryViewer();">${display}</span>`;
             } else {
-                html += `<span class="g-tag-pill ${cls}">${t}</span>`;
+                html += `<span class="g-tag-pill ${cls}">${display}</span>`;
             }
         });
     });
@@ -75,7 +78,7 @@ function renderCategorizedTagsForLog(tagsInput) {
     let parts = [];
     TAG_CATEGORIES.forEach(cat => {
         if (cat === "artist") return;
-        (tagsDict[cat] || []).forEach(t => parts.push(t));
+        (tagsDict[cat] || []).forEach(t => parts.push(cleanTagDisplay(t)));
     });
     return parts.join(', ') || 'No tags';
 }
@@ -853,8 +856,6 @@ function updateNekosLifeType() {
     else { typeEl.textContent = ""; formatLabel.style.display = "none"; formatSelect.style.display = "none"; }
 }
 
-function updateNekosLifeFormatHint() {}
-
 async function saveProxySettings() {
     globalNetConfig.use_proxy = document.getElementById("proxyEnabled").checked;
     globalNetConfig.proxy_url = document.getElementById("proxyUrl").value;
@@ -1078,7 +1079,7 @@ function renderHistory() {
             let heartIcon = isFav ? "★" : "☆";
             let heartColor = isFav ? "#ff6b6b" : "var(--text-color)";
             let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";
-            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${item.tag}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
+            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag)}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1094,7 +1095,7 @@ function renderFavorites() {
         return;
     }
     favoriteTags.forEach(item => {
-        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>✦</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${item.tag}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
+        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>✦</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
     });
 }
 
@@ -1194,7 +1195,6 @@ function renderImageHistory() {
     ui.parentElement.scrollTop = currentScroll;
 }
 
-async function addFavoriteFromImage(site, tag) { await toggleFavorite(site, tag); }
 async function removeImageHistory(filename) { await fetch("/api/image_history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: filename }) }); await loadTagsData(); }
 async function clearImageHistory() { if(confirm("Delete all image tag history?")) { await fetch("/api/image_history/clear", { method: "POST" }); await loadTagsData(); } }
 
@@ -1727,5 +1727,13 @@ function toggleFocusMode() {
     const viewer = document.getElementById("galleryViewer");
     if (viewer) viewer.classList.toggle("focus");
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('input[type="number"]').forEach(function(el) {
+        el.addEventListener("input", function() {
+            this.value = this.value.replace(/[^0-9]/g, "");
+        });
+    });
+});
 
 

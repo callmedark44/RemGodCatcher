@@ -520,7 +520,7 @@
                     </select>
                     <span id="nekosLifeType" style="color: var(--accent-color); font-size: 12px; font-weight: bold; margin-left: 5px;"></span>
                     <label id="nekosLifeFormatLabel" style="margin-left: 10px; display: none;">Format:</label>
-                    <select id="nekosLifeFormat" style="width: 120px; display: none;" onchange="updateNekosLifeFormatHint()">
+                    <select id="nekosLifeFormat" style="width: 120px; display: none;">
                         <option value="both">Both (GIF & Image)</option>
                         <option value="gif">GIF Only</option>
                         <option value="image">Image Only</option>
@@ -676,7 +676,7 @@
                     <button class="action-btn" onclick="startWorker('pixiv')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div><span class="progress-text" id="progressText_pixiv">0%</span></div>
+                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div></div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
                     <div id="consoleLog_pixiv" class="console-log"></div>

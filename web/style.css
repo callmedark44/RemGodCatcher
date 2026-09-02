@@ -280,7 +280,6 @@ input:focus, select:focus {
     margin: 4px 0;
 }
 .progress-bar-fill { height: 100%; border-radius: 6px; transition: width 0.3s ease; width: 0%; }
-.scan-fill { background: linear-gradient(90deg, #3498db, #2ecc71, #3498db); background-size: 200% 100%; animation: progressShimmer 1.5s linear infinite; }
 .dl-fill { background: linear-gradient(90deg, #00d2d3, #00e8e8); }
 
 @keyframes progressShimmer {
@@ -775,6 +774,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 .tag-studio:hover { background: #bc8f8f; color: #000; border-color: #bc8f8f; }
 
 .g-expand-hint { font-size: 10px; color: #888; margin-left: 10px; animation: gPulse 2s infinite; display: inline-block;}
+.gallery-viewer-meta:hover .g-expand-hint { display: none; }
 @keyframes gPulse { 0% {opacity: 0.4;} 50% {opacity: 1;} 100% {opacity: 0.4;} }
 
 /* ===== FOCUS MODE (CLEAN VIEW) ===== */
@@ -784,42 +784,6 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-viewer.focus .gallery-video-ctrls { opacity: 0 !important; pointer-events: none !important; }
 .gallery-viewer.focus .gallery-viewer-top-btn.focus-mode { right: 40px !important; opacity: 0.3 !important; }
 .gallery-viewer.focus .gallery-viewer-top-btn.focus-mode:hover { opacity: 1 !important; }
-/* GUI Glass Container Fix */
-.console-wrapper.gui-mode {
-    background: rgba(0, 0, 0, 0.4) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: none !important;
-    border-radius: 12px;
-}
-.console-wrapper.cli-mode {
-    background: #000000 !important;
-    border: 1px solid var(--border-color) !important;
-    padding: 8px;
-    border-radius: 8px;
-}
-.console-wrapper.cli-mode .console-log {
-    padding: 0;
-}
-.cli-line {
-    font-family: 'Source Code Pro', 'Cascadia Code', monospace;
-    font-size: 12px;
-    color: #a0f0c0;
-    line-height: 1.6;
-    padding: 1px 0;
-    word-break: break-all;
-}
-.cli-line.cli-error { color: #ff6b6b; }
-.cli-line.cli-system { color: #7f8c8d; }
-
-@keyframes spin { 
-    100% { transform: rotate(360deg); } 
-}
-.spin-icon { 
-    display: inline-block; 
-    animation: spin 1s linear infinite; 
-    font-size: 14px; 
-    margin-right: 4px; 
-}
 
 /* ===== FIX DATALIST & DROPDOWN TRANSPARENCY ===== */
 datalist, option {

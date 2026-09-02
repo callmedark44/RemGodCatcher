@@ -6,7 +6,7 @@ import urllib3
 import urllib.parse
 import random
 import hashlib
-import webbrowser
+import webview
 from PIL import Image
 from datetime import datetime
 
@@ -337,8 +337,6 @@ def manage_favorites():
         return jsonify({"success": True, "favorites": favs})
     return jsonify(DatabaseManager.load_favorites())
 
-
-GALLERY_FILE = os.path.join(DATABASE_DIR, "gallery.json")
 
 EXTENSIONS_IMAGE = {'.jpg','.jpeg','.png','.webp','.gif','.bmp','.tiff','.tif'}
 EXTENSIONS_VIDEO = {'.mp4','.webm','.mov','.avi','.mkv'}
@@ -854,6 +852,14 @@ if __name__ == "__main__":
     startup_rescan()
     port = 5000
     url = f"http://127.0.0.1:{port}"
-    print(f"Starting Rem God Catcher Web UI on {url} ...")
-    webbrowser.open(url)
-    socketio.run(app, host="127.0.0.1", port=port, debug=False, allow_unsafe_werkzeug=True)
+    print(f"Starting Rem God Catcher on {url} ...")
+
+    def start_server():
+        socketio.run(app, host="127.0.0.1", port=port, debug=False, allow_unsafe_werkzeug=True)
+
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    webview.create_window("Rem God Catcher", url, width=1400, height=900)
+    gui = "gtk" if sys.platform == "linux" else None
+    webview.start(gui=gui)

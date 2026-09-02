@@ -18,7 +18,6 @@ class SankakuWorker(BaseWorker):
             self.api_tag = f"{self.original_tag} {self.rating}".strip()
 
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
-        self.video_exts = {"mp4", "webm"}
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
@@ -33,10 +32,9 @@ class SankakuWorker(BaseWorker):
             "Referer": "https://www.sankakucomplex.com/",
         })
 
-        import os as _os
-        access_token = _os.getenv("SANKA_ACCESS_TOKEN")
-        sanka_login = _os.getenv("SANKA_LOGIN")
-        sanka_password = _os.getenv("SANKA_PASSWORD")
+        access_token = os.getenv("SANKA_ACCESS_TOKEN")
+        sanka_login = os.getenv("SANKA_LOGIN")
+        sanka_password = os.getenv("SANKA_PASSWORD")
 
         if not access_token and sanka_login and sanka_password:
             for login_url in (f"{API_BASE}/auth/token", "https://login.sankakucomplex.com/auth/token"):
@@ -187,7 +185,6 @@ class SankakuWorker(BaseWorker):
                     characters = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 4]
                     copyrights = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 3]
                     metadata_tags = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 7]
-                    general_names = {t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") in (0, None)}
                     tags_list = [t.get("name", "") for t in raw_tags if t.get("name") and t.get("type") in (0, None)]
                 else:
                     tags_list = post.get("tag_names", [])

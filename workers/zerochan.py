@@ -127,11 +127,23 @@ class ZerochanWorker(BaseDownloader):
         """Fetch one page of posts via gallery-dl."""
         import json as _json
         import threading
+        import shutil
 
         username = self._zerochan_user
         password = self._zerochan_pass
 
-        base_cmd = ["gallery-dl", "--cookies-from-browser", "chrome"]
+        gallery_dl_path = shutil.which("gallery-dl")
+        if not gallery_dl_path:
+            for p in ["/home/hanekawa/.local/bin/gallery-dl", "/usr/local/bin/gallery-dl", "/usr/bin/gallery-dl"]:
+                import os
+                if os.path.isfile(p):
+                    gallery_dl_path = p
+                    break
+        if not gallery_dl_path:
+            self.log("ERROR: gallery-dl not found. Install it: pip install gallery-dl")
+            return []
+
+        base_cmd = [gallery_dl_path, "--cookies-from-browser", "chrome"]
 
         if username and password:
             base_cmd.extend(["-u", username, "-p", password])

@@ -2,7 +2,6 @@ import os
 import re
 import asyncio
 import html as html_lib
-import aiohttp
 import subprocess
 import hashlib
 from urllib.parse import urlencode
@@ -270,33 +269,11 @@ class GsbooruWorker(BaseWorker):
 
     async def scraper_task(self):
 
-        def trace(msg):
-            with open(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "gsbooru_debug.log"
-                ),
-                "a",
-                encoding="utf-8"
-            ) as f:
-                import time
-                f.write(
-                    f"[{time.strftime('%H:%M:%S')}] {msg}\n"
-                )
-
-        trace(
-            f"run start | file={__file__} | "
-            f"stop={self.stop_event.is_set()} | "
-            f"amount={self.amount} | "
-            f"tag={self.api_tag!r}"
-        )
-
         self.log(
             f"Initializing worker for tag: '{self.api_tag}'"
         )
 
         if self.stop_event.is_set():
-            trace("ABORT: stop_event pre-set")
 
             self.log(
                 "BUG DIAGNOSTIC: stop_event was already set at start "
@@ -347,10 +324,6 @@ class GsbooruWorker(BaseWorker):
                         f"{POSTS_URL}?{urlencode(params)}"
                     )
 
-                    trace(
-                        f"page {page}: fetching {list_url}"
-                    )
-
                     list_html = await self._get_text(
                         list_url
                     )
@@ -359,20 +332,9 @@ class GsbooruWorker(BaseWorker):
                         list_html
                     )
 
-                    trace(
-                        f"page {page}: HTTP OK, "
-                        f"{len(list_html)} bytes, "
-                        f"{len(articles)} articles"
-                    )
-
                     break
 
                 except CloudflareError as e:
-
-                    trace(
-                        f"page {page}: CF blocked "
-                        f"(attempt {attempt + 1}): {e}"
-                    )
 
                     if attempt < 3:
 
@@ -396,10 +358,6 @@ class GsbooruWorker(BaseWorker):
                     break
 
                 except Exception as e:
-
-                    trace(
-                        f"page {page}: error: {e}"
-                    )
 
                     self.log(
                         f"Scrape Error: {e}"
@@ -490,29 +448,15 @@ class GsbooruWorker(BaseWorker):
                     and rating_word != self.filter_word
                 ):
 
-                    trace(
-                        f"#{post_id}: skipped by rating filter "
-                        f"(is {rating_word!r}, "
-                        f"want {self.filter_word!r})"
-                    )
-
                     continue
 
                 try:
-
-                    trace(
-                        f"#{post_id}: fetching view page"
-                    )
 
                     view_html = await self._get_text(
                         f"https://gsbooru.org/posts/view/{post_id}"
                     )
 
                 except CloudflareError as e:
-
-                    trace(
-                        f"#{post_id}: CF blocked on view page"
-                    )
 
                     self.log(
                         f"{e}. Stopping."
@@ -521,10 +465,6 @@ class GsbooruWorker(BaseWorker):
                     return
 
                 except Exception as e:
-
-                    trace(
-                        f"#{post_id}: view fetch failed: {e}"
-                    )
 
                     self.log(
                         f"[SKIP] #{post_id}: {e}"
@@ -539,10 +479,6 @@ class GsbooruWorker(BaseWorker):
 
                 if not fm:
 
-                    trace(
-                        f"#{post_id}: no file link on post page"
-                    )
-
                     self.log(
                         f"[SKIP] #{post_id}: "
                         f"no file link on post page"
@@ -553,11 +489,6 @@ class GsbooruWorker(BaseWorker):
                 file_url = (
                     "https://gsbooru.org"
                     + fm.group(1)
-                )
-
-                trace(
-                    f"#{post_id}: enqueuing "
-                    f"{file_url.rsplit('/', 1)[-1][:60]}"
                 )
 
                 ext = (
