@@ -1255,9 +1255,7 @@ function renderImageHistory() {
                 <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s;">×</button>
                 <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
                     <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
-                    <div class="img-card-dl-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Archived
-                    </div>
+                </div>
                 </div>
                 <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
                     <div class="img-card-title" title="${safeFn}" style="font-size: 14px; color: #fff; font-weight: bold;">${img.filename || "image"}</div>
