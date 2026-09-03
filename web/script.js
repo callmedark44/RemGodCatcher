@@ -1664,7 +1664,9 @@ function setViewerTransform(tx, ty) {
     if (viewerZoom > 1) {
         img.classList.add('zoomed');
         img.style.transformOrigin = '0 0';
-        img.style.transform = `translate(${tx}px, ${ty}px) scale(${viewerZoom})`;
+        // ponytail: whole-pixel translation — fractional tx/ty makes the GPU
+        // resample across pixel boundaries (shimmer/seams while zoomed)
+        img.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${viewerZoom})`;
     } else {
         img.classList.remove('zoomed');
         img.style.transformOrigin = '50% 50%';
