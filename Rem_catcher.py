@@ -184,6 +184,92 @@ def api_settings_manager():
         return jsonify({"success": True, "message": "All API keys saved successfully!"})
     return jsonify(settings.load_api_settings())
 
+@app.route("/api/pixiv/exchange-cookie", methods=["POST"])
+def pixiv_exchange_cookie():
+    """Exchange a pixiv.net PHPSESSID cookie for an OAuth refresh token.
+
+    Same flow as `gallery-dl oauth:pixiv`, but the login step is done
+    server-side with the user's cookie instead of a browser:
+    1. GET the pixiv-android login URL (PKCE) with the PHPSESSID cookie
+    2. Grab the `code` from the callback redirect
+    3. Exchange code + verifier for tokens at oauth.secure.pixiv.net
+    Pixiv is only reachable through the proxy, so the exchange always
+    goes through the configured proxy (default 127.0.0.1:10808).
+    """
+    import re as _re
+    import secrets as _secrets
+    import hashlib as _hashlib
+    import base64 as _base64
+
+    raw = (request.json or {}).get("cookie", "").strip()
+    if not raw:
+        return jsonify({"success": False, "error": "No cookie provided"}), 400
+
+    m = _re.search(r"PHPSESSID=([0-9a-fA-F_]+)", raw)
+    phpsessid = m.group(1) if m else raw.split(";")[0].strip()
+    if not phpsessid or "=" in phpsessid:
+        return jsonify({"success": False, "error": "Could not find PHPSESSID in the provided cookie"}), 400
+
+    proxy_url = settings.get("proxy_url") or "http://127.0.0.1:10808"
+    session = requests.Session()
+    session.proxies = {"http": proxy_url, "https": proxy_url}
+    session.verify = False
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Cookie": f"PHPSESSID={phpsessid}",
+    })
+
+    try:
+        verifier = _base64.urlsafe_b64encode(_secrets.token_bytes(64)).rstrip(b"=").decode()
+        challenge = _base64.urlsafe_b64encode(
+            _hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        state = _secrets.token_urlsafe(16)
+
+        login_url = "https://app-api.pixiv.net/web/v1/login"
+        params = {"client": "pixiv-android", "code_challenge": challenge,
+                  "code_challenge_method": "S256", "state": state}
+        resp = session.get(login_url, params=params, timeout=30, allow_redirects=True)
+
+        code = None
+        for r in [resp, *resp.history]:
+            loc = r.headers.get("Location", "") or r.url
+            cm = _re.search(r"[?&]code=([^&#]+)", loc)
+            if cm:
+                code = cm.group(1)
+                break
+        if not code:
+            cm = _re.search(r"[?&]code=([^&#]+)", resp.text)
+            code = cm.group(1) if cm else None
+        if not code:
+            return jsonify({"success": False, "error": "Login with this cookie failed (no auth code returned). The cookie may be expired — log in to pixiv.net again and copy a fresh PHPSESSID."}), 400
+
+        token_resp = session.post(
+            "https://oauth.secure.pixiv.net/auth/token",
+            headers={"User-Agent": "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)"},
+            data={
+                "client_id": "MOBrBDS8blbauoSck0ZfDbtuzpyT",
+                "client_secret": "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj",
+                "code": code,
+                "code_verifier": verifier,
+                "grant_type": "authorization_code",
+                "include_policy": "true",
+                "redirect_uri": "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback",
+            },
+            timeout=30,
+        )
+        body = token_resp.json()
+        if "error" in body:
+            return jsonify({"success": False, "error": f"Token exchange failed: {body.get('error')}"}), 400
+
+        refresh_token = body.get("refresh_token", "")
+        if not refresh_token:
+            return jsonify({"success": False, "error": "Token exchange returned no refresh token"}), 400
+
+        settings.save_api_settings({**settings.load_api_settings(), "pixiv_refresh_token": refresh_token, "pixiv_cookie": raw})
+        return jsonify({"success": True, "refresh_token": refresh_token})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)[:300]}), 500
+
 @app.route("/api/tags/waifu", methods=["POST"])
 def get_waifu_tags():
     net_config = request.json

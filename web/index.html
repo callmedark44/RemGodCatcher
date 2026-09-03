@@ -587,6 +587,12 @@
                         <div class="settings-card">
                             <h3>🔑 Pixiv Credentials</h3>
                             <div class="field-row"><label>Refresh Token:</label><input type="password" id="pixivToken" placeholder="PIXIV_REFRESH_TOKEN" style="flex:1;"></div>
+                            <div class="field-row"><label>Cookie:</label><input type="password" id="pixivCookie" placeholder="PHPSESSID=... (from pixiv.net login)" style="flex:1;"></div>
+                            <div class="field-row" style="align-items: center; gap: 12px;">
+                                <button class="action-btn" onclick="exchangePixivCookie()">🔑 Get token from cookie</button>
+                                <span id="pixivTokenStatus" style="font-size: 12px; color: var(--title-color);"></span>
+                            </div>
+                            <div style="font-size: 11px; opacity: 0.7; margin-top: 6px;">Log in to pixiv.net in your browser → F12 → Application → Cookies → copy <b>PHPSESSID</b> → paste above. Uses your proxy (127.0.0.1:10808).</div>
                         </div>
 
                         <div class="settings-card" style="grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 16px;">

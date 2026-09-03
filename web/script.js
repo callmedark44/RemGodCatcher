@@ -1010,6 +1010,7 @@ async function loadApiSettings() {
     document.getElementById("pinterestEmail").value = settings.pinterest_email || "";
     document.getElementById("pinterestPassword").value = settings.pinterest_password || "";
     document.getElementById("pixivToken").value = settings.pixiv_refresh_token || "";
+    document.getElementById("pixivCookie").value = settings.pixiv_cookie || "";
 }
 
 async function saveApiSettings() {
@@ -1027,6 +1028,7 @@ async function saveApiSettings() {
         pinterest_cookies: document.getElementById("pinterestCookies").value.trim(),
         pinterest_email: document.getElementById("pinterestEmail").value.trim(),
         pixiv_refresh_token: document.getElementById("pixivToken").value.trim(),
+        pixiv_cookie: document.getElementById("pixivCookie").value.trim(),
         pinterest_password: document.getElementById("pinterestPassword").value.trim()
     };
     let resp = await fetch("/api/api-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -1034,6 +1036,24 @@ async function saveApiSettings() {
     let statusEl = document.getElementById("apiSaveStatus");
     statusEl.textContent = result.success ? "Saved!" : "Error!";
     setTimeout(()=> statusEl.textContent = "", 2000);
+}
+
+async function exchangePixivCookie() {
+    let statusEl = document.getElementById("pixivTokenStatus");
+    let cookie = document.getElementById("pixivCookie").value.trim();
+    if (!cookie) { statusEl.textContent = "Paste your PHPSESSID cookie first."; return; }
+    statusEl.textContent = "Exchanging via proxy...";
+    try {
+        let resp = await fetch("/api/pixiv/exchange-cookie", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cookie: cookie }) });
+        let result = await resp.json();
+        if (result.success) {
+            document.getElementById("pixivToken").value = result.refresh_token;
+            statusEl.textContent = "Token saved!";
+        } else {
+            statusEl.textContent = result.error || "Exchange failed.";
+        }
+    } catch(e) { statusEl.textContent = "Exchange failed: " + e; }
+    setTimeout(()=> statusEl.textContent = "", 8000);
 }
 
 async function saveDownloadSettings() {

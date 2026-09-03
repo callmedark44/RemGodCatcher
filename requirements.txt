@@ -1,6 +1,7 @@
 flask
 flask-socketio
 requests
+PySocks
 python-dotenv
 pillow
 aiohttp

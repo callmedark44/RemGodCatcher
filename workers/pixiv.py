@@ -60,7 +60,7 @@ class PixivAppAPI:
         if self._token and now < self._token_expires:
             return
         if not self.refresh_token:
-            raise ValueError("PIXIV_REFRESH_TOKEN required in .env")
+            raise ValueError("PIXIV_REFRESH_TOKEN missing — paste your pixiv.net PHPSESSID cookie in Settings → Pixiv and click 'Get token from cookie'")
 
         self.log("Refreshing access token")
         url = "https://oauth.secure.pixiv.net/auth/token"
@@ -165,7 +165,7 @@ class PixivWorker(BaseDownloader):
         self.raw_tag = tag.strip()
         self.rating_filter = rating
         self.exclusions = exclusions
-        self.refresh_token = os.getenv("PIXIV_REFRESH_TOKEN", "")
+        self.refresh_token = net_config.get("pixiv_refresh_token") or os.getenv("PIXIV_REFRESH_TOKEN", "")
         self._api = None
 
         self.api_session = requests.Session()

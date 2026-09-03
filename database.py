@@ -347,7 +347,8 @@ class SettingsManager:
             "PINTEREST_COOKIES": data.get("pinterest_cookies", ""),
             "PINTEREST_EMAIL": data.get("pinterest_email", ""),
             "PINTEREST_PASSWORD": data.get("pinterest_password", ""),
-            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", "")
+            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", ""),
+            "PIXIV_COOKIE": data.get("pixiv_cookie", "")
         }
         self._upsert_env_keys(keys_to_save)
         for k, v in keys_to_save.items():
@@ -376,5 +377,6 @@ class SettingsManager:
             "pinterest_cookies": config.get("PINTEREST_COOKIES", ""),
             "pinterest_email": config.get("PINTEREST_EMAIL", ""),
             "pinterest_password": config.get("PINTEREST_PASSWORD", ""),
-            "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", "")
+            "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", ""),
+            "pixiv_cookie": config.get("PIXIV_COOKIE", "")
         }
