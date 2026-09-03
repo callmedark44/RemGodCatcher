@@ -614,6 +614,12 @@ def gallery_file(filepath):
 
 @app.route("/api/thumb_by_name/<filename>")
 def thumb_by_name(filename):
+    # ponytail: check the disk cache BEFORE walking the library — the walk
+    # cost a full 4GB+ traversal per thumbnail on cache hits
+    cache_key = hashlib.sha256(filename.encode()).hexdigest()[:16]
+    cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
+    if os.path.exists(cache_path):
+        return send_file(cache_path, mimetype='image/jpeg')
     full = os.path.join(MASTER_FOLDER, filename)
     if not os.path.isfile(full):
         # Search subdirectories

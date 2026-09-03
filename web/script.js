@@ -731,10 +731,14 @@ socket.on("python_log", function (data) {
     logToConsole(data.worker, data.msg);
 });
 
+let _histReloadTimer = null;
 socket.on("update_history", function () {
-    loadTagsData();
     loadGallery();
     populateGallerySiteFilter();
+    // ponytail: downloads fire this per file — coalesce history reloads
+    // or the tab re-renders dozens of times per run
+    if (_histReloadTimer) return;
+    _histReloadTimer = setTimeout(() => { _histReloadTimer = null; loadTagsData(); }, 1500);
 });
 
 socket.on("pinterest_progress", function (data) {
@@ -1154,6 +1158,11 @@ function getSafeThumbUrl(filepath, filename) {
 }
 
 // تابع جدید هیستوری که دقیقاً کپی عکسی هست که دادی
+let imageHistoryVisible = 30;
+function showMoreImageHistory() {
+    imageHistoryVisible += 30;
+    renderImageHistory();
+}
 function renderImageHistory() {
     let ui = document.getElementById("imageHistoryUI");
     if(!ui) return;
@@ -1162,7 +1171,8 @@ function renderImageHistory() {
     if (imageHistory.length === 0) {
         htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No images downloaded yet.</p>";
     } else {
-        imageHistory.forEach(img => {
+        // ponytail: render in pages — full DOM + 100 thumb requests froze the tab
+        imageHistory.slice(0, imageHistoryVisible).forEach(img => {
             let tagsStr = renderCategorizedTags(img.tags || {}, false);
             
             let ratingHtml = "";
@@ -1194,7 +1204,7 @@ function renderImageHistory() {
             <div class="image-card-log" style="position: relative; align-items: stretch; background: rgba(15, 15, 20, 0.75);">
                 <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s;">×</button>
                 <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
-                    <img src="${thumbUrl}" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+                    <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
                     <div class="img-card-dl-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Archived
                     </div>
@@ -1210,6 +1220,9 @@ function renderImageHistory() {
                 </div>
             </div>`;
         });
+        if (imageHistory.length > imageHistoryVisible) {
+            htmlStr += `<button class="action-btn" onclick="showMoreImageHistory()" style="width: 100%; margin-top: 8px;">Show more (${imageHistory.length - imageHistoryVisible} remaining)</button>`;
+        }
     }
     ui.innerHTML = htmlStr;
     ui.parentElement.scrollTop = currentScroll;
