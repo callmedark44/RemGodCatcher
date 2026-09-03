@@ -6,7 +6,6 @@ import urllib3
 import urllib.parse
 import random
 import hashlib
-import webview
 from PIL import Image
 from datetime import datetime
 
@@ -825,6 +824,12 @@ def handle_start_worker(data):
     worker = data.get("worker")
     net_config = data.get("net_config", {})
 
+    def _safe_int(value, default=0):
+        try:
+            return int(str(value).strip() or default)
+        except (ValueError, TypeError):
+            return default
+
     tag = data.get("tag", data.get("category", "")).strip()
 
     if tag:
@@ -836,37 +841,37 @@ def handle_start_worker(data):
     if worker == "zero":
         net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
         net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
-        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
-    elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), int(data.get("limit", 30)), data.get("nsfw", False), net_config), daemon=True).start()
-    elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), int(data.get("limit", 20)), net_config), daemon=True).start()
-    elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
-    elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
-    elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), net_config), daemon=True).start()
+    elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), _safe_int(data.get("limit", 30), 30), data.get("nsfw", False), net_config), daemon=True).start()
+    elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config), daemon=True).start()
+    elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config, data.get("format", "both")), daemon=True).start()
+    elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), net_config), daemon=True).start()
+    elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), net_config), daemon=True).start()
     elif worker == "pinterest":
         net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
         net_config["pinterest_email"] = os.getenv("PINTEREST_EMAIL", "")
         net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
-        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config, int(data.get("min_w", 0) or 0), int(data.get("min_h", 0) or 0)), daemon=True).start()
+        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("is_search", False), net_config, _safe_int(data.get("min_w", 0), 0), _safe_int(data.get("min_h", 0), 0)), daemon=True).start()
     elif worker == "pixiv":
         net_config["pixiv_refresh_token"] = os.getenv("PIXIV_REFRESH_TOKEN", "")
-        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "eshuushuu":
         from workers.eshuushuu import worker_eshuushuu
-        threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), int(data.get("limit", 50)), [], data.get("user_id", ""), net_config), daemon=True).start()
+        threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), [], data.get("user_id", ""), net_config), daemon=True).start()
     elif worker == "nekosapi":
         from workers.nekosapi import worker_nekosapi
-        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
+        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "nekosia":
         try:
             from workers.nekosia import worker_nekosia
-            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", "safe"), net_config), daemon=True).start()
+            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", "safe"), net_config), daemon=True).start()
         except ImportError:
             pass # در صورتی که بعدا خواستی فایل nekosia.py رو بسازی ارور نده
 
@@ -946,6 +951,12 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
 
-    webview.create_window("Rem God Catcher", url, width=1400, height=900)
-    gui = "gtk" if sys.platform == "linux" else None
-    webview.start(gui=gui)
+    try:
+        import webview
+        webview.create_window("Rem God Catcher", url, width=1400, height=900)
+        webview.start(gui="gtk" if sys.platform == "linux" else None)
+    except Exception as e:
+        print(f"Desktop window unavailable ({e}), opening in browser instead")
+        import webbrowser
+        webbrowser.open(url)
+        server_thread.join()

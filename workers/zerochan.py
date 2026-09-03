@@ -134,8 +134,7 @@ class ZerochanWorker(BaseDownloader):
 
         gallery_dl_path = shutil.which("gallery-dl")
         if not gallery_dl_path:
-            for p in ["/home/hanekawa/.local/bin/gallery-dl", "/usr/local/bin/gallery-dl", "/usr/bin/gallery-dl"]:
-                import os
+            for p in [os.path.expanduser("~/.local/bin/gallery-dl"), "/usr/local/bin/gallery-dl", "/usr/bin/gallery-dl"]:
                 if os.path.isfile(p):
                     gallery_dl_path = p
                     break
@@ -143,7 +142,13 @@ class ZerochanWorker(BaseDownloader):
             self.log("ERROR: gallery-dl not found. Install it: pip install gallery-dl")
             return []
 
-        base_cmd = [gallery_dl_path, "--cookies-from-browser", "chrome"]
+        base_cmd = [gallery_dl_path]
+        for browser in ("chrome", "chromium", "edge", "firefox"):
+            if shutil.which(browser):
+                base_cmd.extend(["--cookies-from-browser", browser])
+                break
+        else:
+            self.log("No supported browser found for cookies — continuing anonymously (safe content only).")
 
         if username and password:
             base_cmd.extend(["-u", username, "-p", password])

@@ -43,7 +43,7 @@ cd RemGodCatcher
 ### 2. Install Dependencies
 
 ```bash
-pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
+pip install -r requirements.txt
 ```
 
 ### 3. Install gallery-dl Patch (Required for Zerochan)
@@ -52,7 +52,8 @@ The Zerochan worker uses a modified gallery-dl extractor for categorized tag par
 
 ```bash
 pip install gallery-dl
-bash gallery_dl_patch/install.sh
+bash gallery_dl_patch/install.sh        # Linux / macOS
+gallery_dl_patch\install.bat            # Windows
 ```
 
 ### 4. Configure (Optional)
