@@ -228,7 +228,7 @@ async function saveColors() {
 }
 
 async function resetColors() {
-    if (!confirm("Are you sure you want to reset all COLORS to default? Wallpapers will not be changed.")) return;
+    if (!await customConfirm("Are you sure you want to reset all COLORS to default? Wallpapers will not be changed.", "Reset")) return;
     uiConfig.colors = {
         "dark": { "title": "#00d2d3", "text": "#ffffff", "accent": "#ff9ff3", "tab_text": "#ffffff", "tab_hover_bg": "rgba(255, 255, 255, 0.15)", "tab_active_bg": "rgba(0, 210, 211, 0.3)", "btn_start_bg": "#00d2d3", "btn_start_text": "#0a0a0a", "btn_stop_bg": "#ff9ff3", "btn_stop_text": "#1a0a1a" },
         "light": { "title": "#004d4d", "text": "#1a1a2e", "accent": "#a0008a", "tab_text": "#1a1a2e", "tab_hover_bg": "rgba(0, 0, 0, 0.05)", "tab_active_bg": "rgba(0, 122, 122, 0.12)", "btn_start_bg": "#004d4d", "btn_start_text": "#ffffff", "btn_stop_bg": "#a0008a", "btn_stop_text": "#ffffff" }
@@ -248,7 +248,7 @@ async function saveWallpapersUI() {
 }
 
 async function resetWallpapersUI() {
-    if (!confirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.")) return;
+    if (!await customConfirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.", "Reset")) return;
     uiConfig.wallpapers = {
         "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
     };
@@ -938,13 +938,15 @@ function clearLog(tabID) {
     if (cb) cb.innerHTML = "";
 }
 
-function showToast(msg) {
+function showToast(msg, opts) {
+    opts = opts || {};
     const container = document.getElementById("toastContainer") || (() => { const c = document.createElement('div'); c.id = 'toastContainer'; c.className = 'toast-container'; document.body.appendChild(c); return c; })();
     let toast = document.createElement("div");
-    toast.className = "toast-item";
-    toast.innerHTML = `<div class="toast-icon">ℹ️</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
+    toast.className = "toast-item" + (opts.warn ? " warn" : "");
+    toast.innerHTML = `<div class="toast-icon">${opts.icon || "ℹ️"}</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
     container.appendChild(toast);
-    setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, 4000);
+    // ponytail: warnings (e.g. copy fallback) stay until dismissed; info toasts fade
+    if (!opts.sticky) setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, 4000);
 }
 
 function startWorker(workerName) {
@@ -1142,7 +1144,7 @@ function renderHistory() {
     } else {
         historyTags.forEach(item => {
             let isFav = isFavorite(item.site, item.tag);
-            let heartIcon = isFav ? "★" : "☆";
+            let heartIcon = isFav ? "♥" : "♡";
             let heartColor = isFav ? "#ff6b6b" : "var(--text-color)";
             let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";
             htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag)}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartIcon}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
@@ -1157,11 +1159,11 @@ function renderFavorites() {
     if(!ui) return;
     ui.innerHTML = "";
     if (favoriteTags.length === 0) {
-        ui.innerHTML = "<p style='color: var(--text-color); opacity: 0.7; font-size: 12px;'>Click ☆ in the History tab to add favorites.</p>";
+        ui.innerHTML = "<p style='color: var(--text-color); opacity: 0.7; font-size: 12px;'>Click ♡ in the History tab to add favorites.</p>";
         return;
     }
     favoriteTags.forEach(item => {
-        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>✦</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
+        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>♥</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
     });
 }
 
@@ -1180,7 +1182,7 @@ async function toggleFavorite(site, tag) {
 }
 
 async function removeFromHistory(site, tag) { await fetch("/api/history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag }) }); await loadTagsData(); }
-async function clearHistory() { if(confirm("Are you sure you want to delete all search history?")) { await fetch("/api/history/clear", { method: "POST" }); await loadTagsData(); } }
+async function clearHistory() { if(await customConfirm("Are you sure you want to delete all search history?", "Delete")) { await fetch("/api/history/clear", { method: "POST" }); await loadTagsData(); } }
 
 function jumpToSite(site, tag) {
     let siteMap = { "zero": { tab: "Zero", input: "zeroTag" }, "waifu": { tab: "Waifu", input: "waifuTag" }, "neko": { tab: "Neko", input: null }, "nekos_life":{ tab: "NekosLife", input: null }, "safe": { tab: "Safe", input: "safeTag" }, "gelbooru": { tab: "Gelbooru", input: "gelbooruTag" }, "gsbooru": { tab: "Gsbooru", input: "gsbooruTag" }, "yande": { tab: "Yande", input: "yandeTag" }, "kona": { tab: "Kona", input: "konaTag" }, "dan": { tab: "Danbooru", input: "danTag" }, "rule34": { tab: "Rule34", input: "rule34Tag" }, "sankaku": { tab: "Sankaku", input: "sankakuTag" }, "anime_dl": { tab: "AnimeDL", input: "animeDlTag" }, "pinterest": { tab: "Pinterest", input: "pinterestTag" }, "pixiv": { tab: "Pixiv", input: "pixivTag" }, "eshuushuu": { tab: "EShuushuu", input: "eshuushuuTag" }, "nekosapi": { tab: "NekosAPI", input: "nekosapiTag" }, "nekosia": { tab: "Nekosia", input: "nekosiaTag" } };
@@ -1253,17 +1255,14 @@ function renderImageHistory() {
             htmlStr += `
             <div class="image-card-log" style="position: relative; align-items: stretch; background: rgba(15, 15, 20, 0.75);">
                 <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s;">×</button>
+                <button onclick="toggleImageHistoryFav('${safeFn}', this)" title="Favourite" style="position: absolute; top: 10px; right: 42px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,64,128,0.5); color: #ff4080; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; transition: 0.2s;">${img.favourite ? '♥' : '♡'}</button>
                 <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
                     <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
                 </div>
-                </div>
                 <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
-                    <div class="img-card-title" title="${safeFn}" style="font-size: 14px; color: #fff; font-weight: bold;">${img.filename || "image"}</div>
+                    <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${img.filename || "image"}</span>${siteBadge} ${ratingHtml} ${artistHtml}</div>
                     <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 55px; overflow-y: auto;">
                         ${tagsStr}
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center; margin-top: auto;">
-                        ${siteBadge} ${ratingHtml} ${artistHtml}
                     </div>
                 </div>
             </div>`;
@@ -1279,7 +1278,18 @@ function renderImageHistory() {
 }
 
 async function removeImageHistory(filename) { await fetch("/api/image_history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: filename }) }); await loadTagsData(); }
-async function clearImageHistory() { if(confirm("Delete all image tag history?")) { await fetch("/api/image_history/clear", { method: "POST" }); await loadTagsData(); } }
+async function toggleImageHistoryFav(filename, btn) {
+    try {
+        let resp = await fetch("/api/gallery/favourite_by_name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: filename }) });
+        let data = await resp.json();
+        if (data.success) {
+            if (btn) btn.textContent = data.favourite ? '♥' : '♡';
+            const h = imageHistory.find(i => i.filename === filename);
+            if (h) h.favourite = data.favourite;
+        }
+    } catch(e) {}
+}
+async function clearImageHistory() { if(await customConfirm("Delete all image tag history?", "Delete")) { await fetch("/api/image_history/clear", { method: "POST" }); await loadTagsData(); } }
 
 // --- Gallery Engine ---
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
@@ -1394,6 +1404,7 @@ async function loadGallery(page) {
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
     const params = new URLSearchParams({ search, site, sort, type, rating, page: currentGalleryPage, per_page: galleryPerPage() });
+    if (galleryFavFilter) params.set("favourites", "true");
     try {
         let resp = await fetch(`/api/gallery?${params}`);
         const data = await resp.json();
@@ -1414,6 +1425,7 @@ async function loadGalleryPage(page, callback) {
     const type = getMultiSelectValues('typeDropdown');
     const rating = getMultiSelectValues('ratingDropdown');
     const params = new URLSearchParams({ search, site, sort, type, rating, page, per_page: galleryPerPage() });
+    if (galleryFavFilter) params.set("favourites", "true");
     try {
         let resp = await fetch(`/api/gallery?${params}`);
         const data = await resp.json();
@@ -1475,10 +1487,76 @@ function openFullImage(filepath, filename) {
     let clean = filepath || "";
     try { clean = decodeURIComponent(clean); } catch (e) {}
     let url = clean ? `/api/gallery/file/${clean.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(filename || '')}`;
-    window.open(url, '_blank');
+    // always use the in-app viewer — new tabs don't exist in the desktop app
+    openViewerSingle(url, filename || "image");
+}
+// single-image viewer mode (history/log previews): no gallery context,
+// so nav/fav/delete/copy stay hidden and their shortcuts are inert
+let viewerSingle = false;
+function openViewerSingle(url, filename) {
+    const viewer = document.getElementById("galleryViewer");
+    const viewerImg = document.getElementById("galleryViewerImg");
+    closeGalleryViewer();
+    viewerSingle = true;
+    viewer.classList.add("single");
+    const ext = ((filename || "").split('.').pop() || "").toLowerCase();
+    if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) {
+        viewerImg.style.display = 'none';
+        const wrap = document.createElement('div');
+        wrap.className = 'gallery-video-wrap';
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.autoplay = true;
+        wrap.appendChild(video);
+        viewer.insertBefore(wrap, viewerImg.nextSibling);
+    } else {
+        viewerImg.style.display = '';
+        viewerImg.src = url;
+    }
+    const metaPanel = document.getElementById("galleryViewerMeta");
+    if (metaPanel) {
+        const entry = (typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === filename) : null)
+            || { filename: filename, filepath: "", site: "", tags: {} };
+        metaPanel.innerHTML = viewerMetaHtml(entry, true);
+    }
+    viewer.style.display = 'flex';
+}
+function viewerMetaHtml(img, tagsClickable) {
+    let tagsHtml = renderCategorizedTags(img.tags || {}, tagsClickable);
+    let ratingHtml = "";
+    let _viewerTd = normalizeTags(img.tags || {});
+    let _viewerAllTags = [];
+    TAG_CATEGORIES.forEach(c => { if (_viewerTd[c]) _viewerAllTags.push(..._viewerTd[c]); });
+    let pLow = ((img.filepath || "") + " " + _viewerAllTags.join(' ')).toLowerCase();
+    let vSiteLower = (img.site || "").toLowerCase();
+    if (vSiteLower === "rule34") {
+        ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
+    } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) {
+        ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
+    } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
+        ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Sensitive</span>`;
+    } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) {
+        ratingHtml = `<span style="background:rgba(243, 156, 18, 0.15); color:#f39c12; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Questionable</span>`;
+    } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:g')) {
+        ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Safe</span>`;
+    }
+    let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+    let artistName = (img.tags?.artist || [])[0] || "";
+    let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,140,0,0.4);">${artistName}</span>` : "";
+
+    return `
+        <div class="g-meta-header">
+            <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
+            <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
+        </div>
+        <div class="g-meta-tags">${tagsHtml}</div>
+    `;
 }
 function showViewerImage() {
     const viewer = document.getElementById("galleryViewer");
+    viewer.classList.remove("single");
+    viewerSingle = false;
     const viewerImg = document.getElementById("galleryViewerImg");
     const img = galleryState.images[viewerIndex];
     if (!img) return closeGalleryViewer();
@@ -1542,73 +1620,41 @@ function showViewerImage() {
     // === پنل اطلاعات و تگ‌ها پایین صفحه ===
     const metaPanel = document.getElementById("galleryViewerMeta");
     if(metaPanel) {
-        let tagsHtml = renderCategorizedTags(img.tags || {}, true);
-        let ratingHtml = "";
-        let _viewerTd = normalizeTags(img.tags || {});
-        let _viewerAllTags = [];
-        TAG_CATEGORIES.forEach(c => { if (_viewerTd[c]) _viewerAllTags.push(..._viewerTd[c]); });
-        let pLow = ((img.filepath || "") + " " + _viewerAllTags.join(' ')).toLowerCase();
-        let vSiteLower = (img.site || "").toLowerCase();
-        if (vSiteLower === "rule34") {
-            ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
-        } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
-            ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: NSFW</span>`;
-        } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
-            ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Sensitive</span>`;
-        } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) { 
-            ratingHtml = `<span style="background:rgba(243, 156, 18, 0.15); color:#f39c12; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Questionable</span>`;
-        } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:g')) {
-            ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Safe</span>`;
-        }
-        let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
-        let artistName = (img.tags?.artist || [])[0] || "";
-        let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,140,0,0.4);">${artistName}</span>` : "";
-
-        metaPanel.innerHTML = `
-            <div class="g-meta-header">
-                <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
-                <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
-            </div>
-            <div class="g-meta-tags">${tagsHtml}</div>
-        `;
+        metaPanel.innerHTML = viewerMetaHtml(img, true);
     }
-    
+
     viewer.style.display = 'flex';
 }
-function closeGalleryViewer() { document.getElementById("galleryViewer").style.display = 'none'; document.getElementById("galleryViewerImg").src = ''; document.getElementById("galleryViewerImg").className = ''; document.getElementById("galleryViewerImg").style.transform = ''; document.getElementById("galleryViewerImg").style.transformOrigin = ''; const vw = document.querySelector('.gallery-video-wrap'); if (vw) { vw.remove(); } viewerZoom = 1; viewerIndex = -1; viewerDrag.active = false; }
-function viewerNav(dir) { const total = galleryState.images.length; const newIdx = viewerIndex + dir; if (newIdx < 0 && currentGalleryPage > 1) { loadGalleryPage(currentGalleryPage - 1, () => { viewerIndex = galleryState.images.length - 1; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage < galleryState.total_pages) { loadGalleryPage(currentGalleryPage + 1, () => { viewerIndex = 0; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage >= galleryState.total_pages) { showToast("Last image"); return; } if (newIdx < 0 && currentGalleryPage <= 1) { return; } viewerIndex = newIdx; viewerZoom = 1; showViewerImage(); }
-function toggleViewerFav() { const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡'; fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
+function closeGalleryViewer() { document.getElementById("galleryViewer").classList.remove("single"); viewerSingle = false; document.getElementById("galleryViewer").style.display = 'none'; document.getElementById("galleryViewerImg").src = ''; document.getElementById("galleryViewerImg").className = ''; document.getElementById("galleryViewerImg").style.transform = ''; document.getElementById("galleryViewerImg").style.transformOrigin = ''; const vw = document.querySelector('.gallery-video-wrap'); if (vw) { vw.remove(); } viewerZoom = 1; viewerIndex = -1; viewerDrag.active = false; }
+function viewerNav(dir) { if (viewerSingle) return; const total = galleryState.images.length; const newIdx = viewerIndex + dir; if (newIdx < 0 && currentGalleryPage > 1) { loadGalleryPage(currentGalleryPage - 1, () => { viewerIndex = galleryState.images.length - 1; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage < galleryState.total_pages) { loadGalleryPage(currentGalleryPage + 1, () => { viewerIndex = 0; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage >= galleryState.total_pages) { showToast("Last image"); return; } if (newIdx < 0 && currentGalleryPage <= 1) { return; } viewerIndex = newIdx; viewerZoom = 1; showViewerImage(); }
+function toggleViewerFav() { if (viewerSingle) return; const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").textContent = img.favourite ? '♥' : '♡'; fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
+let _copyBusy = false;
 async function copyViewerImage() {
+    if (viewerSingle) return;
+    if (_copyBusy) return;
     const img = galleryState.images[viewerIndex];
     if (!img) return;
+    _copyBusy = true;
+    showToast("📋 Copying...");
     const rel = (img.filepath || "").replace(/\\/g, '/');
     try {
         const url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
         let blob = await (await fetch(url)).blob();
-        if (blob.type.startsWith('image/')) {
-            if (blob.type !== 'image/png') {
-                const bmp = await createImageBitmap(blob);
-                const c = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-                c.getContext('2d').drawImage(bmp, 0, 0);
-                blob = await new Promise(r => c.toBlob(r, 'image/png'));
-            }
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        // ponytail: copy the original bytes untouched — no canvas, no re-encode
+        try {
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
             showToast("📋 Image copied to clipboard");
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-                showToast("📋 File copied to clipboard");
-            } catch (err) {
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = img.filename || 'file';
-                document.body.appendChild(a);
-                a.click();
+        } catch (err) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = img.filename || 'file';
+            document.body.appendChild(a);
+            a.click();
                 a.remove();
-                showToast("⬇️ Clipboard can't hold this file type — saved to PC instead");
-            }
+                showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠️" });
         }
     } catch (e) { showToast("⚠️ Copy failed: " + e.message); }
+    finally { _copyBusy = false; }
 }
 function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
 function setViewerTransform(tx, ty) {
@@ -1779,11 +1825,28 @@ function onTypeChange() { const checks = document.querySelectorAll('#typeDropdow
 function selectSort(el, value) { document.getElementById("sortDropdown").dataset.sort = value; const btn = document.querySelector('[onclick="toggleDropdown(\'sortDropdown\')"]'); btn.textContent = el.textContent.trim() + ' ▾'; document.getElementById("sortDropdown").classList.remove('open'); loadGallery(1); }
 document.addEventListener('click', function(e) { if (!e.target.closest('.gallery-dropdown')) { document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open')); } });
 
+// themed replacement for native confirm() (which ignores dark mode)
+function customConfirm(message, okLabel) {
+    return new Promise(resolve => {
+        const ov = document.createElement("div");
+        ov.className = "custom-confirm-overlay";
+        ov.innerHTML = `<div class="custom-confirm-box"><div class="custom-confirm-msg">${message}</div><div class="custom-confirm-btns"><button class="action-btn stop-btn" id="cfOk">${okLabel || "Delete"}</button><button class="action-btn" id="cfCancel">Cancel</button></div></div>`;
+        document.body.appendChild(ov);
+        const done = (v) => { document.removeEventListener("keydown", esc); ov.remove(); resolve(v); };
+        ov.querySelector("#cfOk").onclick = () => done(true);
+        ov.querySelector("#cfCancel").onclick = () => done(false);
+        ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+        const esc = (e) => { if (e.key === "Escape") done(false); };
+        document.addEventListener("keydown", esc);
+        ov.querySelector("#cfCancel").focus();
+    });
+}
 // تابع حذف تصویر خراب
 async function deleteViewerImage() {
+    if (viewerSingle) return;
     const img = galleryState.images[viewerIndex];
     if (!img) return;
-    if (!confirm("Are you sure you want to delete this image? It will be removed from disk.")) return;
+    if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;
     try {
         let resp = await fetch("/api/gallery/delete", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) });
         if (resp.ok) {

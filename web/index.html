@@ -328,23 +328,6 @@
                 </div>
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
-                <div id="galleryViewer" class="gallery-viewer" style="display: none;">
-                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
-                    <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
-                    <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard">📋</button>
-                    <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image">🗑️</button>
-                    <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)">👁️</button>
-                    
-                    <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
-                    
-                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">❮</button>
-                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">❯</button>
-                    
-                    <img id="galleryViewerImg" src="">
-                    
-                    <!-- پنل نمایش اطلاعات و تگ‌ها (کپسول شیشه‌ای) -->
-                    <div id="galleryViewerMeta" class="gallery-viewer-meta"></div>
-                </div>
             </div>
 
             <div id="Gelbooru" class="tab-content" style="display: none;">
@@ -894,6 +877,25 @@
 
         </div>
         </div>
+    </div>
+
+    <!-- gallery viewer lives at body level so previews work from any tab -->
+    <div id="galleryViewer" class="gallery-viewer" style="display: none;">
+        <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
+        <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">♡</button>
+        <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard">📋</button>
+        <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image">🗑️</button>
+        <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)">👁️</button>
+
+        <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
+
+        <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">❮</button>
+        <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">❯</button>
+
+        <img id="galleryViewerImg" src="">
+
+        <!-- پنل نمایش اطلاعات و تگ‌ها (کپسول شیشه‌ای) -->
+        <div id="galleryViewerMeta" class="gallery-viewer-meta"></div>
     </div>
 
     <script src="script.js"></script>

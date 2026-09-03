@@ -645,6 +645,7 @@ select option:hover, select option:checked { background: var(--title-color); col
     animation: toastSlideIn 0.35s ease forwards;
 }
 .toast-item.fade-out { animation: toastSlideOut 0.3s ease forwards; }
+.toast-item.warn { border-color: rgba(243, 156, 18, 0.7); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 12px rgba(243, 156, 18, 0.25); }
 @keyframes toastSlideIn { 0% { transform: translateX(120%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
 @keyframes toastSlideOut { 0% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
 
@@ -716,6 +717,46 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-viewer-nav:hover { background: var(--title-color); color: #000; transform: translateY(-50%) scale(1.1); }
 .gallery-viewer-nav.prev { left: 40px; }
 .gallery-viewer-nav.next { right: 40px; }
+/* single-image mode (history/log previews): no gallery context */
+.gallery-viewer.single .gallery-viewer-nav,
+.gallery-viewer.single .gallery-viewer-top-btn.fav,
+.gallery-viewer.single .gallery-viewer-top-btn.copy,
+.gallery-viewer.single .gallery-viewer-top-btn.trash,
+.gallery-viewer.single .gallery-viewer-top-btn.focus-mode { display: none !important; }
+
+/* ===== CUSTOM CONFIRM MODAL (theme-aware) ===== */
+.custom-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 10, 16, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.custom-confirm-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: 0 8px 40px 0 rgba(0, 0, 0, 0.7);
+    padding: 24px 28px;
+    max-width: 420px;
+    width: calc(100vw - 60px);
+    color: var(--text-color);
+    text-align: center;
+}
+.custom-confirm-msg {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+.custom-confirm-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
 
 /* چیدمان دکمه‌های بالا راست */
 .gallery-viewer-top-btn { position: absolute; top: 30px; background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.15); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 10010; transition: all 0.2s ease; text-decoration: none; }

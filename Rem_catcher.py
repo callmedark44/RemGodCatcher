@@ -432,7 +432,14 @@ def remove_tag_history():
     return jsonify({"success": True})
 
 @app.route("/api/image_history", methods=["GET"])
-def get_image_history(): return jsonify(DatabaseManager.load_image_history())
+def get_image_history():
+    hist = DatabaseManager.load_image_history()
+    try:
+        favs = {i.get("filename") for i in shared.load_gallery().get("images", []) if i.get("favourite")}
+        hist = [{**h, "favourite": h.get("filename") in favs} for h in hist]
+    except Exception:
+        pass
+    return jsonify(hist)
 
 @app.route("/api/image_history/clear", methods=["POST"])
 def clear_image_history():
@@ -613,6 +620,17 @@ def toggle_gallery_fav():
     gallery = shared.load_gallery()
     for img in gallery["images"]:
         if img["id"] == img_id:
+            img["favourite"] = not img.get("favourite", False)
+            shared.save_gallery(gallery)
+            return jsonify({"success": True, "favourite": img["favourite"]})
+    return jsonify({"success": False, "error": "not found"}), 404
+
+@app.route("/api/gallery/favourite_by_name", methods=["POST"])
+def toggle_gallery_fav_by_name():
+    fn = (request.json or {}).get("filename", "")
+    gallery = shared.load_gallery()
+    for img in gallery["images"]:
+        if img.get("filename") == fn:
             img["favourite"] = not img.get("favourite", False)
             shared.save_gallery(gallery)
             return jsonify({"success": True, "favourite": img["favourite"]})
