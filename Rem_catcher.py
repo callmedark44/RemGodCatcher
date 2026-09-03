@@ -752,6 +752,15 @@ def rescan_gallery():
                 })
                 by_fn[fn] = gallery["images"][-1]
                 count_added += 1
+    # drop duplicate filenames (a download landing mid-scan can double-add)
+    seen = set()
+    unique = []
+    for img in gallery["images"]:
+        if img.get("filename") in seen:
+            continue
+        seen.add(img.get("filename"))
+        unique.append(img)
+    gallery["images"] = unique
     shared.save_gallery(gallery)
     return jsonify({"success": True, "added": count_added, "fixed": count_fixed})
 
@@ -912,6 +921,15 @@ def startup_rescan():
             })
             by_fn[fn] = gallery["images"][-1]
             count += 1
+    # drop duplicate filenames (a download landing mid-scan can double-add)
+    seen = set()
+    unique = []
+    for img in gallery["images"]:
+        if img.get("filename") in seen:
+            continue
+        seen.add(img.get("filename"))
+        unique.append(img)
+    gallery["images"] = unique
     if count:
         print(f"Rescanned {count} new images into gallery")
 
@@ -940,7 +958,8 @@ if __name__ == "__main__":
     NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
     NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
     GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
-    startup_rescan()
+    # ponytail: rescan walks the whole library — don't block server startup
+    threading.Thread(target=startup_rescan, daemon=True).start()
     port = 5000
     url = f"http://127.0.0.1:{port}"
     print(f"Starting Rem God Catcher on {url} ...")

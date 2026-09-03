@@ -30,9 +30,9 @@ class SafebooruWorker(BaseWorker):
         uncached = [t for t in tag_names if t not in cache]
         if uncached:
             self.log(f"Fetching types for {len(uncached)} tags...")
-            for i in range(0, len(uncached), 100):
-                batch = uncached[i:i+100]
-                for tag_name in batch:
+            sem = asyncio.Semaphore(4)
+            async def query_one(tag_name):
+                async with sem:
                     try:
                         resp = await self.session.get("https://safebooru.org/index.php", params={
                             "page": "dapi", "s": "tag", "q": "index",
@@ -40,7 +40,7 @@ class SafebooruWorker(BaseWorker):
                         })
                         if resp.status != 200:
                             cache[tag_name] = 0
-                            continue
+                            return
                         text = await resp.text()
                         root = ET.fromstring(text)
                         tag_el = root.find("tag")
@@ -51,8 +51,8 @@ class SafebooruWorker(BaseWorker):
                         cache[tag_name] = tag_type
                     except Exception:
                         cache[tag_name] = 0
-                if i + 100 < len(uncached):
                     await asyncio.sleep(0.2)
+            await asyncio.gather(*[query_one(t) for t in uncached])
             shared.save_tag_cache(cache, "safebooru")
         return cache
 

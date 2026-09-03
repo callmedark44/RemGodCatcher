@@ -106,6 +106,16 @@ def save_tag_cache(data, site="gelbooru"):
         json.dump(data, f)
 
 def load_gallery():
+    """Return the gallery, cached in memory after first disk read.
+
+    All readers/mutators share one object (guarded by _GALLERY_LOCK), so
+    concurrent workers can't clobber each other's entries. Call
+    flush_gallery() or save_gallery() to persist.
+    """
+    with _GALLERY_LOCK:
+        return _gallery_cached_locked()
+
+def _load_gallery_from_disk():
     if os.path.exists(GALLERY_FILE):
         try:
             with open(GALLERY_FILE, "r", encoding="utf-8") as f:
@@ -133,25 +143,58 @@ def _migrate_gallery_tags(data):
         save_gallery(data)
 
 def save_gallery(data):
+    _write_gallery(data)
+    with _GALLERY_LOCK:
+        if data is _gallery_cache["data"]:
+            _gallery_cache["filenames"] = {i.get("filename") for i in data.get("images", [])}
+            _gallery_cache["dirty"] = 0
+
+def _write_gallery(data):
+    # compact separators: gallery.json is gitignored data, indent only
+    # cost parse time and disk on every write
     with open(GALLERY_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, separators=(",", ":"))
+
+_GALLERY_LOCK = threading.RLock()
+_gallery_cache = {"data": None, "filenames": set(), "dirty": 0}
+_GALLERY_FLUSH_EVERY = 10
+
+def _gallery_cached_locked():
+    g = _gallery_cache["data"]
+    if g is None:
+        g = _load_gallery_from_disk()
+        _gallery_cache["data"] = g
+        _gallery_cache["filenames"] = {i.get("filename") for i in g.get("images", [])}
+        _gallery_cache["dirty"] = 0
+    return g
+
+def flush_gallery():
+    """Persist pending gallery appends, if any."""
+    with _GALLERY_LOCK:
+        if _gallery_cache["data"] is not None and _gallery_cache["dirty"]:
+            _write_gallery(_gallery_cache["data"])
+            _gallery_cache["dirty"] = 0
 
 def add_to_gallery(site, filename, filepath, tags_list, artists, characters=None, copyrights=None, metadata_tags=None):
-    gallery = load_gallery()
-    for img in gallery["images"]:
-        if img["filename"] == filename:
+    with _GALLERY_LOCK:
+        gallery = _gallery_cached_locked()
+        if filename in _gallery_cache["filenames"]:
             return
-    tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
-    gallery["images"].insert(0, {
-        "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
-        "filename": filename,
-        "filepath": filepath,
-        "site": normalize_site(site),
-        "tags": dict(tags_dict),
-        "favourite": False,
-        "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%S")
-    })
-    save_gallery(gallery)
+        tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
+        gallery["images"].insert(0, {
+            "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
+            "filename": filename,
+            "filepath": filepath,
+            "site": normalize_site(site),
+            "tags": dict(tags_dict),
+            "favourite": False,
+            "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%S")
+        })
+        _gallery_cache["filenames"].add(filename)
+        _gallery_cache["dirty"] += 1
+        if _gallery_cache["dirty"] >= _GALLERY_FLUSH_EVERY:
+            _write_gallery(gallery)
+            _gallery_cache["dirty"] = 0
 
 def write_image_metadata(filepath, tags_list, artists, site, characters=None, copyrights=None, metadata_tags=None):
     ext = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
@@ -248,6 +291,7 @@ class BaseDownloader:
         self.is_scanning = False
         self.enqueued_count = 0
         self.queued_items = set()
+        self._history_dirty = 0
 
     def check_amount_warning(self, total_found):
         """Helper to warn the user if they requested more images than were retrieved."""
@@ -291,13 +335,11 @@ class BaseDownloader:
         
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
             return False
-            
+
+        # ponytail: no HEAD request here — it cost a full round-trip per file
+        # just to feed total_bytes, which nothing reads. The GET reconciles
+        # sizes itself (see content_length handling below).
         file_size = 0
-        try:
-            async with self.session.head(url) as resp:
-                file_size = int(resp.headers.get('Content-Length', 0))
-        except Exception:
-            pass
             
         self.total_bytes += file_size
         self.queued_items.add(filename)
@@ -311,6 +353,11 @@ class BaseDownloader:
             return False
 
         part_path = filepath + ".part"
+        # booru filenames embed their md5 (-<32hex>.ext); hash incrementally
+        # during download instead of re-reading the whole file afterwards
+        m = re.search(r'-([0-9a-f]{32})\.[^.]+$', filename, re.I)
+        want_md5 = m.group(1).lower() if m else None
+        h = hashlib.md5() if want_md5 else None
         for attempt in range(self.dl_retries):
             try:
                 referer = self.session.headers.get("Referer") or url
@@ -325,10 +372,14 @@ class BaseDownloader:
                         self.total_bytes += (content_length - file_size)
 
                     downloaded = 0
+                    if h is not None:
+                        h = hashlib.md5()
                     with open(part_path, 'wb') as f:
                         async for chunk in resp.content.iter_chunked(65536):
                             if self.stop_event.is_set(): break
                             f.write(chunk)
+                            if h is not None:
+                                h.update(chunk)
                             downloaded += len(chunk)
 
                     # ponytail: proxies can drop the tail silently; verify against
@@ -345,16 +396,11 @@ class BaseDownloader:
                     return False
 
                 # booru filenames embed their md5 (-<32hex>.ext); a CDN serving a
-                # stale recompressed variant passes size checks, so verify content
-                m = re.search(r'-([0-9a-f]{32})\.[^.]+$', filename, re.I)
-                if m:
-                    h = hashlib.md5()
-                    with open(part_path, 'rb') as f:
-                        for chunk in iter(lambda: f.read(1 << 20), b''):
-                            h.update(chunk)
-                    if h.hexdigest() != m.group(1).lower():
-                        os.remove(part_path)
-                        raise Exception("md5 mismatch: server sent a different/degraded file")
+                # stale recompressed variant passes size checks, so verify the
+                # incrementally computed hash — no second read of the file
+                if want_md5 and h.hexdigest() != want_md5:
+                    os.remove(part_path)
+                    raise Exception("md5 mismatch: server sent a different/degraded file")
 
                 # publish under the real name only after full verification — a
                 # killed app must never leave a truncated file posing as complete
@@ -363,7 +409,13 @@ class BaseDownloader:
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded
                 self.dl_history.add(filename)
-                save_history(self.site_root, self.dl_history)
+                # ponytail: rewriting the whole history file per download is
+                # O(history) each time — flush every 10, plus a final flush
+                # when the loop ends
+                self._history_dirty += 1
+                if self._history_dirty >= 10:
+                    save_history(self.site_root, self.dl_history)
+                    self._history_dirty = 0
 
                 # درصدگیری بی‌نقص بر اساس Limit
                 if self.is_scanning and self.amount > 0:
@@ -417,7 +469,7 @@ class BaseDownloader:
             self.download_queue = asyncio.Queue()
             self.is_scanning = True
 
-            num_workers = 2
+            num_workers = 4
             download_tasks = [asyncio.create_task(self._download_worker()) for _ in range(num_workers)]
 
             self.log("Phase 1: Gathering links from API... Please wait.")
@@ -444,6 +496,17 @@ class BaseDownloader:
         except Exception as critical_e:
             self.log(f"CRITICAL ERROR: {critical_e}")
         finally:
+            # flush anything batched during the run (gallery appends, history)
+            try:
+                flush_gallery()
+            except Exception:
+                pass
+            try:
+                if getattr(self, "_history_dirty", 0):
+                    save_history(self.site_root, self.dl_history)
+                    self._history_dirty = 0
+            except Exception:
+                pass
             if self.session and hasattr(self.session, 'closed') and not self.session.closed:
                 await self.session.close()
 

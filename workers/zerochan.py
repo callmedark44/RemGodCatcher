@@ -143,12 +143,18 @@ class ZerochanWorker(BaseDownloader):
             return []
 
         base_cmd = [gallery_dl_path]
-        for browser in ("chrome", "chromium", "edge", "firefox"):
-            if shutil.which(browser):
-                base_cmd.extend(["--cookies-from-browser", browser])
-                break
+        # ponytail: reading the browser cookie store costs seconds per
+        # spawn. Export once on page 1, reuse the file for later pages —
+        # same session, ~10x less overhead per page.
+        cookie_file = os.path.join(self.tag_dir, ".zerochan_cookies.txt")
+        browser = next((b for b in ("chrome", "chromium", "edge", "firefox") if shutil.which(b)), None)
+        if page == 1 or not os.path.exists(cookie_file):
+            if browser:
+                base_cmd.extend(["--cookies-from-browser", browser, "--cookies-export", cookie_file])
+            else:
+                self.log("No supported browser found for cookies — continuing anonymously (safe content only).")
         else:
-            self.log("No supported browser found for cookies — continuing anonymously (safe content only).")
+            base_cmd.extend(["--cookies", cookie_file])
 
         if username and password:
             base_cmd.extend(["-u", username, "-p", password])
