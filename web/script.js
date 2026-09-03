@@ -1159,14 +1159,22 @@ function getSafeThumbUrl(filepath, filename) {
 
 // تابع جدید هیستوری که دقیقاً کپی عکسی هست که دادی
 let imageHistoryVisible = 30;
-function showMoreImageHistory() {
-    imageHistoryVisible += 30;
-    renderImageHistory();
-}
 function renderImageHistory() {
     let ui = document.getElementById("imageHistoryUI");
     if(!ui) return;
-    let currentScroll = ui.parentElement.scrollTop;
+    let scroller = ui.parentElement;
+    // ponytail: infinite scroll — load more as the user nears the bottom
+    if (scroller && !scroller.dataset.histScroll) {
+        scroller.dataset.histScroll = "1";
+        scroller.addEventListener("scroll", () => {
+            if (imageHistoryVisible >= imageHistory.length) return;
+            if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 400) {
+                imageHistoryVisible += 30;
+                renderImageHistory();
+            }
+        });
+    }
+    let currentScroll = scroller ? scroller.scrollTop : 0;
     let htmlStr = "";
     if (imageHistory.length === 0) {
         htmlStr = "<p style='color: var(--text-color); opacity: 0.7; font-size: 13px;'>No images downloaded yet.</p>";
@@ -1220,12 +1228,14 @@ function renderImageHistory() {
                 </div>
             </div>`;
         });
-        if (imageHistory.length > imageHistoryVisible) {
-            htmlStr += `<button class="action-btn" onclick="showMoreImageHistory()" style="width: 100%; margin-top: 8px;">Show more (${imageHistory.length - imageHistoryVisible} remaining)</button>`;
-        }
     }
     ui.innerHTML = htmlStr;
-    ui.parentElement.scrollTop = currentScroll;
+    if (scroller) scroller.scrollTop = currentScroll;
+    // if the rendered list still doesn't fill the view, keep loading
+    if (imageHistoryVisible < imageHistory.length && scroller && scroller.scrollHeight <= scroller.clientHeight + 400) {
+        imageHistoryVisible += 30;
+        renderImageHistory();
+    }
 }
 
 async function removeImageHistory(filename) { await fetch("/api/image_history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: filename }) }); await loadTagsData(); }
