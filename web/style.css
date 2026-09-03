@@ -45,6 +45,9 @@
     padding: 0;
     box-sizing: border-box;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -675,7 +678,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-viewer {
     position: fixed;
     inset: 0;
-    background: rgba(16, 18, 26, 0.45);
+    background: rgba(8, 10, 16, 0.78);
     backdrop-filter: blur(28px) saturate(160%);
     -webkit-backdrop-filter: blur(28px) saturate(160%);
     z-index: 1000;
@@ -691,6 +694,9 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-viewer video {
     max-width: 95vw;
     max-height: 90vh;
+    min-width: 0;
+    min-height: 0;
+    flex-shrink: 1;
     object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;

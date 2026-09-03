@@ -1,5 +1,6 @@
 import os
 import sys
+import bisect
 import threading
 import requests
 import urllib3
@@ -286,6 +287,36 @@ def get_waifu_tags():
         return jsonify([t["name"] for t in WAIFU_TAGS_DB])
     return jsonify(['ass', 'ecchi', 'ero', 'genshin-impact', 'hentai', 'kamisato-ayaka', 'maid', 'marin-kitagawa', 'milf', 'mori-calliope', 'nami', 'one-piece', 'oppai', 'oral', 'paizuri', 'raiden-shogun', 'rem', 'selfies', 'uniform', 'waifu'])
 
+_suggest_sorted = {}
+
+def _suggest(db, query, limit=50):
+    """Prefix search over a tag list. Sorted DBs (sankaku/safe/yande/kona)
+    use bisect (~0.02ms); anything else falls back to a linear scan, which
+    also preserves popularity ordering (danbooru/gelbooru)."""
+    if not db or not query:
+        return []
+    key = id(db)
+    is_sorted = _suggest_sorted.get(key)
+    if is_sorted is None:
+        try:
+            is_sorted = all(db[i] <= db[i + 1] for i in range(len(db) - 1))
+        except TypeError:
+            is_sorted = False
+        _suggest_sorted[key] = is_sorted
+    if is_sorted:
+        out = []
+        i = bisect.bisect_left(db, query, 0, len(db))
+        while i < len(db):
+            t = db[i]
+            if not isinstance(t, str) or not t.startswith(query):
+                break
+            out.append(t)
+            if len(out) >= limit:
+                break
+            i += 1
+        return out
+    return [t for t in db if isinstance(t, str) and t.startswith(query)][:limit]
+
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
     data = request.json
@@ -304,7 +335,7 @@ def get_zerochan_suggestions():
 def get_safe_suggestions():
     query = request.json.get("query", "").lower()
     if not SAFE_TAGS_DB: return jsonify([])
-    return jsonify([t for t in SAFE_TAGS_DB if t.startswith(query)][:50])
+    return jsonify(_suggest(SAFE_TAGS_DB, query))
 
 @app.route("/api/tags/rule34", methods=["POST"])
 def get_rule34_suggestions():
@@ -329,13 +360,13 @@ def get_rule34_suggestions():
 def get_yande_suggestions():
     query = request.json.get("query", "").lower()
     if not YANDE_TAGS_DB: return jsonify([])
-    return jsonify([t for t in YANDE_TAGS_DB if t.startswith(query)][:50])
+    return jsonify(_suggest(YANDE_TAGS_DB, query))
 
 @app.route("/api/tags/kona", methods=["POST"])
 def get_kona_suggestions():
     query = request.json.get("query", "").lower()
     if not KONA_TAGS_DB: return jsonify([])
-    return jsonify([t for t in KONA_TAGS_DB if t.startswith(query)][:50])
+    return jsonify(_suggest(KONA_TAGS_DB, query))
 
 @app.route("/api/tags/dan", methods=["POST"])
 def get_dan_suggestions():
@@ -347,7 +378,7 @@ def get_dan_suggestions():
 def get_sankaku_suggestions():
     query = request.json.get("query", "").lower()
     if not SANKAKU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in SANKAKU_TAGS_DB if t.startswith(query)][:50])
+    return jsonify(_suggest(SANKAKU_TAGS_DB, query))
 
 @app.route("/api/tags/gelbooru", methods=["POST"])
 def get_gelbooru_suggestions():

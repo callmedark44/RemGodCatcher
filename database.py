@@ -139,7 +139,7 @@ class DatabaseManager:
                 "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
                 "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"},
                 "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"},
-                "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"},
+                "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"},
                 "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"},
                 "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"},
                 "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},

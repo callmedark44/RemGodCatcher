@@ -215,7 +215,8 @@ def write_image_metadata(filepath, tags_list, artists, site, characters=None, co
                 data = f.read()
             if not data.startswith(b"\xff\xd8"):
                 return
-            seg = b"\xff\xfe" + len(payload).to_bytes(2, "big") + payload
+            # segment length includes the 2 length bytes themselves
+            seg = b"\xff\xfe" + (len(payload) + 2).to_bytes(2, "big") + payload
             tmp = filepath + ".meta"
             with open(tmp, "wb") as f:
                 f.write(data[:2] + seg + data[2:])

@@ -101,6 +101,8 @@ async function loadUIConfig() {
         }
         applyRenderTheme(resolvedTheme);
         renderWallpaperGrid();
+        if (window.requestIdleCallback) requestIdleCallback(preloadWallpapers, { timeout: 5000 });
+        else setTimeout(preloadWallpapers, 3000);
     } catch(e) { console.error("Error loading UI config", e); }
 }
 
@@ -198,6 +200,26 @@ function updateBackground(tabName) {
     if (filename) document.body.style.backgroundImage = `url('user_wallpapers/${filename}')`;
 }
 
+// ponytail: backgrounds swapped per tab with zero preload, so first visit
+// stalled on download+decode (6MB+ PNGs). Warm the browser cache during
+// idle so every tab switch is instant.
+let _wallpapersPreloaded = false;
+function preloadWallpapers() {
+    if (_wallpapersPreloaded || !uiConfig.wallpapers) return;
+    _wallpapersPreloaded = true;
+    const seen = new Set();
+    Object.values(uiConfig.wallpapers).forEach(wp => {
+        if (!wp) return;
+        [wp.dark, wp.light].forEach(fn => {
+            if (fn && !seen.has(fn)) {
+                seen.add(fn);
+                const img = new Image();
+                img.src = 'user_wallpapers/' + fn;
+            }
+        });
+    });
+}
+
 async function saveColors() {
     await fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
     let status = document.getElementById("colorSaveStatus");
@@ -228,7 +250,7 @@ async function saveWallpapersUI() {
 async function resetWallpapersUI() {
     if (!confirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.")) return;
     uiConfig.wallpapers = {
-        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_pixiv_d.png", "light": "Rem_pixiv_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
+        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
     };
     renderWallpaperGrid();
     await saveWallpapersUI();
@@ -238,7 +260,7 @@ async function resetWallpapersUI() {
     setTimeout(() => { status.textContent = ""; }, 2000);
 }
 
-const socket = io();
+const socket = io({ transports: ["polling"] });
 
 const WORKER_TO_TAB = {
     "neko": "neko", "nekos_life": "nekos_life", "zero": "zero", "waifu": "waifu",
@@ -309,6 +331,10 @@ function updateProgressBar(worker, msg) {
 }
 // --- Ultimate GUI Log Parser & CLI Restore ---
 // --- Ultimate GUI Log Parser ---
+function capConsole(cb, max) {
+    max = max || 200;
+    while (cb.children.length > max) cb.removeChild(cb.firstChild);
+}
 function logToConsole(tabID, msg) {
     let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
@@ -365,7 +391,7 @@ function logToConsole(tabID, msg) {
         card.innerHTML = `
             <div class="img-card-left">
                 <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
-                <img src="${thumbSrc}?t=${Date.now()}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
+                <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
                 <div class="img-card-dl-badge">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     Downloaded
@@ -379,6 +405,7 @@ function logToConsole(tabID, msg) {
             <div class="img-card-number">${countNum}</div>
         `;
         cb.appendChild(card);
+        capConsole(cb);
         cb.scrollTop = cb.scrollHeight;
         return;
     }
@@ -394,6 +421,7 @@ function logToConsole(tabID, msg) {
         card.className = "log-item system";
         card.innerHTML = `<span style="font-size:16px;">⚙️</span> <span style="flex:1;">${clean}</span>`;
         cb.appendChild(card);
+        capConsole(cb);
         cb.scrollTop = cb.scrollHeight;
     }
 }
@@ -970,7 +998,21 @@ function startWorker(workerName) {
         payload.limit = document.getElementById('nekosiaLimit').value;
         payload.rating = document.getElementById('nekosiaRating').value;
     }
-    
+
+    // ponytail: don't fire a worker with no query — it scans nothing and
+    // the empty limit box (now possible) already defaults server-side
+    const TAG_REQUIRED = ['zero', 'waifu', 'safe', 'gelbooru', 'gsbooru', 'yande', 'dan', 'kona', 'rule34', 'sankaku', 'anime_dl', 'pinterest', 'nekosapi', 'nekosia'];
+    if (TAG_REQUIRED.includes(workerName) && !(payload.tag || '').trim()) {
+        showToast("Enter a tag first");
+        logToConsole(workerName, "Error: tag is empty — nothing to search");
+        return;
+    }
+    if (workerName === 'eshuushuu' && !(payload.tag || '').trim() && !(payload.user_id || '').trim()) {
+        showToast("Enter a tag or user ID first");
+        logToConsole('eshuushuu', "Error: tag and user ID are both empty — nothing to search");
+        return;
+    }
+
     socket.emit("start_worker", payload);
 
     let key = WORKER_TO_TAB[workerName];
@@ -1772,6 +1814,21 @@ function toggleFocusMode() {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+    // ponytail: Enter in any tag box starts its worker (rule34 input keeps
+    // its own add-tag-on-Enter handler, so it's excluded here)
+    const ENTER_TO_WORKER = {
+        zeroTag: 'zero', waifuTag: 'waifu', safeTag: 'safe',
+        gelbooruTag: 'gelbooru', gsbooruTag: 'gsbooru', yandeTag: 'yande',
+        danTag: 'dan', konaTag: 'kona', sankakuTag: 'sankaku',
+        animeDlTag: 'anime_dl', pinterestTag: 'pinterest', pixivTag: 'pixiv',
+        eshuushuuTag: 'eshuushuu', eshuushuuUser: 'eshuushuu',
+        nekosapiTag: 'nekosapi', nekosiaTag: 'nekosia'
+    };
+    document.addEventListener("keydown", function(e) {
+        if (e.key !== "Enter") return;
+        const w = ENTER_TO_WORKER[e.target && e.target.id];
+        if (w) { e.preventDefault(); startWorker(w); }
+    });
     document.querySelectorAll('input[type="number"]').forEach(function(el) {
         el.addEventListener("input", function() {
             this.value = this.value.replace(/[^0-9]/g, "");
