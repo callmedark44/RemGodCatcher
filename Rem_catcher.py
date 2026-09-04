@@ -501,15 +501,14 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         images = [i for i in images if matches_type(i)]
     if rating_filters:
         SUPPORTED_RATINGS = {
-            "safe": {"safe"},
-            "dan": {"safe", "sensitive", "questionable", "explicit"},
+            "safebooru": {"safe"},
+            "danbooru": {"safe", "sensitive", "questionable", "explicit"},
             "gelbooru": {"safe", "sensitive", "questionable", "explicit"},
             "gsbooru": {"safe", "sensitive", "questionable", "explicit"},
-            "kona": {"safe", "questionable", "explicit"},
+            "konachan": {"safe", "questionable", "explicit"},
             "yande": {"safe", "questionable", "explicit"},
             "sankaku": {"safe", "questionable", "explicit"},
             "rule34": {"explicit"},
-            "safebooru": {"safe"},
             "nekosapi": {"safe", "sensitive", "questionable", "explicit"},
             "nekosia": {"safe", "sensitive"},
             "waifu.im": {"safe", "explicit"},
@@ -1000,19 +999,28 @@ def startup_rescan():
         shared.save_gallery(gallery)
 
 if __name__ == "__main__":
-    SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
-    WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
-    shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
-    YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
-    KONA_TAGS_DB = DatabaseManager.load_kona_tags()
-    DAN_TAGS_DB = DatabaseManager.load_dan_tags()
-    SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
-    GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
-    ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
-    ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
-    NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
-    NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
-    GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
+    def _warm_tag_dbs():
+        # ponytail: ~170MB of JSON blocked server startup for seconds.
+        # Endpoints already return [] while a DB is still empty, so warming
+        # in background only delays autosuggest, never breaks it.
+        global SAFE_TAGS_DB, WAIFU_TAGS_DB, WAIFU_TAG_MAP, YANDE_TAGS_DB
+        global KONA_TAGS_DB, DAN_TAGS_DB, SANKAKU_TAGS_DB, GELBOORU_TAGS_DB
+        global ANIME_TAGS_DB, ESHUUSHUU_TAGS_DB, NEKOSAPI_TAGS_DB
+        global NEKOSIA_TAGS_DB, GSBOORU_TAGS_DB
+        SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
+        WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
+        shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
+        YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
+        KONA_TAGS_DB = DatabaseManager.load_kona_tags()
+        DAN_TAGS_DB = DatabaseManager.load_dan_tags()
+        SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
+        GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
+        ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
+        ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
+        NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
+        NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
+        GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
+    threading.Thread(target=_warm_tag_dbs, daemon=True).start()
     # ponytail: rescan walks the whole library — don't block server startup
     threading.Thread(target=startup_rescan, daemon=True).start()
     port = 5000

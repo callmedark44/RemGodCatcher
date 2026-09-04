@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rem God Catcher</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/fonts.css">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="vendor/socket.io.min.js"></script>
 </head>
 <body style="background-image: url('wallpaper/Rem_main_d.png');">
 
@@ -323,7 +323,7 @@
                             <div class="dd-item" onclick="toggleCheck(this)"><span>NSFW</span><input type="checkbox" value="explicit"></div>
                         </div>
                     </div>
-                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">♥ Favorites</button>
+                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()"><svg width="1em" height="1em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="currentColor" stroke="none" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg> Favorites</button>
                     <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images">↻</button>
                 </div>
                 <div id="galleryGrid"></div>
@@ -882,7 +882,7 @@
     <!-- gallery viewer lives at body level so previews work from any tab -->
     <div id="galleryViewer" class="gallery-viewer" style="display: none;">
         <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
-        <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">♡</button>
+        <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite"><svg width="1em" height="1em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg></button>
         <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard">📋</button>
         <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image">🗑️</button>
         <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)">👁️</button>
