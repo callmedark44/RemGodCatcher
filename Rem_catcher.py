@@ -485,7 +485,9 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         return tags if isinstance(tags, list) else []
 
     if search:
-        images = [i for i in images if any(search in t.lower() for t in _get_all_tags(i))]
+        # ponytail: underscores and spaces are equivalent, case already lowered at intake
+        sq = search.replace("_", " ")
+        images = [i for i in images if any(sq in t.lower().replace("_", " ") for t in _get_all_tags(i))]
     if site_filters:
         images = [i for i in images if i.get("site", "").lower() in site_filters]
     if fav_only:
