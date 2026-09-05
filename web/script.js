@@ -1519,11 +1519,68 @@ function openFullImage(filepath, filename) {
 // single-image viewer mode (history/log previews): no gallery context,
 // so nav/fav/delete/copy stay hidden and their shortcuts are inert
 let viewerSingle = false;
+let viewerSingleUrl = "";
+let viewerSingleFilename = "";
+// Viewer resource: the loaded raster image is the single source of truth for
+// both display and Copy — one fetch produces one Blob, shown via an object
+// URL and reused by the clipboard. Videos keep their direct-URL <video> path.
+let viewerResource = {
+    url: null,
+    filename: null,
+    blob: null,
+    objectUrl: null,
+    loadPromise: null,
+    abortController: null,
+    generation: 0
+};
+function clearViewerResource() {
+    const r = viewerResource;
+    if (r.abortController) { try { r.abortController.abort(); } catch (e) {} r.abortController = null; }
+    r.generation++;
+    r.loadPromise = null;
+    if (r.objectUrl) { try { URL.revokeObjectURL(r.objectUrl); } catch (e) {} r.objectUrl = null; }
+    r.blob = null;
+    r.url = null;
+    r.filename = null;
+}
+function loadViewerRaster(url, filename) {
+    const viewerImg = document.getElementById("galleryViewerImg");
+    // ponytail: single owner — abort the previous load, drop its Blob, revoke its URL
+    clearViewerResource();
+    const generation = viewerResource.generation;
+    viewerResource.url = url;
+    viewerResource.filename = filename || "image";
+    const controller = new AbortController();
+    viewerResource.abortController = controller;
+    viewerImg.style.display = '';
+    const p = (async () => {
+        try {
+            const resp = await fetch(url, { signal: controller.signal });
+            if (!resp.ok) throw new Error("Image load failed (" + resp.status + ")");
+            const blob = await resp.blob();
+            if (generation !== viewerResource.generation) return null;
+            viewerResource.blob = blob;
+            const objectUrl = URL.createObjectURL(blob);
+            if (generation !== viewerResource.generation) { URL.revokeObjectURL(objectUrl); return null; }
+            viewerResource.objectUrl = objectUrl;
+            viewerImg.src = objectUrl;
+            return blob;
+        } catch (err) {
+            if (generation === viewerResource.generation && err && err.name !== "AbortError") showToast("⚠ Failed to load image: " + (err.message || err));
+            throw err;
+        }
+    })();
+    viewerResource.loadPromise = p;
+    p.catch(() => {});
+    return p;
+}
 function openViewerSingle(url, filename) {
     const viewer = document.getElementById("galleryViewer");
     const viewerImg = document.getElementById("galleryViewerImg");
     closeGalleryViewer();
     viewerSingle = true;
+    viewerSingleUrl = url;
+    viewerSingleFilename = filename || "image";
     viewer.classList.add("single");
     const ext = ((filename || "").split('.').pop() || "").toLowerCase();
     if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) {
@@ -1537,14 +1594,14 @@ function openViewerSingle(url, filename) {
         wrap.appendChild(video);
         viewer.insertBefore(wrap, viewerImg.nextSibling);
     } else {
-        viewerImg.style.display = '';
-        viewerImg.src = url;
+        loadViewerRaster(url, filename || "image");
     }
     const metaPanel = document.getElementById("galleryViewerMeta");
     if (metaPanel) {
         const entry = (typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === filename) : null)
             || { filename: filename, filepath: "", site: "", tags: {} };
         metaPanel.innerHTML = viewerMetaHtml(entry, true);
+        document.getElementById("galleryViewerFav").innerHTML = heartIcon(!!entry.favourite);
     }
     viewer.style.display = 'flex';
 }
@@ -1569,7 +1626,7 @@ function viewerMetaHtml(img, tagsClickable) {
     }
     let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
     let artistName = (img.tags?.artist || [])[0] || "";
-    let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,140,0,0.4);">${artistName}</span>` : "";
+    let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,140,0,0.4);">${artistName.replace(/_/g, ' ')}</span>` : "";
 
     return `
         <div class="g-meta-header">
@@ -1602,6 +1659,7 @@ function showViewerImage() {
     zl.classList.remove('show');
     viewerZoom = 1;
     if (isVideo) {
+        clearViewerResource();
         viewerImg.style.display = 'none';
         const old = document.querySelector('.gallery-video-wrap');
         if (old) old.remove();
@@ -1640,7 +1698,8 @@ function showViewerImage() {
         document.addEventListener('fullscreenchange', fsIcon);
         document.addEventListener('webkitfullscreenchange', fsIcon);
         video.play();
-    } else { viewerImg.style.display = ''; viewerImg.src = fullSrc; }
+    } else if (fullSrc) { loadViewerRaster(fullSrc, img.filename); }
+    else { clearViewerResource(); viewerImg.style.display = ''; }
     document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite);
     
     // === پنل اطلاعات و تگ‌ها پایین صفحه ===
@@ -1651,35 +1710,93 @@ function showViewerImage() {
 
     viewer.style.display = 'flex';
 }
-function closeGalleryViewer() { document.getElementById("galleryViewer").classList.remove("single"); viewerSingle = false; document.getElementById("galleryViewer").style.display = 'none'; document.getElementById("galleryViewerImg").src = ''; document.getElementById("galleryViewerImg").className = ''; document.getElementById("galleryViewerImg").style.transform = ''; document.getElementById("galleryViewerImg").style.transformOrigin = ''; const vw = document.querySelector('.gallery-video-wrap'); if (vw) { vw.remove(); } viewerZoom = 1; viewerIndex = -1; viewerDrag.active = false; }
+function closeGalleryViewer() { clearViewerResource(); document.getElementById("galleryViewer").classList.remove("single"); viewerSingle = false; viewerSingleUrl = ""; viewerSingleFilename = ""; document.getElementById("galleryViewer").style.display = 'none'; document.getElementById("galleryViewerImg").src = ''; document.getElementById("galleryViewerImg").className = ''; document.getElementById("galleryViewerImg").style.transform = ''; document.getElementById("galleryViewerImg").style.transformOrigin = ''; const vw = document.querySelector('.gallery-video-wrap'); if (vw) { vw.remove(); } viewerZoom = 1; viewerIndex = -1; viewerDrag.active = false; }
 function viewerNav(dir) { if (viewerSingle) return; const total = galleryState.images.length; const newIdx = viewerIndex + dir; if (newIdx < 0 && currentGalleryPage > 1) { loadGalleryPage(currentGalleryPage - 1, () => { viewerIndex = galleryState.images.length - 1; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage < galleryState.total_pages) { loadGalleryPage(currentGalleryPage + 1, () => { viewerIndex = 0; showViewerImage(); }); return; } if (newIdx >= total && currentGalleryPage >= galleryState.total_pages) { showToast("Last image"); return; } if (newIdx < 0 && currentGalleryPage <= 1) { return; } viewerIndex = newIdx; viewerZoom = 1; showViewerImage(); }
-function toggleViewerFav() { if (viewerSingle) return; const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite); fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
+function toggleViewerFav() {
+    if (viewerSingle) {
+        fetch("/api/gallery/favourite_by_name", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ filename: viewerSingleFilename }) })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    document.getElementById("galleryViewerFav").innerHTML = heartIcon(data.favourite);
+                    const h = typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === viewerSingleFilename) : null;
+                    if (h) h.favourite = data.favourite;
+                }
+            }).catch(e => console.error("Fav toggle error:", e));
+        return;
+    }
+    const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite); fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
 let _copyBusy = false;
-async function copyViewerImage() {
-    if (viewerSingle) return;
-    if (_copyBusy) return;
-    const img = galleryState.images[viewerIndex];
-    if (!img) return;
-    _copyBusy = true;
-    showToast("📋 Copying...");
-    const rel = (img.filepath || "").replace(/\\/g, '/');
+async function copyUrlToClipboard(url, filename) {
+    // ponytail: copy the original bytes untouched — no canvas, no re-encode
+    let blob = await (await fetch(url)).blob();
     try {
-        const url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
-        let blob = await (await fetch(url)).blob();
-        // ponytail: copy the original bytes untouched — no canvas, no re-encode
-        try {
-            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-            showToast("📋 Image copied to clipboard");
-        } catch (err) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = img.filename || 'file';
-            document.body.appendChild(a);
-            a.click();
-                a.remove();
-                showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
+        showToast("📋 Image copied to clipboard");
+    } catch (err) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
+    }
+}
+async function copyBlobToClipboard(blob, url, filename) {
+    // ponytail: blob is the viewer's already-loaded bytes — no second fetch, no canvas, no re-encode
+    try {
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
+        showToast("📋 Image copied to clipboard");
+    } catch (err) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
+    }
+}
+async function copyViewerImage() {
+    if (_copyBusy) return;
+    _copyBusy = true;
+    try {
+        let url, filename;
+        if (viewerSingle) {
+            if (!viewerSingleUrl) return;
+            url = viewerSingleUrl;
+            filename = viewerSingleFilename;
+        } else {
+            const img = galleryState.images[viewerIndex];
+            if (!img) return;
+            const rel = (img.filepath || "").replace(/\\/g, '/');
+            url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
+            filename = img.filename;
         }
-    } catch (e) { showToast("⚠ Copy failed: " + e.message); }
+        // Videos keep the previous fetch-then-clipboard-or-download behavior;
+        // the Blob resource manager is for raster images only.
+        if (/\.(mp4|webm|mov|avi|mkv)$/i.test(filename || "") || (!viewerResource.blob && !viewerResource.loadPromise)) {
+            showToast("📋 Copying...");
+            await copyUrlToClipboard(url, filename);
+            return;
+        }
+        const generation = viewerResource.generation;
+        if (!viewerResource.blob && viewerResource.loadPromise) {
+            showToast("📋 Preparing image...");
+            try {
+                await viewerResource.loadPromise;
+            } catch (err) {
+                if (generation !== viewerResource.generation) showToast("⚠ Image changed — press Copy again");
+                else showToast("⚠ Copy failed: image did not load");
+                return;
+            }
+        }
+        if (generation !== viewerResource.generation) { showToast("⚠ Image changed — press Copy again"); return; }
+        const blob = viewerResource.blob;
+        if (!blob) { showToast("⚠ Image is not ready yet — try again"); return; }
+        showToast("📋 Copying...");
+        await copyBlobToClipboard(blob, viewerResource.url || url, viewerResource.filename || filename);
+    } catch (e) { showToast("⚠ Copy failed: " + (e && e.message || e)); }
     finally { _copyBusy = false; }
 }
 function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
@@ -1871,7 +1988,20 @@ function customConfirm(message, okLabel) {
 }
 // تابع حذف تصویر خراب
 async function deleteViewerImage() {
-    if (viewerSingle) return;
+    if (viewerSingle) {
+        if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;
+        try {
+            let resp = await fetch("/api/gallery/delete_by_name", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ filename: viewerSingleFilename }) });
+            if (resp.ok) {
+                showToast("🗑️ Image deleted completely!");
+                closeGalleryViewer();
+                loadGallery();
+            } else {
+                showToast("⚠ Delete failed: not found in gallery");
+            }
+        } catch (e) { showToast("⚠ Delete failed: " + e.message); }
+        return;
+    }
     const img = galleryState.images[viewerIndex];
     if (!img) return;
     if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;

@@ -715,16 +715,12 @@ select option:hover, select option:checked { background: var(--title-color); col
     cursor: grabbing;
 }
 
-.gallery-viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.15); color: white; font-size: 24px; cursor: pointer; z-index: 10010; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+.gallery-viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.15); color: white; font-size: 24px; cursor: pointer; z-index: 10010; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; line-height: 1; padding-bottom: 2px; }
 .gallery-viewer-nav:hover { background: var(--title-color); color: #000; transform: translateY(-50%) scale(1.1); }
 .gallery-viewer-nav.prev { left: 40px; }
 .gallery-viewer-nav.next { right: 40px; }
-/* single-image mode (history/log previews): no gallery context */
-.gallery-viewer.single .gallery-viewer-nav,
-.gallery-viewer.single .gallery-viewer-top-btn.fav,
-.gallery-viewer.single .gallery-viewer-top-btn.copy,
-.gallery-viewer.single .gallery-viewer-top-btn.trash,
-.gallery-viewer.single .gallery-viewer-top-btn.focus-mode { display: none !important; }
+/* single-image mode (history/log previews): no list to walk, so only nav hides */
+.gallery-viewer.single .gallery-viewer-nav { display: none !important; }
 
 /* ===== CUSTOM CONFIRM MODAL (theme-aware) ===== */
 .custom-confirm-overlay {
@@ -761,7 +757,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 }
 
 /* چیدمان دکمه‌های بالا راست */
-.gallery-viewer-top-btn { position: absolute; top: 30px; background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.15); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 10010; transition: all 0.2s ease; text-decoration: none; }
+.gallery-viewer-top-btn { position: absolute; top: 30px; background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.15); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 10010; transition: all 0.2s ease; text-decoration: none; line-height: 1; padding-bottom: 2px; }
 .gallery-viewer-top-btn:hover { transform: scale(1.1); }
 .gallery-viewer-top-btn.close { right: 40px; font-size: 24px; color: #ff6b6b; }
 .gallery-viewer-top-btn.close:hover { background: #ff6b6b; color: #fff; border-color: #ff6b6b; }
