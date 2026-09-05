@@ -1055,9 +1055,11 @@ if __name__ == "__main__":
     try:
         import webview
         webview.create_window("Rem God Catcher", url, width=1400, height=900)
-        webview.start(gui="gtk" if sys.platform == "linux" else None)
+        webview.start(gui="gtk" if sys.platform == "linux" else "edgechromium")
     except Exception as e:
         print(f"Desktop window unavailable ({e}), opening in browser instead")
+        if sys.platform == "win32":
+            print("Tip: install the WebView2 runtime from Microsoft for the desktop window.")
         import webbrowser
         webbrowser.open(url)
         server_thread.join()
