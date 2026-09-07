@@ -164,7 +164,7 @@ class EShuushuuWorker(BaseDownloader):
                 await asyncio.sleep(self.anti_ban_pause)
 
         qsize = self.download_queue.qsize() if self.download_queue else collected
-        if qsize == 0: self.log("No new images.")
+        if qsize == 0: self.log("No new images to download.")
         else: self.log(f"Enqueued {qsize} items. Completing downloads...")
 
     def _g(self, raw, key):

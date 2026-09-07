@@ -51,7 +51,7 @@ class NekosApiWorker(BaseDownloader):
 
                 images = data.get("items", [])
                 if not images:
-                    self.log("No more images found.")
+                    self.log("No new images to download.")
                     break
             except Exception as e:
                 self.log(f"API error: {e}")

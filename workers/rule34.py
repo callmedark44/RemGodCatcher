@@ -119,7 +119,7 @@ class Rule34Worker(BaseWorker):
 
             if not results:
                 if page == 0:
-                    self.log(f"0 images found for {self.api_tags}.")
+                    self.log(f"ZERO images found for {self.api_tags}.")
                 else:
                     self.log("End of database reached.")
                 break

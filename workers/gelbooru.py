@@ -108,7 +108,7 @@ class GelbooruWorker(BaseWorker):
                 posts = data.get("post", [])
 
                 if not posts:
-                    if pid == 0: self.log(f"0 images found for '{self.original_tag}'.")
+                    if pid == 0: self.log(f"ZERO images found for '{self.original_tag}'.")
                     else: self.log("End of database reached.")
                     break
 

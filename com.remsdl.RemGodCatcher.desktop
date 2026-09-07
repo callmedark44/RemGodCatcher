@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Rem God Catcher
+Comment=Multi-threaded image & media scraper
+Exec=/home/hanekawa/.pyenv/versions/3.13.7/bin/python /home/hanekawa/test/Rem-s-Dl-test/Rem_catcher.py
+Path=/home/hanekawa/test/Rem-s-Dl-test
+Icon=com.remsdl.RemGodCatcher
+StartupWMClass=com.remsdl.RemGodCatcher
+Terminal=false
+Categories=Graphics;
+StartupNotify=true

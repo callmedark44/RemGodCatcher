@@ -22,9 +22,9 @@ def default_logger(worker_name, msg): print(f"[{worker_name.upper()}] {msg}")
 log_callback = default_logger
 def log_msg(worker_name, msg): log_callback(worker_name, msg)
 
-def default_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None): pass
+def default_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None): pass
 tag_callback = default_tag_handler
-TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag"]
+TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "outfit", "group", "hair", "eyes", "tag"]
 
 SITE_CANONICAL = {
     "dan": "danbooru", "danbooru": "danbooru",
@@ -61,9 +61,9 @@ def sort_tags_by_category(tags_dict):
             result[cat] = sorted(tags_dict[cat])
     return result
 
-def tags_dict_from_lists(tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
+def tags_dict_from_lists(tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     """Build a categorized tags dict from flat lists."""
-    result = {"artist": [], "character": [], "copyright": [], "metadata": [], "tag": []}
+    result = {"artist": [], "character": [], "copyright": [], "metadata": [], "outfit": [], "group": [], "hair": [], "eyes": [], "tag": []}
     if artists:
         result["artist"] = [a.strip() for a in artists if a.strip()]
     if characters:
@@ -72,13 +72,31 @@ def tags_dict_from_lists(tags_list, artists=None, characters=None, copyrights=No
         result["copyright"] = [c.strip() for c in copyrights if c.strip()]
     if metadata_tags:
         result["metadata"] = [m.strip() for m in metadata_tags if m.strip()]
+    if outfits:
+        result["outfit"] = [o.strip() for o in outfits if o.strip()]
+    if groups:
+        result["group"] = [g.strip() for g in groups if g.strip()]
+    if hair:
+        result["hair"] = [h.strip() for h in hair if h.strip()]
+    if eyes:
+        result["eyes"] = [e.strip() for e in eyes if e.strip()]
     if tags_list:
         result["tag"] = [t.strip() for t in tags_list if t.strip()]
     return sort_tags_by_category(result)
 
-def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None, characters=None, copyrights=None, metadata_tags=None):
+def build_tagd(artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None, tags_list=None, limit=5):
+    """Compact categorized tag segment for SUCCESS log lines: 'outfit:X, character:Y'."""
+    seen = []
+    for _cat, _items in (("artist", artists), ("character", characters), ("copyright", copyrights), ("metadata", metadata_tags), ("outfit", outfits), ("group", groups), ("hair", hair), ("eyes", eyes), ("tag", tags_list)):
+        for _t in _items or []:
+            _t = _t.strip()
+            if _t and len(seen) < limit:
+                seen.append(f"{_cat}:{_t}")
+    return ", ".join(seen)
+
+def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     if artist_list is None: artist_list = []
-    tag_callback(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags)
+    tag_callback(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
 
 def default_emit(event, data): pass
 emit_callback = default_emit
@@ -175,12 +193,12 @@ def flush_gallery():
             _write_gallery(_gallery_cache["data"])
             _gallery_cache["dirty"] = 0
 
-def add_to_gallery(site, filename, filepath, tags_list, artists, characters=None, copyrights=None, metadata_tags=None):
+def add_to_gallery(site, filename, filepath, tags_list, artists, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     with _GALLERY_LOCK:
         gallery = _gallery_cached_locked()
         if filename in _gallery_cache["filenames"]:
             return
-        tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
+        tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
         gallery["images"].insert(0, {
             "id": hashlib.md5(f"{site}:{filename}".encode()).hexdigest()[:12],
             "filename": filename,
@@ -196,9 +214,9 @@ def add_to_gallery(site, filename, filepath, tags_list, artists, characters=None
             _write_gallery(gallery)
             _gallery_cache["dirty"] = 0
 
-def write_image_metadata(filepath, tags_list, artists, site, characters=None, copyrights=None, metadata_tags=None):
+def write_image_metadata(filepath, tags_list, artists, site, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     ext = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
-    tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags)
+    tags_dict = tags_dict_from_lists(tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
     meta_lines = [f"site:{site}"]
     for cat in TAG_CATEGORIES:
         for t in tags_dict.get(cat, []):
@@ -331,7 +349,7 @@ class BaseDownloader:
 
     def log(self, msg): log_msg(self.name, msg)
 
-    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if artists is None: artists = []
         
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
@@ -344,11 +362,11 @@ class BaseDownloader:
             
         self.total_bytes += file_size
         self.queued_items.add(filename)
-        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, file_size, characters, copyrights, metadata_tags))
+        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, file_size, characters, copyrights, metadata_tags, outfits, groups, hair, eyes))
         self.enqueued_count += 1
         return True
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -428,13 +446,14 @@ class BaseDownloader:
                 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+                tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes, tags_list)
 
                 # ponytail: metadata + gallery publish BEFORE the SUCCESS log — the log card
                 # requests its thumb instantly and would otherwise read a half-written file
-                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
-                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
-                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags} |TAGD| {tagd}")
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 return True
 
             except Exception as e:

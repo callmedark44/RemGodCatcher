@@ -75,10 +75,10 @@ class DatabaseManager:
         DatabaseManager.save_json(IMAGE_HISTORY_FILE, data)
 
     @staticmethod
-    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
+    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         from shared import tags_dict_from_lists
         hist = DatabaseManager.load_image_history()
-        tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags)
+        tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
         entry = {
             "site": worker_name,
             "filename": filename,
@@ -137,18 +137,26 @@ class DatabaseManager:
             "theme_mode": "dark",
             "wallpapers": {
                 "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+                "Gallery": {"dark": "Rem_Gallery_d.jpg", "light": "Rem_Gallery_l.jpg"},
+                "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
+                "AnimeDL": {"dark": "Rem_AnimeDl_d.jpg", "light": "Rem_AnimeDl_l.jpg"},
+                "Danbooru": {"dark": "Rem_danbooru_d.jpg", "light": "Rem_danbooru_l.jpg"},
+                "EShuushuu": {"dark": "Rem_EShuushuu_d.jpg", "light": "Rem_EShuushuu_l.jpg"},
+                "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
+                "Gsbooru": {"dark": "Rem_Gsbooru_d.jpg", "light": "Rem_Gsbooru_l.jpg"},
+                "Kona": {"dark": "Rem_Kona_d.jpg", "light": "Rem_Kona_l.jpg"},
                 "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"},
                 "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"},
-                "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"},
-                "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"},
-                "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"},
-                "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
+                "NekosAPI": {"dark": "Rem_NekosAPI_d.jpg", "light": "Rem_NekosAPI_l.jpg"},
+                "Nekosia": {"dark": "Rem_Nekosia_d.jpg", "light": "Rem_Nekosia_l.jpg"},
+                "Pinterest": {"dark": "Rem_pinterest_d.jpg", "light": "Rem_pinterest_l.jpg"},
+                "Pixiv": {"dark": "Rem_Pixiv_d.jpg", "light": "Rem_Pixiv_l.jpg"},
                 "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
+                "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"},
+                "Sankaku": {"dark": "Rem_Sankaku_d.jpg", "light": "Rem_Sankaku_l.jpg"},
+                "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"},
                 "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
-                "Kona": {"dark": "Rem_kona_d.png", "light": "Rem_kona_l.png"},
-                "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
-                "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
-                "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
+                "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"},
                 "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
                 "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
             },

@@ -130,7 +130,7 @@ class SankakuWorker(BaseWorker):
 
                 if not posts:
                     if page == 1:
-                        self.log(f"ZERO images for '{self.api_tag}'. Auth: {'yes' if self.session.headers.get('Authorization') else 'none'}")
+                        self.log(f"ZERO images found for '{self.api_tag}'. Auth: {'yes' if self.session.headers.get('Authorization') else 'none'}")
                     break
 
             except Exception as e:

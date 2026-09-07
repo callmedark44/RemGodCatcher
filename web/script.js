@@ -2,7 +2,7 @@ let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false
 let uiConfig = {};
 let currentActiveTheme = 'dark';
 
-const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag", "mangaka", "game", "outfit", "theme", "source", "meta", "vtuber", "series", "group", "studio"];
+const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag", "mangaka", "game", "outfit", "theme", "source", "meta", "vtuber", "series", "group", "studio", "hair", "eyes"];
 
 function getTagCategoryClass(cat) {
     return 'tag-' + cat;
@@ -78,16 +78,6 @@ function renderCategorizedTags(tagsInput, clickable) {
         });
     });
     return html;
-}
-
-function renderCategorizedTagsForLog(tagsInput) {
-    let tagsDict = normalizeTags(tagsInput);
-    let parts = [];
-    TAG_CATEGORIES.forEach(cat => {
-        if (cat === "artist") return;
-        (tagsDict[cat] || []).forEach(t => parts.push(cleanTagDisplay(t)));
-    });
-    return parts.join(', ') || 'No tags';
 }
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
@@ -200,11 +190,74 @@ async function uploadWpBox(tabName, mode, fileInput) {
     fileInput.value = "";
 }
 
+const _wpReady = {};
+const _wpWaiters = {};
+function warmWallpaper(url, cb) {
+    if (cb) (_wpWaiters[url] = _wpWaiters[url] || []).push(cb);
+    if (_wpReady[url]) { _drainWpWaiters(url); return; }
+    if (warmWallpaper._loading && warmWallpaper._loading[url]) return;
+    (warmWallpaper._loading = warmWallpaper._loading || {})[url] = true;
+    const img = new Image();
+    const done = () => {
+        _wpReady[url] = true;
+        delete warmWallpaper._loading[url];
+        _drainWpWaiters(url);
+    };
+    img.onload = done;
+    img.onerror = done;
+    img.src = url;
+}
+function _drainWpWaiters(url) {
+    const fns = _wpWaiters[url] || [];
+    delete _wpWaiters[url];
+    fns.forEach(fn => { try { fn(); } catch (e) {} });
+}
+let _wpLayerA = null;
+let _wpLayerB = null;
+let _wpFrontIsA = true;
+let _wpFadeTimer = null;
+
+function _ensureWpLayers() {
+    if (_wpLayerA) return;
+    _wpLayerA = document.createElement('div');
+    _wpLayerA.id = 'wpFade'; // reuses existing #wpFade CSS (position/size/etc.)
+    _wpLayerB = document.createElement('div');
+    _wpLayerB.id = 'wpFade';
+    document.body.prepend(_wpLayerB);
+    document.body.prepend(_wpLayerA);
+    _wpLayerA.style.opacity = '1';
+    _wpLayerB.style.opacity = '0';
+}
+
 function updateBackground(tabName) {
     let wp = uiConfig.wallpapers && uiConfig.wallpapers[tabName];
     if (!wp) return;
     let filename = wp[currentActiveTheme] || wp['dark'];
-    if (filename) document.body.style.backgroundImage = `url('user_wallpapers/${filename}')`;
+    if (!filename) return;
+    const url = `user_wallpapers/${filename}`;
+
+    _ensureWpLayers();
+    const front = _wpFrontIsA ? _wpLayerA : _wpLayerB;
+    const back = _wpFrontIsA ? _wpLayerB : _wpLayerA;
+
+    if (front.style.backgroundImage.includes(filename)) return; // already showing it
+
+    clearTimeout(_wpFadeTimer);
+
+    const crossfade = () => {
+        back.style.transition = 'none';
+        back.style.backgroundImage = `url('${url}')`;
+        back.style.opacity = '0';
+        void back.offsetWidth; // force reflow before enabling transition
+        back.style.transition = 'opacity 0.45s ease';
+        front.style.transition = 'opacity 0.45s ease';
+        back.style.opacity = '1';
+        front.style.opacity = '0'; // old layer fades out at the same time
+        _wpFrontIsA = !_wpFrontIsA; // back becomes the new front for next switch
+    };
+
+    if (_wpReady[url]) crossfade();
+    else warmWallpaper(url, crossfade);
 }
 
 // ponytail: backgrounds swapped per tab with zero preload, so first visit
@@ -220,8 +273,7 @@ function preloadWallpapers() {
         [wp.dark, wp.light].forEach(fn => {
             if (fn && !seen.has(fn)) {
                 seen.add(fn);
-                const img = new Image();
-                img.src = 'user_wallpapers/' + fn;
+                warmWallpaper('user_wallpapers/' + fn);
             }
         });
     });
@@ -257,7 +309,7 @@ async function saveWallpapersUI() {
 async function resetWallpapersUI() {
     if (!await customConfirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.", "Reset")) return;
     uiConfig.wallpapers = {
-        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
+        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Gallery": {"dark": "Rem_Gallery_d.jpg", "light": "Rem_Gallery_l.jpg"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "AnimeDL": {"dark": "Rem_AnimeDl_d.jpg", "light": "Rem_AnimeDl_l.jpg"}, "Danbooru": {"dark": "Rem_danbooru_d.jpg", "light": "Rem_danbooru_l.jpg"}, "EShuushuu": {"dark": "Rem_EShuushuu_d.jpg", "light": "Rem_EShuushuu_l.jpg"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_Gsbooru_d.jpg", "light": "Rem_Gsbooru_l.jpg"}, "Kona": {"dark": "Rem_Kona_d.jpg", "light": "Rem_Kona_l.jpg"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "NekosAPI": {"dark": "Rem_NekosAPI_d.jpg", "light": "Rem_NekosAPI_l.jpg"}, "Nekosia": {"dark": "Rem_Nekosia_d.jpg", "light": "Rem_Nekosia_l.jpg"}, "Pinterest": {"dark": "Rem_pinterest_d.jpg", "light": "Rem_pinterest_l.jpg"}, "Pixiv": {"dark": "Rem_Pixiv_d.jpg", "light": "Rem_Pixiv_l.jpg"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Sankaku": {"dark": "Rem_Sankaku_d.jpg", "light": "Rem_Sankaku_l.jpg"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Zero": {"dark": "Rem_zero_d.jpg", "light": "Rem_zero_l.jpg"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
     };
     renderWallpaperGrid();
     await saveWallpapersUI();
@@ -336,14 +388,15 @@ function updateProgressBar(worker, msg) {
         return;
     }
 }
-// --- Ultimate GUI Log Parser & CLI Restore ---
 // --- Ultimate GUI Log Parser ---
 function capConsole(cb, max) {
     max = max || 200;
     while (cb.children.length > max) cb.removeChild(cb.firstChild);
 }
+// ponytail: single source of truth — logToConsole and clearLog shared this map verbatim
+const CONSOLE_BOX_MAP = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
 function logToConsole(tabID, msg) {
-    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
+    let boxMap = CONSOLE_BOX_MAP;
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (!cb) return;
 
@@ -357,8 +410,27 @@ function logToConsole(tabID, msg) {
     if (raw.includes("[SUCCESS] Downloaded")) {
         let pathMatch = raw.match(/\|PATH\|\s*(.*?)(?:\s*\|TAGS\||$)/);
         let rawPath = pathMatch ? pathMatch[1].trim() : "";
-        let tagsMatch = raw.match(/\|TAGS\|\s*(.*)/);
+        let tagsMatch = raw.match(/\|TAGS\|\s*(.*?)(?:\s*\|TAGD\||$)/);
         let tagsStr = tagsMatch ? tagsMatch[1].trim() : "No tags";
+        // ponytail: TAGD carries categories — pills with true colors; else legacy flat text
+        let tagdMatch = raw.match(/\|TAGD\|\s*(.*)/);
+        let tagsHtml;
+        if (tagdMatch && tagdMatch[1].trim()) {
+            let cats = {};
+            tagdMatch[1].split(',').forEach(function(piece) {
+                let ci = piece.indexOf(':');
+                if (ci < 0) return;
+                let ck = piece.slice(0, ci).trim().toLowerCase();
+                let nm = piece.slice(ci + 1).trim();
+                if (!nm) return;
+                (cats[ck] = cats[ck] || []).push(nm);
+            });
+            let artistNames = cats.artist || [];
+            delete cats.artist;
+            tagsHtml = artistNames.map(a => `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(a)}</span>`).join('') + renderCategorizedTags(cats, false);
+        } else {
+            tagsHtml = (tagsStr && tagsStr !== "No tags") ? renderCategorizedTags({ tag: tagsStr.split(', ') }, false) : "No tags";
+        }
         let fnMatch = raw.match(/Downloaded ([^\s]+)/);
         let fn = fnMatch ? fnMatch[1] : "image";
         let countMatch = raw.match(/\((\d+)\/\d+\)/);
@@ -399,14 +471,10 @@ function logToConsole(tabID, msg) {
             <div class="img-card-left">
                 <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
                 <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
-                <div class="img-card-dl-badge">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Downloaded
-                </div>
             </div>
             <div class="img-card-right">
                 <div class="img-card-title" title="${safeFn}">${fn}</div>
-                <div class="img-card-tags">${renderCategorizedTagsForLog(tagsStr.split(', '))}</div>
+                <div class="img-card-tags">${tagsHtml}</div>
                 ${ratingHtml}
             </div>
             <div class="img-card-number">${countNum}</div>
@@ -471,6 +539,83 @@ function renderRule34Tags() {
     }).join('');
 }
 
+// --- Zerochan interactive tags (mirrors rule34; joined with ',' for the worker) ---
+let currentZerochanTags = [];
+let zeroSubtagCache = {};
+let zerochanSubTags = new Set();
+function addZerochanTagName(name, viaSubtag) {
+    // ponytail: zerochan tags are proper nouns ("RezDen") — never lowercase
+    let val = (name || "").trim();
+    if (val && !currentZerochanTags.includes(val)) {
+        currentZerochanTags.push(val);
+        if (viaSubtag) zerochanSubTags.add(val);
+        renderZerochanTags();
+    }
+}
+function addZerochanTag() {
+    let input = document.getElementById("zeroTag");
+    if (!input) return;
+    addZerochanTagName(input.value);
+    input.value = "";
+    renderZerochanTags();
+    input.focus();
+}
+function removeZerochanTag(tag) {
+    currentZerochanTags = currentZerochanTags.filter(function(t) { return t !== tag; });
+    zerochanSubTags.delete(tag);
+    renderZerochanTags();
+}
+const ZERO_STAR_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7 0.276855c-0.19843 0 -0.39272 0.056768 -0.55993 0.163603 -0.16508 0.10547 -0.29697 0.255388 -0.38055 0.432443L4.47196 4.07799c-0.00312 0.0063 -0.00611 0.01266 -0.00896 0.01909 -0.00071 0.00159 -0.00183 0.00298 -0.00324 0.00401 -0.00141 0.00103 -0.00306 0.00168 -0.0048 0.00187 -0.00609 0.00067 -0.01217 0.00146 -0.01823 0.00236l-3.495581 0.51786c-0.193204 0.01879 -0.377444 0.09129 -0.531759 0.20949 -0.159672 0.12231 -0.280454 0.28829 -0.3477142 0.47784 -0.06726016 0.18955 -0.0781133 0.39454 -0.0312442 0.59014 0.0466876 0.19483 0.1486564 0.37202 0.2936224 0.51027L2.88283 8.87974l-0.00004 0.00005 0.00587 0.00548c0.00365 0.00342 0.0064 0.00769 0.00798 0.01244 0.00158 0.00474 0.00195 0.00981 0.00107 0.01473l-0.00056 0.00327 -0.60974 3.56839 -0.00015 0.0009c-0.0335 0.1934 -0.01214 0.3923 0.06167 0.5741 0.07391 0.1822 0.19747 0.3399 0.3566 0.4553 0.15914 0.1153 0.34746 0.1837 0.54354 0.1973 0.19569 0.0136 0.39127 -0.0279 0.56457 -0.1197l0.00006 -0.0001 0.00099 -0.0005 3.14948 -1.6645c0.01129 -0.0049 0.0235 -0.0075 0.03585 -0.0075s0.02455 0.0026 0.03585 0.0075l3.14943 1.6645 0.0006 0.0003c0.1734 0.0921 0.3692 0.1337 0.565 0.12 0.1961 -0.0136 0.3844 -0.082 0.5436 -0.1973 0.1591 -0.1154 0.2827 -0.2731 0.3566 -0.4553 0.0738 -0.1818 0.0951 -0.3806 0.0617 -0.5739l-0.0002 -0.0011 -0.6097 -3.5684 -0.0006 -0.00326c-0.0009 -0.00492 -0.0005 -0.00999 0.0011 -0.01473 0.0015 -0.00474 0.0043 -0.00902 0.0079 -0.01244l0.0001 0.00005 0.0058 -0.00558 2.5588 -2.46885c0.1449 -0.13825 0.2469 -0.31542 0.2936 -0.51024 0.0468 -0.1956 0.036 -0.40059 -0.0313 -0.59014 -0.0672 -0.18955 -0.188 -0.35553 -0.3477 -0.47784 -0.1543 -0.1182 -0.3385 -0.1907 -0.5317 -0.20949l-3.49562 -0.51786c-0.00606 -0.0009 -0.01214 -0.00169 -0.01823 -0.00236 -0.00174 -0.00019 -0.0034 -0.00084 -0.00481 -0.00187 -0.00141 -0.00103 -0.00252 -0.00242 -0.00323 -0.00401 -0.00285 -0.00643 -0.00584 -0.01279 -0.00896 -0.01909L7.94048 0.872887C7.8569 0.695838 7.72501 0.545925 7.55994 0.440458 7.39272 0.333623 7.19843 0.276855 7 0.276855Z"/></svg> ';
+const ZERO_CHECK_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M13.637 1.198a1 1 0 0 1 0.134 1.408l-8.04 9.73 -0.003 0.002a1.922 1.922 0 0 1 -1.5 0.693 1.923 1.923 0 0 1 -1.499 -0.748l-0.001 -0.002L0.21 9.045a1 1 0 1 1 1.578 -1.228l2.464 3.167 7.976 -9.652a1 1 0 0 1 1.408 -0.134Z"/></svg> ';
+function renderZerochanTags() {
+    let container = document.getElementById("zeroTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentZerochanTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        // ponytail: negatives stay warning; else first pill is main, dropdown picks are sub, typed are other
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (zerochanSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = t.replace(/'/g, "\\'");
+        return '<span class="v-tag ' + cls + '" onclick="removeZerochanTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+async function showZeroSubtags(dropdown, input) {
+    if (!currentZerochanTags.length || input.value.trim() !== "") { dropdown.style.display = "none"; return; }
+    const baseTag = currentZerochanTags[currentZerochanTags.length - 1].replace(/^-/, '');
+    const key = baseTag.toLowerCase();
+    if (!zeroSubtagCache[key]) {
+        try {
+            let resp = await fetch("/api/tags/zerochan/subtags", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tag: baseTag, net_config: globalNetConfig })
+            });
+            zeroSubtagCache[key] = await resp.json();
+        } catch(e) { zeroSubtagCache[key] = []; }
+    }
+    // ponytail: user kept typing while we fetched — normal suggest owns the box now
+    if (input.value.trim() !== "") return;
+    const items = (zeroSubtagCache[key] || []).filter(s => s && s.name && !currentZerochanTags.includes(s.name));
+    dropdown.innerHTML = "";
+    if (!items.length) { dropdown.style.display = "none"; return; }
+    zeroSuggestItems = items.map(s => s.name);
+    zeroSuggestActiveIndex = -1;
+    items.forEach((s) => {
+        let div = document.createElement("div");
+        div.className = "autosuggest-item";
+        div.textContent = `${cleanTagDisplay(s.name)} (${s.count})`;
+        div.title = s.kind || "";
+        div.onclick = function() {
+            input.value = "";
+            dropdown.style.display = "none";
+            addZerochanTagName(s.name, true);
+            input.focus();
+        };
+        dropdown.appendChild(div);
+    });
+    dropdown.style.display = "block";
+}
+
 // --- Rule34 Autosuggest ---
 let r34SuggestTimer = null;
 let r34SuggestActiveIndex = -1;
@@ -512,11 +657,10 @@ document.addEventListener("DOMContentLoaded", function() {
                         let finalTag = isNegative ? '-' + item : item;
                         let div = document.createElement("div");
                         div.className = "autosuggest-item";
-                        div.textContent = finalTag;
+                        div.textContent = cleanTagDisplay(finalTag);
                         div.onclick = function() {
                             input.value = finalTag;
                             dropdown.style.display = "none";
-                            addRule34Tag();
                             input.focus();
                         };
                         dropdown.appendChild(div);
@@ -576,6 +720,296 @@ document.addEventListener("DOMContentLoaded", function() {
         if (r34SuggestActiveIndex > -1 && items[r34SuggestActiveIndex]) {
             items[r34SuggestActiveIndex].classList.add("active");
             items[r34SuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+});
+
+// --- Zerochan tag box: empty shows sub-tags of the last tag, typing suggests ---
+let zeroSuggestTimer = null;
+let zeroSuggestActiveIndex = -1;
+let zeroSuggestItems = [];
+
+document.addEventListener("DOMContentLoaded", function() {
+    let input = document.getElementById("zeroTag");
+    let dropdown = document.getElementById("zeroAutosuggest");
+    if (!input || !dropdown) return;
+
+    input.addEventListener("input", function() {
+        clearTimeout(zeroSuggestTimer);
+        let val = input.value.trim();
+        let isNegative = val.startsWith('-');
+        let queryVal = isNegative ? val.substring(1) : val;
+
+        if (!queryVal) { showZeroSubtags(dropdown, input); return; }
+        if (queryVal.length < 2) { dropdown.style.display = "none"; return; }
+
+        zeroSuggestTimer = setTimeout(async () => {
+            try {
+                let resp = await fetch("/api/tags/zerochan", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
+                });
+                let data = await resp.json();
+                if (input.value.trim() === "") return;
+                if (data && data.length > 0) {
+                    zeroSuggestItems = data;
+                    zeroSuggestActiveIndex = -1;
+                    dropdown.innerHTML = "";
+                    data.forEach((item) => {
+                        let finalTag = isNegative ? '-' + item : item;
+                        let div = document.createElement("div");
+                        div.className = "autosuggest-item";
+                        div.textContent = cleanTagDisplay(finalTag);
+                        div.onclick = function() {
+                            input.value = "";
+                            dropdown.style.display = "none";
+                            addZerochanTagName(finalTag);
+                            input.focus();
+                        };
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = "block";
+                } else {
+                    dropdown.style.display = "none";
+                }
+            } catch(e) {
+                dropdown.style.display = "none";
+            }
+        }, 400);
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (dropdown.style.display === "block") {
+            let items = dropdown.getElementsByClassName("autosuggest-item");
+            if (e.key === "ArrowDown") {
+                zeroSuggestActiveIndex++;
+                if (zeroSuggestActiveIndex >= items.length) zeroSuggestActiveIndex = 0;
+                updateZeroSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "ArrowUp") {
+                zeroSuggestActiveIndex--;
+                if (zeroSuggestActiveIndex < 0) zeroSuggestActiveIndex = items.length - 1;
+                updateZeroSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (zeroSuggestActiveIndex > -1 && items[zeroSuggestActiveIndex]) {
+                    items[zeroSuggestActiveIndex].click();
+                } else {
+                    dropdown.style.display = "none";
+                    addZerochanTag();
+                }
+            } else if (e.key === "Escape") {
+                dropdown.style.display = "none";
+            }
+        } else {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addZerochanTag();
+            } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && input.value.trim() === "") {
+                e.preventDefault();
+                showZeroSubtags(dropdown, input);
+            }
+        }
+    });
+
+    input.addEventListener("focus", function() {
+        if (input.value.trim() === "") showZeroSubtags(dropdown, input);
+    });
+
+    document.addEventListener("click", function(e) {
+        if (e.target !== input && e.target !== dropdown) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    function updateZeroSuggestActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active");
+        }
+        if (zeroSuggestActiveIndex > -1 && items[zeroSuggestActiveIndex]) {
+            items[zeroSuggestActiveIndex].classList.add("active");
+            items[zeroSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+});
+
+// --- AnimeDL tag box: same pattern, joined with '&&', child tags standalone ---
+let currentAnimeDlTags = [];
+let animeDlSubtagCache = {};
+let animeDlSubTags = new Set();
+function addAnimeDlTagName(name, viaSubtag) {
+    let val = (name || "").trim();
+    if (val && !currentAnimeDlTags.includes(val)) {
+        currentAnimeDlTags.push(val);
+        if (viaSubtag) animeDlSubTags.add(val);
+        renderAnimeDlTags();
+    }
+}
+function addAnimeDlTag() {
+    let input = document.getElementById("animeDlTag");
+    if (!input) return;
+    addAnimeDlTagName(input.value);
+    input.value = "";
+    renderAnimeDlTags();
+    input.focus();
+}
+function removeAnimeDlTag(tag) {
+    currentAnimeDlTags = currentAnimeDlTags.filter(function(t) { return t !== tag; });
+    animeDlSubTags.delete(tag);
+    renderAnimeDlTags();
+}
+function renderAnimeDlTags() {
+    let container = document.getElementById("animeDlTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentAnimeDlTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (animeDlSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = t.replace(/'/g, "\\'");
+        return '<span class="v-tag ' + cls + '" onclick="removeAnimeDlTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+async function showAnimeDlSubtags(dropdown, input) {
+    if (!currentAnimeDlTags.length || input.value.trim() !== "") { dropdown.style.display = "none"; return; }
+    const baseTag = currentAnimeDlTags[currentAnimeDlTags.length - 1].replace(/^-/, '');
+    const key = baseTag.toLowerCase();
+    if (!animeDlSubtagCache[key]) {
+        try {
+            let resp = await fetch("/api/tags/anime_dl/subtags", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tag: baseTag, net_config: globalNetConfig })
+            });
+            animeDlSubtagCache[key] = await resp.json();
+        } catch(e) { animeDlSubtagCache[key] = []; }
+    }
+    if (input.value.trim() !== "") return;
+    const items = (animeDlSubtagCache[key] || []).filter(s => s && s.name && !currentAnimeDlTags.includes(s.name));
+    dropdown.innerHTML = "";
+    if (!items.length) { dropdown.style.display = "none"; return; }
+    animeDlSuggestActiveIndex = -1;
+    items.forEach((s) => {
+        let div = document.createElement("div");
+        div.className = "autosuggest-item";
+        div.textContent = `${cleanTagDisplay(s.name)} (${s.count})`;
+        div.title = s.kind || "";
+        div.onclick = function() {
+            input.value = "";
+            dropdown.style.display = "none";
+            addAnimeDlTagName(s.name, true);
+            input.focus();
+        };
+        dropdown.appendChild(div);
+    });
+    dropdown.style.display = "block";
+}
+
+let animeDlSuggestTimer = null;
+let animeDlSuggestActiveIndex = -1;
+
+document.addEventListener("DOMContentLoaded", function() {
+    let input = document.getElementById("animeDlTag");
+    let dropdown = document.getElementById("animeDlAutosuggest");
+    if (!input || !dropdown) return;
+
+    input.addEventListener("input", function() {
+        clearTimeout(animeDlSuggestTimer);
+        let val = input.value.trim();
+        let isNegative = val.startsWith('-');
+        let queryVal = isNegative ? val.substring(1) : val;
+
+        if (!queryVal) { showAnimeDlSubtags(dropdown, input); return; }
+        if (queryVal.length < 2) { dropdown.style.display = "none"; return; }
+
+        animeDlSuggestTimer = setTimeout(async () => {
+            try {
+                let resp = await fetch("/api/tags/anime_dl", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
+                });
+                let data = await resp.json();
+                if (input.value.trim() === "") return;
+                if (data && data.length > 0) {
+                    animeDlSuggestActiveIndex = -1;
+                    dropdown.innerHTML = "";
+                    data.forEach((item) => {
+                        let name = (typeof item === "string") ? item : (item.tag || item.value || "");
+                        if (!name) return;
+                        let finalTag = isNegative ? '-' + name : name;
+                        let div = document.createElement("div");
+                        div.className = "autosuggest-item";
+                        div.textContent = cleanTagDisplay(finalTag);
+                        div.onclick = function() {
+                            input.value = "";
+                            dropdown.style.display = "none";
+                            addAnimeDlTagName(finalTag);
+                            input.focus();
+                        };
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = "block";
+                } else {
+                    dropdown.style.display = "none";
+                }
+            } catch(e) {
+                dropdown.style.display = "none";
+            }
+        }, 400);
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (dropdown.style.display === "block") {
+            let items = dropdown.getElementsByClassName("autosuggest-item");
+            if (e.key === "ArrowDown") {
+                animeDlSuggestActiveIndex++;
+                if (animeDlSuggestActiveIndex >= items.length) animeDlSuggestActiveIndex = 0;
+                updateAnimeDlSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "ArrowUp") {
+                animeDlSuggestActiveIndex--;
+                if (animeDlSuggestActiveIndex < 0) animeDlSuggestActiveIndex = items.length - 1;
+                updateAnimeDlSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
+                    items[animeDlSuggestActiveIndex].click();
+                } else {
+                    dropdown.style.display = "none";
+                    addAnimeDlTag();
+                }
+            } else if (e.key === "Escape") {
+                dropdown.style.display = "none";
+            }
+        } else {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addAnimeDlTag();
+            } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && input.value.trim() === "") {
+                e.preventDefault();
+                showAnimeDlSubtags(dropdown, input);
+            }
+        }
+    });
+
+    input.addEventListener("focus", function() {
+        if (input.value.trim() === "") showAnimeDlSubtags(dropdown, input);
+    });
+
+    document.addEventListener("click", function(e) {
+        if (e.target !== input && e.target !== dropdown) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    function updateAnimeDlSuggestActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active");
+        }
+        if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
+            items[animeDlSuggestActiveIndex].classList.add("active");
+            items[animeDlSuggestActiveIndex].scrollIntoView({ block: "nearest" });
         }
     }
 });
@@ -643,7 +1077,7 @@ function enhanceSelect(select) {
     }
 }
 
-function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
+function setupAutosuggest(inputId, dropdownId, apiEndpoint, displayFn) {
     let input = document.getElementById(inputId);
     let dropdown = document.getElementById(dropdownId);
     if (!input || !dropdown) return;
@@ -653,6 +1087,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
 
     input.addEventListener("input", function() {
         clearTimeout(suggestTimer);
+        delete input.dataset.raw;
         let val = input.value.trim();
         
         let isNegative = val.startsWith('-');
@@ -667,7 +1102,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
             try {
                 let resp = await fetch(apiEndpoint, {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: queryVal })
+                    body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
                 });
                 let data = await resp.json();
                 if (data && data.length > 0) {
@@ -677,9 +1112,16 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
                         let finalTag = isNegative ? '-' + item : item;
                         let div = document.createElement("div");
                         div.className = "autosuggest-item";
-                        div.textContent = finalTag;
+                        // ponytail: pretty display only — finalTag (underscores intact) is what gets sent
+                        div.textContent = (isNegative ? '-' : '') + (displayFn ? displayFn(item) : item);
                         div.onclick = function() {
-                            input.value = finalTag;
+                            if (displayFn) {
+                                // ponytail: pretty in the box, raw (underscores) stashed for the request
+                                input.value = (isNegative ? '-' : '') + displayFn(item);
+                                input.dataset.raw = finalTag;
+                            } else {
+                                input.value = finalTag;
+                            }
                             dropdown.style.display = "none";
                             input.focus();
                         };
@@ -732,25 +1174,38 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
     }
 }
 
+// ponytail: a box showing spaces needs its picked pretty prefix swapped back
+// to the stashed raw form for the request; anything else goes as typed
+function danTagForRequest(inputId) {
+    let el = document.getElementById(inputId || 'danTag');
+    if (!el) return '';
+    let val = el.value;
+    let raw = el.dataset.raw || "";
+    if (raw) {
+        let neg = raw.startsWith('-');
+        let pretty = (neg ? '-' : '') + cleanTagDisplay(neg ? raw.slice(1) : raw);
+        if (val.startsWith(pretty)) return raw + val.slice(pretty.length);
+    }
+    return val;
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     enhanceAllSelects();
     setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu");
-    setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi");
-    setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia");
-    setupAutosuggest("animeDlTag", "animeDlAutosuggest", "/api/tags/anime_dl");
-    setupAutosuggest("danTag", "danAutosuggest", "/api/tags/dan");
-    setupAutosuggest("gelbooruTag", "gelbooruAutosuggest", "/api/tags/gelbooru");
-    setupAutosuggest("konaTag", "konaAutosuggest", "/api/tags/kona");
-    setupAutosuggest("safeTag", "safeAutosuggest", "/api/tags/safe");
-    setupAutosuggest("sankakuTag", "sankakuAutosuggest", "/api/tags/sankaku");
+    setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi", cleanTagDisplay);
+    setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia", cleanTagDisplay);
+    setupAutosuggest("danTag", "danAutosuggest", "/api/tags/dan", cleanTagDisplay);
+    setupAutosuggest("gelbooruTag", "gelbooruAutosuggest", "/api/tags/gelbooru", cleanTagDisplay);
+    setupAutosuggest("konaTag", "konaAutosuggest", "/api/tags/kona", cleanTagDisplay);
+    setupAutosuggest("safeTag", "safeAutosuggest", "/api/tags/safe", cleanTagDisplay);
+    setupAutosuggest("sankakuTag", "sankakuAutosuggest", "/api/tags/sankaku", cleanTagDisplay);
     setupAutosuggest("yandeTag", "yandeAutosuggest", "/api/tags/yande");
-    setupAutosuggest("zeroTag", "zeroAutosuggest", "/api/tags/zerochan");
     setupAutosuggest("gsbooruTag", "gsbooruAutosuggest", "/api/tags/gsbooru");
 
 
     document.addEventListener("click", function(e) {
-        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "animeDlAutosuggest", "danAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "zeroAutosuggest", "gsbooruAutosuggest"];
-        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "animeDlTag", "danTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "zeroTag", "gsbooruTag"];
+        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "danAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "gsbooruAutosuggest"];
+        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "danTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "gsbooruTag"];
         for (let i = 0; i < dropdowns.length; i++) {
             let dp = document.getElementById(dropdowns[i]);
             let inp = document.getElementById(inputs[i]);
@@ -809,6 +1264,8 @@ window.onload = async function () {
 
     updateNekoDropdown();
     updateNekosLifeType();
+    // ponytail: hardcoded option labels display clean like everything else
+    document.querySelectorAll('#nekosLifeCat option, #nekosLifeFormat option').forEach(o => { o.textContent = cleanTagDisplay(o.textContent); });
     updatePixivMode();
     await loadUIConfig();
 
@@ -821,7 +1278,7 @@ window.onload = async function () {
         sel.innerHTML = "";
         waifuTags.forEach(t => {
             let opt = document.createElement("option");
-            opt.value = t; opt.textContent = t; sel.appendChild(opt);
+            opt.value = t; opt.textContent = cleanTagDisplay(t); sel.appendChild(opt);
         });
     } catch (e) {}
 
@@ -840,7 +1297,7 @@ function updateNekoDropdown() {
     let sel = document.getElementById("nekoCat");
     sel.innerHTML = "";
     let targetList = fmt === "Images" ? nekoImages : nekoGifs;
-    targetList.forEach(t => { let opt = document.createElement("option"); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+    targetList.forEach(t => { let opt = document.createElement("option"); opt.value = t; opt.textContent = cleanTagDisplay(t); sel.appendChild(opt); });
 }
 
 function updatePixivMode() {
@@ -940,7 +1397,7 @@ function toggleMenu(groupId) {
 }
 
 function clearLog(tabID) {
-    let boxMap = { "main": "consoleLog_main", "neko": "consoleLog_neko", "nekos_life": "consoleLog_nekos_life", "zero": "consoleLog_zero", "waifu": "consoleLog_waifu", "safe": "consoleLog_safe", "rule34": "consoleLog_rule34", "gelbooru": "consoleLog_gelbooru", "gsbooru": "consoleLog_gsbooru", "yande": "consoleLog_yande", "kona": "consoleLog_kona", "dan": "consoleLog_dan", "sankaku": "consoleLog_sankaku", "anime_dl": "consoleLog_anime_dl", "pinterest": "consoleLog_pinterest", "pixiv": "consoleLog_pixiv", "eshuushuu": "consoleLog_eshuushuu", "nekosapi": "consoleLog_nekosapi", "nekosia": "consoleLog_nekosia" };
+    let boxMap = CONSOLE_BOX_MAP;
     let cb = document.getElementById(boxMap[tabID.toLowerCase()] || "consoleLog_main");
     if (cb) cb.innerHTML = "";
 }
@@ -956,25 +1413,31 @@ function showToast(msg, opts) {
     if (!opts.sticky) setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, 4000);
 }
 
+// ponytail: silent JS failures are undebuggable in the desktop window — surface them
+const WARN_ICON = `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.89003 1.0499C7.80611 0.886097 7.67861 0.748632 7.52158 0.652642 7.36455 0.556651 7.18407 0.505859 7.00003 0.505859c-0.18405 0 -0.36453 0.050792 -0.52156 0.146783 -0.15703 0.09599 -0.28453 0.233455 -0.36844 0.397258l-5.500004 11c-0.07671 0.1522 -0.113232 0.3215 -0.106098 0.4919 0.007134 0.1703 0.057688 0.3359 0.146861 0.4812 0.089172 0.1453 0.214003 0.2654 0.362641 0.3488 0.14863 0.0835 0.31613 0.1276 0.4866 0.1281H12.5c0.1705 -0.0005 0.338 -0.0446 0.4866 -0.1281 0.1487 -0.0834 0.2735 -0.2035 0.3627 -0.3488 0.0891 -0.1453 0.1397 -0.3109 0.1468 -0.4812 0.0072 -0.1704 -0.0294 -0.3397 -0.1061 -0.4919l-5.49997 -11Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5v3.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25"/></svg>`;
+window.addEventListener("error", function(e) {
+    try { showToast("Error: " + (e.message || "unknown"), { warn: true, sticky: true, icon: WARN_ICON }); } catch (_) {}
+});
+
 function startWorker(workerName) {
     let payload = { worker: workerName, net_config: { ...globalNetConfig } };
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
     payload.net_config.retry_wait = document.getElementById("retryWait").value;
     payload.net_config.anti_ban_pause = document.getElementById("antiBanPause").value;
     
-    if (workerName === 'zero') { payload.tag = document.getElementById('zeroTag').value; payload.limit = document.getElementById('zeroLimit').value; } 
+    if (workerName === 'zero') { payload.tag = currentZerochanTags.join(','); payload.limit = document.getElementById('zeroLimit').value; } 
     else if (workerName === 'waifu') { payload.tag = document.getElementById('waifuTag').value; payload.limit = document.getElementById('waifuLimit').value; payload.nsfw = document.getElementById('waifuNsfw').checked; } 
     else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; } 
     else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; } 
-    else if (workerName === 'safe') { payload.tag = document.getElementById('safeTag').value; payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; } 
-    else if (workerName === 'gelbooru') { payload.tag = document.getElementById('gelbooruTag').value; payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
+    else if (workerName === 'safe') { payload.tag = danTagForRequest('safeTag'); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; } 
+    else if (workerName === 'gelbooru') { payload.tag = danTagForRequest('gelbooruTag'); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
     else if (workerName === 'gsbooru') { payload.tag = document.getElementById('gsbooruTag').value; payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
     else if (workerName === 'yande') { payload.tag = document.getElementById('yandeTag').value; payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; } 
-    else if (workerName === 'dan') { payload.tag = document.getElementById('danTag').value; payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
-    else if (workerName === 'kona') { payload.tag = document.getElementById('konaTag').value; payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
+    else if (workerName === 'dan') { payload.tag = danTagForRequest(); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
+    else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
     else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; } 
-    else if (workerName === 'sankaku') { payload.tag = document.getElementById('sankakuTag').value; payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; } 
-    else if (workerName === 'anime_dl') { payload.tag = document.getElementById('animeDlTag').value; payload.limit = document.getElementById('animeDlLimit').value; } 
+    else if (workerName === 'sankaku') { payload.tag = danTagForRequest('sankakuTag'); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; } 
+    else if (workerName === 'anime_dl') { payload.tag = currentAnimeDlTags.join('&&'); payload.limit = document.getElementById('animeDlLimit').value; } 
     else if (workerName === 'pinterest') { payload.tag = document.getElementById('pinterestTag').value; payload.limit = document.getElementById('pinterestLimit').value; payload.is_search = document.getElementById('pinterestMode').value === 'search'; payload.min_w = parseInt(document.getElementById('pinterestMinW').value) || 0; payload.min_h = parseInt(document.getElementById('pinterestMinH').value) || 0; }
     else if (workerName === 'pixiv') {
         let mode = document.getElementById('pixivMode').value;
@@ -998,12 +1461,12 @@ function startWorker(workerName) {
         payload.limit = document.getElementById('eshuushuuLimit').value;
     }
     else if (workerName === 'nekosapi') {
-        payload.tag = document.getElementById('nekosapiTag').value;
+        payload.tag = danTagForRequest('nekosapiTag');
         payload.limit = document.getElementById('nekosapiLimit').value;
         payload.rating = document.getElementById('nekosapiRating').value;
     }
     else if (workerName === 'nekosia') {
-        payload.tag = document.getElementById('nekosiaTag').value;
+        payload.tag = danTagForRequest('nekosiaTag');
         payload.limit = document.getElementById('nekosiaLimit').value;
         payload.rating = document.getElementById('nekosiaRating').value;
     }
@@ -1169,7 +1632,7 @@ function renderFavorites() {
         return;
     }
     favoriteTags.forEach(item => {
-        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>${heartIcon(true)}</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
+        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid transparent; box-shadow: 0 0 0 1px var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>${heartIcon(true)}</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
     });
 }
 
@@ -1191,11 +1654,22 @@ async function removeFromHistory(site, tag) { await fetch("/api/history/remove",
 async function clearHistory() { if(await customConfirm("Are you sure you want to delete all search history?", "Delete")) { await fetch("/api/history/clear", { method: "POST" }); await loadTagsData(); } }
 
 function jumpToSite(site, tag) {
+    // ponytail: pill-based tabs take separate tags, not one joined string
+    if (site === "zero") {
+        currentZerochanTags = String(tag || "").split(",").map(t => t.trim()).filter(Boolean);
+        renderZerochanTags();
+    } else if (site === "rule34") {
+        currentRule34Tags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderRule34Tags();
+    } else if (site === "anime_dl") {
+        currentAnimeDlTags = String(tag || "").split("&&").map(t => t.trim()).filter(Boolean);
+        renderAnimeDlTags();
+    }
     let siteMap = { "zero": { tab: "Zero", input: "zeroTag" }, "waifu": { tab: "Waifu", input: "waifuTag" }, "neko": { tab: "Neko", input: null }, "nekos_life":{ tab: "NekosLife", input: null }, "safe": { tab: "Safe", input: "safeTag" }, "gelbooru": { tab: "Gelbooru", input: "gelbooruTag" }, "gsbooru": { tab: "Gsbooru", input: "gsbooruTag" }, "yande": { tab: "Yande", input: "yandeTag" }, "kona": { tab: "Kona", input: "konaTag" }, "dan": { tab: "Danbooru", input: "danTag" }, "rule34": { tab: "Rule34", input: "rule34Tag" }, "sankaku": { tab: "Sankaku", input: "sankakuTag" }, "anime_dl": { tab: "AnimeDL", input: "animeDlTag" }, "pinterest": { tab: "Pinterest", input: "pinterestTag" }, "pixiv": { tab: "Pixiv", input: "pixivTag" }, "eshuushuu": { tab: "EShuushuu", input: "eshuushuuTag" }, "nekosapi": { tab: "NekosAPI", input: "nekosapiTag" }, "nekosia": { tab: "Nekosia", input: "nekosiaTag" } };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
     let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
     if(btn) openTab(mapping.tab, btn);
-    if(mapping.input) { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
+    if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl") { let inputEl = document.getElementById(mapping.input); if(inputEl) { if (site === "dan") { inputEl.value = cleanTagDisplay(tag); inputEl.dataset.raw = tag; } else inputEl.value = tag; } }
 }
 
 // یک هلپر حرفه‌ای برای درست کردن آدرس‌های عکس بدون قاطی کردن Flask
@@ -1486,8 +1960,7 @@ function renderGallery() {
     if (page > 1) pHtml += '<button onclick="loadGallery('+(page-1)+')">‹</button>';
     const range = paginationRange(page, total_pages);
     range.forEach(p => {
-        if (p === 0) { pHtml += '<button disabled>…</button>'; return; }
-        if (p === -1) { pHtml += `<button onclick="pageJumpInput(this)" title="Go to page…">…</button>`; return; }
+        if (p === 0 || p === -1) { pHtml += `<button onclick="pageJumpInput(this)" title="Go to page…">…</button>`; return; }
         pHtml += `<button onclick="loadGallery(${p})" ${p===page?'class="active"':''}>${p}</button>`;
     });
     if (page < total_pages) pHtml += '<button onclick="loadGallery('+(page+1)+')">›</button>';

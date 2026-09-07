@@ -18,6 +18,7 @@ from shared import (
     write_image_metadata,
     add_to_gallery,
     send_tags,
+    build_tagd,
     MASTER_FOLDER,
 )
 
@@ -182,18 +183,18 @@ class GsbooruWorker(BaseWorker):
             raise CloudflareError("HTTP 403: Cloudflare challenge page")
         return text
 
-    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         # gsbooru fetches files via curl too; skip the aiohttp HEAD request.
         if artists is None:
             artists = []
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
             return False
         self.queued_items.add(filename)
-        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, 0, characters, copyrights, metadata_tags))
+        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, 0, characters, copyrights, metadata_tags, outfits, groups, hair, eyes))
         self.enqueued_count += 1
         return True
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -239,15 +240,16 @@ class GsbooruWorker(BaseWorker):
 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+                tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes, tags_list)
 
-                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 self.log(
                     f"[SUCCESS] Downloaded {filename} "
                     f"({self.downloaded_count}/{target_total}) [{pct}%] "
-                    f"|PATH| {rel_path} |TAGS| {top_tags}"
+                    f"|PATH| {rel_path} |TAGS| {top_tags} |TAGD| {tagd}"
                 )
-                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 return True
 
             except Exception as e:
@@ -389,7 +391,7 @@ class GsbooruWorker(BaseWorker):
                 if page == 1:
 
                     self.log(
-                        f"0 images found for "
+                        f"ZERO images found for "
                         f"'{self.original_tag}'. "
                         f"Page head: {list_html[:150]}"
                     )

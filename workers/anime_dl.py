@@ -1,7 +1,7 @@
 import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history
+from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -16,7 +16,7 @@ class AnimeDlWorker(BaseDownloader):
         
         self.curl_session = None
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -56,13 +56,14 @@ class AnimeDlWorker(BaseDownloader):
 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+                tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes, tags_list)
 
-                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
+                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags} |TAGD| {tagd}")
 
                 # ponytail: metadata must land before gallery publish, else thumbs read a half-written file
-                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
-                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 return True
 
             except Exception as e:
@@ -79,6 +80,23 @@ class AnimeDlWorker(BaseDownloader):
                     self.log(f"[FAILED] {filename}: {err_msg}")
         return False
 
+    def _fetch_child_tags(self):
+        """Resolve this tag's id, then return its child sub-tags."""
+        r = self.curl_session.get(f"{API}/tags", params={"tag": self.tag, "lang": "en"}, timeout=20)
+        if r.status_code != 200:
+            return []
+        hits = [t for t in r.json().get("tags", []) if isinstance(t, dict) and str(t.get("tag", "")).lower() == self.tag]
+        if not hits:
+            return []
+        r2 = self.curl_session.get(f"{API}/tags/{hits[0]['id']}/children", params={"lang": "en"}, timeout=20)
+        if r2.status_code != 200:
+            return []
+        kind = {1: "character", 4: "artist", 5: "copyright", 7: "metadata"}
+        return [{"name": t["tag"], "count": t.get("num_pub", t.get("num", 0)),
+                 "kind": kind.get(t.get("type"), "tag")}
+                for t in r2.json().get("tags", [])
+                if isinstance(t, dict) and t.get("tag")]
+
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: '{self.tag}'")
         
@@ -91,6 +109,16 @@ class AnimeDlWorker(BaseDownloader):
         s.cookies.set("time_zone", "UTC", domain=".anime-pictures.net")
         s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
         self.curl_session = s
+
+        # ponytail: list child sub-tags once so the user can search them
+        # standalone — same pattern as the zerochan worker
+        try:
+            kids = await asyncio.to_thread(self._fetch_child_tags)
+            for k in kids:
+                self.log(f"🔖 Sub-tag: '{k['name']}' — {k['count']} entries "
+                         f"(search '{k['name']}' to download)")
+        except Exception as e:
+            self.log(f"Sub-tag listing skipped: {e}")
 
         need = self.amount or 200
         collected = 0

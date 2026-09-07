@@ -88,10 +88,7 @@ class WaifuImWorker(BaseWorker):
                 tags = [t.get("slug", "").replace("-", "_") for t in img.get("tags", []) if t.get("slug")]
                 if self.original_tag not in tags:
                     tags.append(self.original_tag)
-                if img.get("isNsfw"):
-                    tags.append("rating:e")
-                else:
-                    tags.append("rating:g")
+                # ponytail: no rating:* pseudo-tags — rating comes from the Safe/NSFW subdir
                 artists = [a.get("name", "") for a in img.get("artists", []) if a.get("name")]
 
                 if await self.enqueue_download(url, filepath, filename, tags, artists):
