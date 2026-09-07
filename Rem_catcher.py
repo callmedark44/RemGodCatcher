@@ -115,6 +115,33 @@ def socketio_emit(event, data):
 shared.emit_callback = socketio_emit
 
 
+def _live_tag_suggest(session, url, timeout=5):
+    """GET a public autocomplete endpoint and coerce the response to list[str]."""
+    try:
+        resp = session.get(url, timeout=timeout)
+        if resp.status_code != 200:
+            return []
+        try:
+            data = resp.json()
+        except Exception:
+            return []
+        out = []
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, str) and item.strip():
+                    out.append(html.unescape(item.strip()))
+                elif isinstance(item, dict):
+                    for key in ("value", "name", "tag", "title", "label"):
+                        val = item.get(key)
+                        if isinstance(val, str) and val.strip():
+                            out.append(html.unescape(val.strip()))
+                            break
+                if len(out) >= 50:
+                    break
+        return list(dict.fromkeys(out))[:50]
+    except Exception:
+        return []
+
 def get_session(site, net_config):
     session = requests.Session()
     if net_config.get("use_proxy"):
@@ -140,6 +167,9 @@ def get_session(site, net_config):
     elif site == "gelbooru":
         # same UA as the gelbooru worker itself — bare python-requests gets 401
         session.headers.update({"User-Agent": "RemGodCatcher/4.0 (by RemLover on GitHub)", "Accept": "application/json"})
+    else:
+        # Generic JSON-friendly UA for all booru/autocomplete fallbacks
+        session.headers.update({"User-Agent": "Mozilla/5.0 (RemGodCatcher/5.1)", "Accept": "application/json"})
     return session
 
 
@@ -346,8 +376,26 @@ def get_zerochan_suggestions():
         session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
         resp = session.get(f"https://www.zerochan.net/suggest?q={urllib.parse.quote_plus(query)}", timeout=5)
         if resp.status_code == 200:
-            sugs = resp.json() if "{" in resp.text or "[" in resp.text else [s.strip() for s in resp.text.split('\n') if s.strip()]
-            return jsonify(list(dict.fromkeys([s.split('|')[0].strip() for s in sugs])))
+            try:
+                if "{" in resp.text or "[" in resp.text:
+                    sugs = resp.json()
+                else:
+                    sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+            except Exception:
+                sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+            cleaned = []
+            for s in sugs:
+                if isinstance(s, dict):
+                    for key in ("value", "name", "tag", "title", "label"):
+                        val = s.get(key)
+                        if isinstance(val, str) and val.strip():
+                            cleaned.append(val.split('|')[0].strip())
+                            break
+                elif isinstance(s, str) and s.strip():
+                    cleaned.append(s.split('|')[0].strip())
+            cleaned = [c for c in dict.fromkeys(cleaned) if c]
+            if cleaned:
+                return jsonify(cleaned[:50])
     except Exception: pass
     return jsonify([])
 
@@ -356,6 +404,13 @@ def get_safe_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip().replace(" ", "_")
     if len(query) < 2: return jsonify([])
+    try:
+        session = get_session("safe", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://safebooru.org/autocomplete.php?q={urllib.parse.quote(query)}")
+        if live: return jsonify(live)
+    except Exception: pass
     try:
         session = get_session("safe", data.get("net_config", {}))
         resp = session.get("https://safebooru.org/index.php",
@@ -466,7 +521,22 @@ def get_anime_dl_subtags():
 
 @app.route("/api/tags/yande", methods=["POST"])
 def get_yande_suggestions():
-    query = request.json.get("query", "").lower()
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    try:
+        session = get_session("yande", data.get("net_config", {}))
+        resp = session.get("https://yande.re/tag.json",
+                           params={"name": query + "*", "order": "count", "limit": 20},
+                           timeout=5)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload if isinstance(payload, list) else payload.get("tags", [])
+            names = [t.get("name") for t in items
+                     if isinstance(t, dict) and t.get("name")
+                     and str(t["name"]).lower().startswith(query)]
+            if names: return jsonify(names)
+    except Exception: pass
     if not YANDE_TAGS_DB: return jsonify([])
     return jsonify(_suggest(YANDE_TAGS_DB, query))
 
@@ -477,39 +547,11 @@ def get_kona_suggestions():
     if len(query) < 2: return jsonify([])
     try:
         session = get_session("kona", data.get("net_config", {}))
-        base = {"name": query + "*", "order": "count", "limit": 20}
-        kona_user = os.getenv("KONACHAN_USERNAME", "")
-        kona_pass = os.getenv("KONACHAN_PASSWORD", "")
-        authed = dict(base)
-        if kona_user and kona_pass:
-            authed["login"] = kona_user
-            authed["password_hash"] = hashlib.sha1(f"So-I-Heard-You-Like-Mupkids-?--{kona_pass}--".encode()).hexdigest()
-        names = []
-        for params in (authed, base):
-            try:
-                resp = session.get("https://konachan.com/tag.json", params=params, timeout=5)
-            except Exception as e:
-                print(f"[kona-suggest] request failed: {e}")
-                break
-            if resp.status_code != 200:
-                print(f"[kona-suggest] HTTP {resp.status_code} (auth={'yes' if params is authed and 'login' in params else 'no'})")
-                continue
-            try:
-                payload = resp.json()
-            except Exception as e:
-                print(f"[kona-suggest] bad JSON: {str(e)[:100]}")
-                continue
-            items = payload.get("tags", payload) if isinstance(payload, dict) else payload
-            # ponytail: konachan ignores name_pattern and returns popular tags —
-            # filter to the typed prefix here so results actually relate
-            names = [t.get("name") for t in items
-                     if isinstance(t, dict) and t.get("name")
-                     and str(t["name"]).lower().startswith(query)]
-            if names:
-                break
-        if names: return jsonify(names)
-    except Exception as e:
-        print(f"[kona-suggest] failed: {e}")
+        live = _live_tag_suggest(
+            session,
+            f"https://konachan.com/tag/suggest.json?tag={urllib.parse.quote(query)}")
+        if live: return jsonify(live)
+    except Exception: pass
     if not KONA_TAGS_DB: return jsonify([])
     return jsonify(_suggest(KONA_TAGS_DB, query))
 
@@ -525,19 +567,39 @@ def get_dan_suggestions():
         _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
         if _login and _key:
             auth = (_login, _key)
-        resp = session.get("https://danbooru.donmai.us/tags.json",
-                           params={"search[name_matches]": query + "*", "search[order]": "count", "limit": 20},
+        resp = session.get("https://danbooru.donmai.us/autocomplete.json",
+                           params={"search[name_matches]": query + "*"},
                            auth=auth, timeout=5)
         if resp.status_code == 200:
-            return jsonify([html.unescape(t["name"]) for t in resp.json() if isinstance(t, dict) and t.get("name")])
+            names = []
+            for t in resp.json():
+                if isinstance(t, dict) and t.get("value"):
+                    names.append(html.unescape(t["value"]))
+                elif isinstance(t, str) and t.strip():
+                    names.append(html.unescape(t.strip()))
+            names = list(dict.fromkeys(names))[:20]
+            if names: return jsonify(names)
     except Exception: pass
     return jsonify([])
 
 @app.route("/api/tags/sankaku", methods=["POST"])
 def get_sankaku_suggestions():
-    query = request.json.get("query", "").lower()
-    if not SANKAKU_TAGS_DB: return jsonify([])
-    return jsonify(_suggest(SANKAKU_TAGS_DB, query))
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    local = _suggest(SANKAKU_TAGS_DB, query) if SANKAKU_TAGS_DB else []
+    if local:
+        return jsonify(local)
+    try:
+        session = get_session("sankaku", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query)}")
+        if live:
+            return jsonify(live)
+    except Exception:
+        pass
+    return jsonify(local)
 
 @app.route("/api/tags/gelbooru", methods=["POST"])
 def get_gelbooru_suggestions():
@@ -566,15 +628,59 @@ def get_gelbooru_suggestions():
 
 @app.route("/api/tags/anime_dl", methods=["POST"])
 def get_anime_dl_suggestions():
-    query = request.json.get("query", "").lower()
+    data = request.json or {}
+    query = (data.get("query", "") or "").strip()
+    if len(query) < 1: return jsonify([])
+    try:
+        from curl_cffi import requests as curl_requests
+        net = data.get("net_config", {}) or {}
+        s = curl_requests.Session(impersonate="chrome131")
+        if net.get("use_proxy") and net.get("proxy_url"):
+            s.proxies = {"http": net["proxy_url"], "https": net["proxy_url"]}
+        s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
+        r = s.get("https://api.anime-pictures.net/api/v3/tags:autocomplete",
+                  params={"tag": query, "lang": "en"}, timeout=10)
+        if r.status_code == 200:
+            items = r.json().get("tags", [])
+            scored = []
+            for t in items:
+                if not isinstance(t, dict) or not t.get("t"):
+                    continue
+                try:
+                    c = int(t.get("c", 0) or 0)
+                except (TypeError, ValueError):
+                    c = 0
+                scored.append((t["t"], c))
+            ql = query.lower()
+            # ponytail: prefix matches first, then substring hits — each by count
+            names = ([n for n, _ in sorted(((n, c) for n, c in scored if n.lower().startswith(ql)), key=lambda nc: -nc[1])]
+                     + [n for n, _ in sorted(((n, c) for n, c in scored if not n.lower().startswith(ql)), key=lambda nc: -nc[1])])
+            if names: return jsonify(names[:50])
+    except Exception: pass
     if not ANIME_TAGS_DB: return jsonify([])
-    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query)][:50])
+    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query.lower())][:50])
 
 @app.route("/api/tags/eshuushuu", methods=["POST"])
 def get_eshuushuu_suggestions():
-    query = request.json.get("query", "").lower()
-    if not ESHUUSHUU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in ESHUUSHUU_TAGS_DB if t.lower().startswith(query)][:50])
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    local = _suggest(ESHUUSHUU_TAGS_DB, query) if ESHUUSHUU_TAGS_DB else []
+    if local:
+        return jsonify(local)
+    try:
+        session = get_session("eshuushuu", data.get("net_config", {}))
+        resp = session.get("https://e-shuushuu.net/api/v1/tags",
+                           params={"search": query}, timeout=8)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload.get("tags", payload) if isinstance(payload, dict) else payload
+            names = [t.get("title", t.get("name")) for t in items
+                     if isinstance(t, dict) and (t.get("title") or t.get("name"))]
+            if names: return jsonify(names[:50])
+    except Exception:
+        pass
+    return jsonify(local)
 
 @app.route("/api/tags/nekosapi", methods=["POST"])
 def get_nekosapi_suggestions():
@@ -607,9 +713,22 @@ def get_nekosia_suggestions():
 
 @app.route("/api/tags/gsbooru", methods=["POST"])
 def get_gsbooru_suggestions():
-    query = request.json.get("query", "").lower()
-    if not GSBOORU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in GSBOORU_TAGS_DB if t.lower().startswith(query)][:50])
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    local = _suggest(GSBOORU_TAGS_DB, query) if GSBOORU_TAGS_DB else []
+    if local:
+        return jsonify(local)
+    try:
+        session = get_session("gsbooru", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://gsbooru.net/index.php?page=autocomplete2&term={urllib.parse.quote(query)}&type=tag_query&limit=20")
+        if live:
+            return jsonify(live)
+    except Exception:
+        pass
+    return jsonify(local)
 
 # --- TAG HISTORY & FAVORITES API ---
 @app.route("/api/history", methods=["GET"])
@@ -718,6 +837,9 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         }
         def matches_any_rating(img):
             site = shared.normalize_site(img.get("site", ""))
+            # ponytail: rule34 is all-explicit with no rating in path or tags
+            if site == "rule34" and "explicit" in rating_filters:
+                return True
             fpl = img.get("filepath", "").lower()
             all_tags = _get_all_tags(img)
             for rf in rating_filters:
@@ -1246,15 +1368,37 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
 
+    def _shutdown_now():
+        # ponytail: desktop window closed — stop workers, flush, die NOW.
+        # No grace timer: the port must free immediately, not in 3 seconds.
+        try:
+            for events in list(shared.STOP_EVENTS.values()):
+                for ev in events:
+                    try:
+                        ev.set()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            shared.flush_gallery()
+        except Exception:
+            pass
+        os._exit(0)
+
     try:
         import webview
 
-        webview.create_window(
+        _win = webview.create_window(
             "Rem God Catcher",
             url,
             width=1400,
             height=900
         )
+        try:
+            _win.events.closed += _shutdown_now
+        except Exception:
+            pass
 
         icon_path = os.path.join(BASE_DIR, "web", "icons", "icon.png")
 
@@ -1262,6 +1406,9 @@ if __name__ == "__main__":
             gui="gtk" if sys.platform == "linux" else "edgechromium",
             icon=icon_path
         )
+        # ponytail: start() returns once all windows close — die here too in
+        # case the closed-event hook above never fired
+        _shutdown_now()
     except Exception as e:
         print(f"Desktop window unavailable ({e}), opening in browser instead")
         if sys.platform == "win32":

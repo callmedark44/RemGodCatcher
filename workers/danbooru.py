@@ -117,11 +117,6 @@ class DanbooruWorker(BaseWorker):
                 meta_set = set(metadata_tags)
                 tags_list = [t for t in tags_list if t not in artist_set and t not in char_set and t not in copy_set and t not in meta_set]
 
-                rating_tag_map = {"g": "rating:g", "s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
-
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True

@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="vendor/socket.io.min.js"></script>
 </head>
-<body style="background-image: url('user_wallpapers/Rem_main_d.png');">
+<body style="background-image: url('wallpaper/Rem_main_d.png');">
 
     <div class="toast-container" id="toastContainer"></div>
 
@@ -96,8 +96,7 @@
                     </div>
                     <label style="padding-top: 4px;">Limit:</label>
                     <input type="number" id="animeDlLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('anime_dl')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('anime_dl')">STOP</button>
+                    <button id="runBtn_anime_dl" class="action-btn" onclick="toggleWorker('anime_dl')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_anime_dl" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -123,8 +122,7 @@
                     <input type="text" id="eshuushuuUser" placeholder="Optional" style="width: 100px;">
                     <label>Limit:</label>
                     <input type="number" id="eshuushuuLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('eshuushuu')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('eshuushuu')">STOP</button>
+                    <button id="runBtn_eshuushuu" class="action-btn" onclick="toggleWorker('eshuushuu')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_eshuushuu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -155,8 +153,7 @@
                         <option value="borderline">Questionable</option>
                         <option value="explicit">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('nekosapi')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekosapi')">STOP</button>
+                    <button id="runBtn_nekosapi" class="action-btn" onclick="toggleWorker('nekosapi')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekosapi" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -184,8 +181,7 @@
                         <option value="safe">Safe</option>
                         <option value="suggestive">Suggestive</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('nekosia')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekosia')">STOP</button>
+                    <button id="runBtn_nekosia" class="action-btn" onclick="toggleWorker('nekosia')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekosia" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -269,8 +265,7 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('dan')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
+                    <button id="runBtn_dan" class="action-btn" onclick="toggleWorker('dan')">START</button>
                 </div>
                 <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
@@ -327,8 +322,8 @@
                             <div class="dd-item" onclick="toggleCheck(this)"><span>NSFW</span><input type="checkbox" value="explicit"></div>
                         </div>
                     </div>
-                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()"><svg width="1em" height="1em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="currentColor" stroke="none" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg> Favorites</button>
-                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images">↻</button>
+                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()" title="Favorites only"><svg width="1.3em" height="1.3em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="currentColor" stroke="none" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg></button>
+                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" style="vertical-align:-0.2em;"><path fill="currentColor" d="M12 3c2.4856 0.0001 4.735 1.00787 6.3633 2.63574l0.9297 -0.92871c0.6299 -0.62982 1.7069 -0.18374 1.707 0.70703V9c0 0.55228 -0.4477 1 -1 1h-3.5859c-0.8908 -0.00012 -1.3369 -1.07709 -0.7071 -1.70703l1.2422 -1.24317C15.6821 5.78291 13.9319 5.0001 12 5c-3.86582 0.0002 -7 3.13413 -7 7 0 3.8659 3.13418 6.9998 7 7 3.5687 -0.0002 6.5158 -2.6721 6.9463 -6.124 0.0685 -0.5479 0.5683 -0.9365 1.1162 -0.8682 0.5477 0.0687 0.9364 0.5684 0.8682 1.1162C20.3768 17.5644 16.5901 20.9998 12 21c-4.97039 -0.0002 -9 -4.0296 -9 -9 0 -4.97044 4.02961 -8.9998 9 -9"></path></svg></button>
                 </div>
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
@@ -351,8 +346,7 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
+                    <button id="runBtn_gelbooru" class="action-btn" onclick="toggleWorker('gelbooru')">START</button>
                 </div>
                 <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
@@ -390,8 +384,7 @@
                         <option value="rating:s">Sensitive</option>
                         <option value="rating:q">Questionable</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('gsbooru')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('gsbooru')">STOP</button>
+                    <button id="runBtn_gsbooru" class="action-btn" onclick="toggleWorker('gsbooru')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_gsbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_gsbooru">0%</span></div>
@@ -435,8 +428,7 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('kona')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
+                    <button id="runBtn_kona" class="action-btn" onclick="toggleWorker('kona')">START</button>
                 </div>
                 <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
@@ -470,8 +462,7 @@
                     <select id="nekoCat" style="width: 140px;"></select>
                     <label>Amount:</label>
                     <input type="number" id="nekoAmount" value="20" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('neko')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
+                    <button id="runBtn_neko" class="action-btn" onclick="toggleWorker('neko')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_neko" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -514,8 +505,7 @@
                     </select>
                     <label style="margin-left: 10px;">Amount:</label>
                     <input type="number" id="nekosLifeAmount" value="20" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('nekos_life')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekos_life')">STOP</button>
+                    <button id="runBtn_nekos_life" class="action-btn" onclick="toggleWorker('nekos_life')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekos_life" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -620,8 +610,7 @@
                         <option value="search">Search</option>
                         <option value="scrape">URL Scrape</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('pinterest')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('pinterest')">STOP</button>
+                    <button id="runBtn_pinterest" class="action-btn" onclick="toggleWorker('pinterest')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_pinterest" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -666,8 +655,7 @@
                         <option value="rating:r18">R-18</option>
                         <option value="rating:r18g">R-18G</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('pixiv')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
+                    <button id="runBtn_pixiv" class="action-btn" onclick="toggleWorker('pixiv')">START</button>
                 </div>
                 <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div></div>
                 <div class="console-wrapper">
@@ -731,8 +719,7 @@
                     <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
                         <label style="font-size: 13px;">Limit:</label>
                         <input type="number" id="rule34Limit" value="50" min="0" style="width: 70px; padding: 2px 6px; height: 26px; font-size: 13px;">
-                        <button class="action-btn" onclick="startWorker('rule34')" style="margin-left: auto; padding: 4px 14px; font-size: 13px; height: 28px;">START</button>
-                        <button class="action-btn stop-btn" onclick="stopWorker('rule34')" style="padding: 4px 14px; font-size: 13px; height: 28px;">STOP</button>
+                        <button id="runBtn_rule34" class="action-btn" onclick="toggleWorker('rule34')" style="margin-left: auto; padding: 4px 14px; font-size: 13px; height: 28px;">START</button>
                     </div>
                 </div>
                 
@@ -758,8 +745,7 @@
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="safeLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('safe')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
+                    <button id="runBtn_safe" class="action-btn" onclick="toggleWorker('safe')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_safe" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -789,8 +775,7 @@
                         <option value="rating:e">NSFW</option>
                     </select>
                     <input type="checkbox" id="sankakuHideBooks"> <label for="sankakuHideBooks">Hide Books/Pools</label>
-                    <button class="action-btn" onclick="startWorker('sankaku')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('sankaku')">STOP</button>
+                    <button id="runBtn_sankaku" class="action-btn" onclick="toggleWorker('sankaku')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_sankaku" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -811,8 +796,7 @@
                     <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
                     <label>Limit:</label>
                     <input type="number" id="waifuLimit" value="30" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
+                    <button id="runBtn_waifu" class="action-btn" onclick="toggleWorker('waifu')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_waifu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -841,8 +825,7 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('yande')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('yande')">STOP</button>
+                    <button id="runBtn_yande" class="action-btn" onclick="toggleWorker('yande')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_yande" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -869,8 +852,7 @@
                     </div>
                     <label style="padding-top: 4px;">Limit:</label>
                     <input type="number" id="zeroLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('zero')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
+                    <button id="runBtn_zero" class="action-btn" onclick="toggleWorker('zero')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_zero" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     

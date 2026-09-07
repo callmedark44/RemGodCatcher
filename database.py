@@ -122,9 +122,22 @@ class DatabaseManager:
     @staticmethod
     def load_ui_config():
         config = DatabaseManager.load_json(UI_CONFIG_FILE)
-        if not config:
+        if not config or not isinstance(config, dict):
             config = DatabaseManager._default_ui_config()
             DatabaseManager.save_ui_config(config)
+            return config
+        # ponytail: forward-fill new default keys so old configs never miss tabs
+        defaults = DatabaseManager._default_ui_config()
+        changed = False
+        for key, val in defaults.items():
+            if key not in config:
+                config[key] = val
+                changed = True
+        if changed:
+            try:
+                DatabaseManager.save_ui_config(config)
+            except Exception:
+                pass
         return config
 
     @staticmethod

@@ -37,28 +37,24 @@ class YandeWorker(BaseWorker):
         uncached = [t for t in tag_names if t not in cache]
         if uncached:
             self.log(f"Fetching types for {len(uncached)} tags...")
-            sem = asyncio.Semaphore(4)
-            async def query_one(tag_name):
-                async with sem:
-                    try:
-                        resp = await self.session.get("https://yande.re/tag.xml", params={
-                            "name": tag_name, "limit": 1
-                        })
-                        if resp.status != 200:
-                            cache[tag_name] = 0
-                            return
-                        text = await resp.text()
-                        root = ET.fromstring(text)
-                        tag_el = root.find("tag")
-                        if tag_el is not None:
-                            tag_type = int(tag_el.get("type", 0))
-                        else:
-                            tag_type = 0
-                        cache[tag_name] = tag_type
-                    except Exception:
+            for tag_name in uncached:
+                try:
+                    resp = await self.session.get("https://yande.re/tag.xml", params={
+                        "name": tag_name, "limit": 1
+                    })
+                    if resp.status != 200:
                         cache[tag_name] = 0
-                    await asyncio.sleep(0.2)
-            await asyncio.gather(*[query_one(t) for t in uncached])
+                        continue
+                    text = await resp.text()
+                    root = ET.fromstring(text)
+                    tag_el = root.find("tag")
+                    if tag_el is not None:
+                        tag_type = int(tag_el.get("type", 0))
+                    else:
+                        tag_type = 0
+                    cache[tag_name] = tag_type
+                except Exception:
+                    cache[tag_name] = 0
             shared.save_tag_cache(cache, "yande")
         return cache
 
@@ -160,10 +156,6 @@ class YandeWorker(BaseWorker):
                 copyrights = cats["copyright"]
                 metadata_tags = cats["metadata"]
                 tags_list = cats["tag"]
-                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
 
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1

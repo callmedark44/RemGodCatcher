@@ -20,7 +20,9 @@ class SankakuWorker(BaseWorker):
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
+        # NOTE: ':' included — it is illegal on Windows (WinError 267/87).
+        # Empty stays empty (downloads land directly in site_root, as before).
+        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag).strip()
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         os.makedirs(self.tag_dir, exist_ok=True)
 
@@ -192,11 +194,6 @@ class SankakuWorker(BaseWorker):
                     characters = []
                     copyrights = []
                     metadata_tags = []
-
-                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
 
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1

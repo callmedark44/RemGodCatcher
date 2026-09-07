@@ -68,10 +68,6 @@ class NekosApiWorker(BaseDownloader):
                 filename = f"{img_id}.{ext}"
                 filepath = os.path.join(self.rating_dir, filename)
                 tag_list = self.tags + [t for t in img.get("tags", []) if t]
-                rating_tag_map = {"safe": "rating:safe", "suggestive": "rating:s", "borderline": "rating:q", "explicit": "rating:e"}
-                rt = rating_tag_map.get(self.rating.lower())
-                if rt:
-                    tag_list.append(rt)
                 artist_name = img.get("artist_name")
                 artists = [artist_name] if artist_name else []
                 if await self.enqueue_download(url, filepath, filename, tag_list, artists):

@@ -166,6 +166,54 @@ def parse_zerochan_tags(html):
     return parser.tags
 
 
+# Windows forbids these chars (plus control chars) in file/dir names.
+# NOTE: ':' must be included — Zerochan tags/filenames contain it
+# (e.g. "Rem (Re:Zero)") and it crashes makedirs/replace with WinError 267/87.
+_UNSAFE_PATH_CHARS_RE = re.compile('[<>:"/\\\\|?*\\x00-\\x1f]')
+
+
+def _sanitize_path_part(name, fallback="misc"):
+    """Make a tag/filename safe for Windows + POSIX filesystems."""
+    try:
+        cleaned = _UNSAFE_PATH_CHARS_RE.sub("", str(name or ""))
+        # Windows also dislikes trailing dots/spaces
+        cleaned = cleaned.strip().rstrip(". ")
+        return cleaned or fallback
+    except Exception:
+        return fallback
+
+
+def _split_category_tags(raw_tags):
+    """Split ['Category:Name', ...] into (general, artists, chars, copyrights, meta)."""
+    general, artists, characters, copyrights, metadata_tags = [], [], [], [], []
+    for entry in raw_tags or []:
+        try:
+            text = str(entry).strip()
+            if not text:
+                continue
+            if ":" not in text:
+                general.append(text)
+                continue
+            cat, _, name = text.partition(":")
+            name = name.strip()
+            if not name:
+                continue
+            c = cat.strip().lower()
+            if c in ("mangaka", "artist"):
+                artists.append(name)
+            elif c in ("character",):
+                characters.append(name)
+            elif c in ("game", "series", "copyright"):
+                copyrights.append(name)
+            elif c in ("meta", "metadata"):
+                metadata_tags.append(name)
+            else:
+                general.append(name)
+        except Exception:
+            continue
+    return general, artists, characters, copyrights, metadata_tags
+
+
 def _derive_img_url(item):
     keys = ["full", "large", "file_url", "source", "src", "url", "image"]
     for k in keys:
@@ -189,7 +237,7 @@ class ZerochanWorker(BaseDownloader):
         self.original_tag = tag.strip().lower()
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag)
+        self.safe_tag = _sanitize_path_part(re.sub(r'[\\/*?"<>|]', "", clean_tag), fallback="")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         os.makedirs(self.tag_dir, exist_ok=True)
         tag_parts = [urllib.parse.quote_plus(p.strip()) for p in self.original_tag.split(',')]
@@ -396,10 +444,14 @@ class ZerochanWorker(BaseDownloader):
                         eyes = []
                         if isinstance(tags_raw, str):
                             tags_list = [t.strip() for t in tags_raw.replace(",", " ").split() if t.strip()]
+                        elif isinstance(tags_raw, list) and any(":" in str(t) for t in tags_raw):
+                            tags_list, artists, characters, copyrights, metadata_tags = \
+                                _split_category_tags(tags_raw)
                         else:
                             tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
 
-                    filename = urllib.parse.unquote(img_url.split('/')[-1])
+                    filename = _sanitize_path_part(urllib.parse.unquote(img_url.split('/')[-1]),
+                                                   fallback=f"zerochan_{pid}.jpg")
                     filepath = os.path.join(self.tag_dir, filename)
 
                     if await self.enqueue_download(img_url, filepath, filename, tags_list, artists=artists, characters=characters, copyrights=copyrights, metadata_tags=metadata_tags, outfits=outfits, groups=groups, hair=hair, eyes=eyes):

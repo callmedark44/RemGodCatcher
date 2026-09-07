@@ -166,8 +166,6 @@ class Rule34Worker(BaseWorker):
                     tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
                     artists, characters, copyrights, metadata_tags = [], [], [], []
 
-                tags_list.append("rating:e")
-
                 if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True

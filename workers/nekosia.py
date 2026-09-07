@@ -63,10 +63,6 @@ class NekosiaWorker(BaseDownloader):
                 filepath = os.path.join(self.rating_dir, filename)
                 
                 tags = img.get("tags", [])
-                rating_tag_map = {"safe": "rating:safe", "sensitive": "rating:s"}
-                rt = rating_tag_map.get(self.rating.lower())
-                if rt:
-                    tags = list(tags) + [rt]
                 attr = img.get("attribution", {})
                 artist_name = attr.get("artist", {}).get("username")
                 artists = [artist_name] if artist_name else []

@@ -179,11 +179,6 @@ class KonachanWorker(BaseWorker):
                 tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
                 tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(tags_list)
 
-                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
-
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True

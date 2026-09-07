@@ -1,4 +1,5 @@
 let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
+var workerRunning = {};
 let uiConfig = {};
 let currentActiveTheme = 'dark';
 
@@ -52,6 +53,7 @@ function normalizeTags(tagsInput) {
 }
 
 function cleanTagDisplay(t) { const s = String(t || "").replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
+function escJs(s) { return String(s || "").replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'"); }
 
 // Streamline heart (web/icons/heart.svg): one asset, both states via paint
 const HEART_PATH = "M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z";
@@ -68,7 +70,7 @@ function renderCategorizedTags(tagsInput, clickable) {
         let tags = tagsDict[cat] || [];
         tags.forEach(t => {
             let cls = getTagCategoryClass(cat);
-            let safeT = t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let safeT = escJs(t);
             let display = cleanTagDisplay(t);
             if (clickable) {
                 html += `<span class="g-tag-pill ${cls}" onclick="document.getElementById('gallerySearch').value='${safeT}'; loadGallery(1); closeGalleryViewer();">${display}</span>`;
@@ -192,6 +194,11 @@ async function uploadWpBox(tabName, mode, fileInput) {
 
 const _wpReady = {};
 const _wpWaiters = {};
+// ponytail: shipped defaults live in web/wallpaper/, user uploads in user_wallpapers/
+const _wpDefaults = new Set(["Rem_main_d.png", "Rem_main_l.png", "Rem_Gallery_d.jpg", "Rem_Gallery_l.jpg", "Rem_history_d.png", "Rem_history_l.png", "Rem_AnimeDl_d.jpg", "Rem_AnimeDl_l.jpg", "Rem_danbooru_d.jpg", "Rem_danbooru_l.jpg", "Rem_EShuushuu_d.jpg", "Rem_EShuushuu_l.jpg", "Rem_gelbooru_d.png", "Rem_gelbooru_l.png", "Rem_Gsbooru_d.jpg", "Rem_Gsbooru_l.jpg", "Rem_Kona_d.jpg", "Rem_Kona_l.jpg", "Rem_neko_d.png", "Rem_neko_l.png", "Rem_nekolife_d.png", "Rem_nekolife_l.png", "Rem_NekosAPI_d.jpg", "Rem_NekosAPI_l.jpg", "Rem_Nekosia_d.jpg", "Rem_Nekosia_l.jpg", "Rem_pinterest_d.jpg", "Rem_pinterest_l.jpg", "Rem_Pixiv_d.jpg", "Rem_Pixiv_l.jpg", "Rem_rule34_d.png", "Rem_rule34_l.png", "Rem_safe_d.png", "Rem_safe_l.png", "Rem_Sankaku_d.jpg", "Rem_Sankaku_l.jpg", "Rem_waifu_d.png", "Rem_waifu_l.png", "Rem_yande_d.png", "Rem_yande_l.png", "Rem_zero_d.jpg", "Rem_zero_l.jpg", "Rem_zero_d.png", "Rem_zero_l.png", "Rem_custom_d.png", "Rem_custom_l.png", "Rem_option_d.png", "Rem_option_l.png"]);
+function _wpUrl(filename) {
+    return (_wpDefaults.has(filename) ? "wallpaper/" : "user_wallpapers/") + filename;
+}
 function warmWallpaper(url, cb) {
     if (cb) (_wpWaiters[url] = _wpWaiters[url] || []).push(cb);
     if (_wpReady[url]) { _drainWpWaiters(url); return; }
@@ -234,7 +241,7 @@ function updateBackground(tabName) {
     if (!wp) return;
     let filename = wp[currentActiveTheme] || wp['dark'];
     if (!filename) return;
-    const url = `user_wallpapers/${filename}`;
+    const url = _wpUrl(filename);
 
     _ensureWpLayers();
     const front = _wpFrontIsA ? _wpLayerA : _wpLayerB;
@@ -273,7 +280,7 @@ function preloadWallpapers() {
         [wp.dark, wp.light].forEach(fn => {
             if (fn && !seen.has(fn)) {
                 seen.add(fn);
-                warmWallpaper('user_wallpapers/' + fn);
+                warmWallpaper(_wpUrl(fn));
             }
         });
     });
@@ -336,10 +343,11 @@ function updateProgressBar(worker, msg) {
 
     // 1. نمایش پیام پایانی بزرگ و زیبا و حذف نوارها
     if (msg.includes("downloads completed successfully") || msg.includes("Task finished") || msg.includes("No new") || msg.includes("No posts")) {
+        workerRunning[worker] = false; renderRunBtn(worker);
         let match = msg.match(/All (\d+) downloads/);
         let countText = match ? match[1] : "";
         
-        let endText = countText ? `🎉 All ${countText} Media Downloaded Successfully! 🎉` : "✅ Task Finished Successfully!";
+        let endText = countText ? `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7.96405.431215c-.10711-.328136-.45996-.5073077-.78809-.4001899-.32814.1071179-.50731.4599609-.40019.7880979.30408.931507.26406 1.941167-.11279 2.845677-.13275.31863.01793.68455.33656.8173.31863.13275.68455-.01793.8173-.33656.49188-1.18062.54412-2.49848.14721-3.714325ZM10.1206 2.56112c.3419-.04754.6575.19109.7051.53298.0915.65842-.0608 1.32759-.4282 1.88155-.1908.28764-.57871.36615-.86636.17534-.28764-.1908-.36615-.57866-.17534-.86631.1989-.29985.28133-.66206.23178-1.01845-.04753-.34189.19109-.65758.53302-.70511Zm.2309 3.74936c.6464-.14677 1.3242-.04928 1.903.27371.3014.16821.4094.54892.2412.85034s-.5489.40941-.8504.24121c-.3093-.17263-.6715-.22473-1.017-.14629-.3366.07643-.67144-.13448-.74788-.47109-.07643-.33661.13448-.67144.47108-.74788Zm1.6484-3.06049c0-.55229.4477-1 1-1s1 .44771 1 1c0 .55228-.4477 1-1 1s-1-.44772-1-1Zm-8.20286.66477c.28698-.07383.58794-.07401.875-.00053s.55092.21826.76712.42089l.01163.01126 4.19 4.19.00498.00498-.00004.00004c.20465.2105.35306.4691.43157.75199.0785.2829.0845.581.0176.86681-.0669.2859-.2047.5503-.40063.769-.19488.2174-.44106.3827-.7161.4806l-6.6763 2.4886-.00761.0029-.00003-.0001c-.3018.107-.62746.1275-.94032.0594s-.600501-.2222-.830541-.4449C.293328 13.293.130021 13.0105.0518304 12.7s-.0681611-.6366.0289612-.9417c.0023914-.0075.0049602-.015.0077042-.0224L2.5652 5.0648c.09213-.27758.25201-.52787.46524-.72821.21595-.2029.47963-.348.7666-.42183Z"/></svg> All ${countText} Media Downloaded Successfully! <svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7.96405.431215c-.10711-.328136-.45996-.5073077-.78809-.4001899-.32814.1071179-.50731.4599609-.40019.7880979.30408.931507.26406 1.941167-.11279 2.845677-.13275.31863.01793.68455.33656.8173.31863.13275.68455-.01793.8173-.33656.49188-1.18062.54412-2.49848.14721-3.714325ZM10.1206 2.56112c.3419-.04754.6575.19109.7051.53298.0915.65842-.0608 1.32759-.4282 1.88155-.1908.28764-.57871.36615-.86636.17534-.28764-.1908-.36615-.57866-.17534-.86631.1989-.29985.28133-.66206.23178-1.01845-.04753-.34189.19109-.65758.53302-.70511Zm.2309 3.74936c.6464-.14677 1.3242-.04928 1.903.27371.3014.16821.4094.54892.2412.85034s-.5489.40941-.8504.24121c-.3093-.17263-.6715-.22473-1.017-.14629-.3366.07643-.67144-.13448-.74788-.47109-.07643-.33661.13448-.67144.47108-.74788Zm1.6484-3.06049c0-.55229.4477-1 1-1s1 .44771 1 1c0 .55228-.4477 1-1 1s-1-.44772-1-1Zm-8.20286.66477c.28698-.07383.58794-.07401.875-.00053s.55092.21826.76712.42089l.01163.01126 4.19 4.19.00498.00498-.00004.00004c.20465.2105.35306.4691.43157.75199.0785.2829.0845.581.0176.86681-.0669.2859-.2047.5503-.40063.769-.19488.2174-.44106.3827-.7161.4806l-6.6763 2.4886-.00761.0029-.00003-.0001c-.3018.107-.62746.1275-.94032.0594s-.600501-.2222-.830541-.4449C.293328 13.293.130021 13.0105.0518304 12.7s-.0681611-.6366.0289612-.9417c.0023914-.0075.0049602-.015.0077042-.0224L2.5652 5.0648c.09213-.27758.25201-.52787.46524-.72821.21595-.2029.47963-.348.7666-.42183Z"/></svg>` : "✅ Task Finished Successfully!";
         if (msg.includes("No new") || msg.includes("No posts")) {
             endText = "✅ No New Images Found.";
         }
@@ -427,8 +435,10 @@ function logToConsole(tabID, msg) {
             });
             let artistNames = cats.artist || [];
             delete cats.artist;
-            tagsHtml = artistNames.map(a => `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(a)}</span>`).join('') + renderCategorizedTags(cats, false);
+            var logArtistBadge = artistNames.map(a => `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(a)}</span>`).join('');
+            tagsHtml = renderCategorizedTags(cats, false);
         } else {
+            var logArtistBadge = "";
             tagsHtml = (tagsStr && tagsStr !== "No tags") ? renderCategorizedTags({ tag: tagsStr.split(', ') }, false) : "No tags";
         }
         let fnMatch = raw.match(/Downloaded ([^\s]+)/);
@@ -436,7 +446,7 @@ function logToConsole(tabID, msg) {
         let countMatch = raw.match(/\((\d+)\/\d+\)/);
         let countNum = countMatch ? countMatch[1] : "1";
 
-        let pathUrlStr = rawPath ? rawPath.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/') : encodeURIComponent(fn);
+        let pathUrlStr = rawPath ? rawPath.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/'/g, "%27") : encodeURIComponent(fn);
 
         let ratingHtml = "";
         let pLow = rawPath.toLowerCase().replace(/\\/g, '/');
@@ -465,7 +475,7 @@ function logToConsole(tabID, msg) {
         let card = document.createElement("div");
         card.className = "image-card-log";
         let thumbSrc = '/api/gallery/thumb/' + pathUrlStr;
-        let safeFn = fn.replace(/"/g, '&quot;');
+        let safeFn = escJs(fn);
         
         card.innerHTML = `
             <div class="img-card-left">
@@ -473,7 +483,7 @@ function logToConsole(tabID, msg) {
                 <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
             </div>
             <div class="img-card-right">
-                <div class="img-card-title" title="${safeFn}">${fn}</div>
+                <div class="img-card-title" style="display:flex;align-items:center;gap:8px;opacity:1;padding:2px 0;" title="${safeFn}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.6;">${fn}</span><span style="display:inline-flex;gap:6px;flex-shrink:0;">${logArtistBadge}</span></div>
                 <div class="img-card-tags">${tagsHtml}</div>
                 ${ratingHtml}
             </div>
@@ -491,6 +501,7 @@ function logToConsole(tabID, msg) {
     }
 
     if (raw.includes("Phase 2") || raw.includes("Terminated") || raw.includes("Initializing") || raw.includes("Total valid items found") || raw.includes("Notice:") || raw.includes("API error") || raw.includes("API Exception") || raw.includes("API BAN") || raw.includes("No more images") || raw.includes("No new images") || raw.includes("ZERO images") || raw.includes("0 images found") || raw.includes("End of database") || raw.includes("Authenticating") || raw.includes("Proxy:") || raw.includes("Enqueued") || raw.includes("Rating:") || raw.includes("Exclusions:")) {
+        if (raw.includes("Terminated")) { workerRunning[tabID] = false; renderRunBtn(tabID); }
         let clean = raw.replace(/\[.*?\]/g, '').split("|PATH|")[0].trim();
         let card = document.createElement("div");
         card.className = "log-item system";
@@ -534,7 +545,7 @@ function renderRule34Tags() {
         let text = isNeg ? t.substring(1) : t;
         let cls = isNeg ? 'warning' : 'positive';
         let icon = isNeg ? '− ' : '✔ ';
-        let safeT = t.replace(/'/g, "\\'");
+        let safeT = escJs(t);
         return '<span class="v-tag ' + cls + '" onclick="removeRule34Tag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + text + '</span>';
     }).join('');
 }
@@ -576,7 +587,7 @@ function renderZerochanTags() {
         // ponytail: negatives stay warning; else first pill is main, dropdown picks are sub, typed are other
         let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (zerochanSubTags.has(t) ? 'sub' : 'neutral'));
         let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
-        let safeT = t.replace(/'/g, "\\'");
+        let safeT = escJs(t);
         return '<span class="v-tag ' + cls + '" onclick="removeZerochanTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
     }).join('');
 }
@@ -867,7 +878,7 @@ function renderAnimeDlTags() {
         let text = isNeg ? t.substring(1) : t;
         let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (animeDlSubTags.has(t) ? 'sub' : 'neutral'));
         let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
-        let safeT = t.replace(/'/g, "\\'");
+        let safeT = escJs(t);
         return '<span class="v-tag ' + cls + '" onclick="removeAnimeDlTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
     }).join('');
 }
@@ -1199,7 +1210,7 @@ document.addEventListener("DOMContentLoaded", function() {
     setupAutosuggest("konaTag", "konaAutosuggest", "/api/tags/kona", cleanTagDisplay);
     setupAutosuggest("safeTag", "safeAutosuggest", "/api/tags/safe", cleanTagDisplay);
     setupAutosuggest("sankakuTag", "sankakuAutosuggest", "/api/tags/sankaku", cleanTagDisplay);
-    setupAutosuggest("yandeTag", "yandeAutosuggest", "/api/tags/yande");
+    setupAutosuggest("yandeTag", "yandeAutosuggest", "/api/tags/yande", cleanTagDisplay);
     setupAutosuggest("gsbooruTag", "gsbooruAutosuggest", "/api/tags/gsbooru");
 
 
@@ -1416,9 +1427,24 @@ function showToast(msg, opts) {
 // ponytail: silent JS failures are undebuggable in the desktop window — surface them
 const WARN_ICON = `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.89003 1.0499C7.80611 0.886097 7.67861 0.748632 7.52158 0.652642 7.36455 0.556651 7.18407 0.505859 7.00003 0.505859c-0.18405 0 -0.36453 0.050792 -0.52156 0.146783 -0.15703 0.09599 -0.28453 0.233455 -0.36844 0.397258l-5.500004 11c-0.07671 0.1522 -0.113232 0.3215 -0.106098 0.4919 0.007134 0.1703 0.057688 0.3359 0.146861 0.4812 0.089172 0.1453 0.214003 0.2654 0.362641 0.3488 0.14863 0.0835 0.31613 0.1276 0.4866 0.1281H12.5c0.1705 -0.0005 0.338 -0.0446 0.4866 -0.1281 0.1487 -0.0834 0.2735 -0.2035 0.3627 -0.3488 0.0891 -0.1453 0.1397 -0.3109 0.1468 -0.4812 0.0072 -0.1704 -0.0294 -0.3397 -0.1061 -0.4919l-5.49997 -11Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5v3.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25"/></svg>`;
 window.addEventListener("error", function(e) {
-    try { showToast("Error: " + (e.message || "unknown"), { warn: true, sticky: true, icon: WARN_ICON }); } catch (_) {}
+    try {
+        const stack = (e.error && e.error.stack ? String(e.error.stack) : "").split("\n").slice(0, 3).join(" | ");
+        const where = (e.filename ? String(e.filename).split("/").pop() : "") + (e.lineno ? ":" + e.lineno : "");
+        showToast("Error: " + (e.message || "unknown") + (where ? " @" + where : "") + (stack ? " — " + stack : ""), { warn: true, sticky: true, icon: WARN_ICON });
+    } catch (_) {}
 });
 
+function renderRunBtn(workerName) {
+    const btn = document.getElementById("runBtn_" + workerName);
+    if (!btn) return;
+    const running = !!workerRunning[workerName];
+    btn.textContent = running ? "STOP" : "START";
+    btn.classList.toggle("stop-btn", running);
+}
+function toggleWorker(workerName) {
+    if (workerRunning[workerName]) stopWorker(workerName);
+    else startWorker(workerName);
+}
 function startWorker(workerName) {
     let payload = { worker: workerName, net_config: { ...globalNetConfig } };
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
@@ -1432,7 +1458,7 @@ function startWorker(workerName) {
     else if (workerName === 'safe') { payload.tag = danTagForRequest('safeTag'); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; } 
     else if (workerName === 'gelbooru') { payload.tag = danTagForRequest('gelbooruTag'); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
     else if (workerName === 'gsbooru') { payload.tag = document.getElementById('gsbooruTag').value; payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
-    else if (workerName === 'yande') { payload.tag = document.getElementById('yandeTag').value; payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; } 
+    else if (workerName === 'yande') { payload.tag = danTagForRequest('yandeTag'); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; } 
     else if (workerName === 'dan') { payload.tag = danTagForRequest(); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
     else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
     else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; } 
@@ -1477,15 +1503,21 @@ function startWorker(workerName) {
     if (TAG_REQUIRED.includes(workerName) && !(payload.tag || '').trim()) {
         showToast("Enter a tag first");
         logToConsole(workerName, "Error: tag is empty — nothing to search");
-        return;
+        workerRunning[workerName] = false; renderRunBtn(workerName);
+        return false;
     }
     if (workerName === 'eshuushuu' && !(payload.tag || '').trim() && !(payload.user_id || '').trim()) {
         showToast("Enter a tag or user ID first");
         logToConsole('eshuushuu', "Error: tag and user ID are both empty — nothing to search");
-        return;
+        workerRunning[workerName] = false; renderRunBtn(workerName);
+        return false;
     }
 
     socket.emit("start_worker", payload);
+    workerRunning[workerName] = true; renderRunBtn(workerName);
+    // ponytail: submitted combo clears so the box is fresh for the next search
+    if (workerName === 'zero') { currentZerochanTags = []; zerochanSubTags.clear(); renderZerochanTags(); document.getElementById('zeroTag').value = ''; }
+    if (workerName === 'anime_dl') { currentAnimeDlTags = []; animeDlSubTags.clear(); renderAnimeDlTags(); document.getElementById('animeDlTag').value = ''; }
 
     let key = WORKER_TO_TAB[workerName];
     if (key) {
@@ -1500,10 +1532,12 @@ function startWorker(workerName) {
         }
     }
     setTimeout(loadTagsData, 1000);
+    return true;
 }
 
 function stopWorker(workerName) {
     socket.emit("stop_worker", { worker: workerName });
+    workerRunning[workerName] = false; renderRunBtn(workerName);
     let key = WORKER_TO_TAB[workerName];
     if (key) {
         let container = document.getElementById("dualProgress_" + key);
@@ -1616,7 +1650,7 @@ function renderHistory() {
             let isFav = isFavorite(item.site, item.tag);
             let heartBtn = heartIcon(isFav);
             let heartColor = isFav ? "#ff6b6b" : "var(--text-color)";
-            let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag)}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${item.site}', '${item.tag}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${item.site}', '${item.tag}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${item.site}', '${item.tag}')">&times;</button></div></div>`;
+            let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag)}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${escJs(item.site)}', '${escJs(item.tag)}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${escJs(item.site)}', '${escJs(item.tag)}')">&times;</button></div></div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1632,7 +1666,7 @@ function renderFavorites() {
         return;
     }
     favoriteTags.forEach(item => {
-        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid transparent; box-shadow: 0 0 0 1px var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${item.site}', '${item.tag}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>${heartIcon(true)}</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
+        ui.innerHTML += `<div style="background: var(--tab-active-bg); border: 1px solid transparent; box-shadow: 0 0 0 1px var(--title-color); padding: 5px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: 0.2s;"><span onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}')" style="cursor: pointer; display: flex; align-items: center; gap: 5px; flex: 1; color: var(--text-color);"><span>${heartIcon(true)}</span><span style="color: var(--title-color); font-weight: bold; font-size: 10px; text-transform: uppercase;">[${item.site}]</span><span>${cleanTagDisplay(item.tag)}</span></span><button onclick="event.stopPropagation(); toggleFavorite('${item.site}', '${item.tag}')" style="background: transparent; border: none; color: #ff6b6b; cursor: pointer; font-size: 12px; padding: 0 0 0 5px; line-height: 1;">✕</button></div>`;
     });
 }
 
@@ -1726,8 +1760,8 @@ function renderImageHistory() {
             }
 
             let thumbUrl = getSafeThumbUrl(img.filepath, img.filename);
-            let safeFn = (img.filename || "").replace(/"/g, '&quot;');
-            let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
+            let safeFn = escJs(img.filename || "");
+            let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/'/g, "%27");
             let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
             let artistName = (img.tags?.artist || [])[0] || "";
             let artistHtml = artistName ? `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
@@ -1740,7 +1774,7 @@ function renderImageHistory() {
                     <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
                 </div>
                 <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
-                    <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold; padding: 2px;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${img.filename || "image"}</span>${siteBadge} ${ratingHtml} ${artistHtml}</div>
+                    <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold; padding: 2px; opacity:1;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.6;">${img.filename || "image"}</span>${artistHtml} ${siteBadge} ${ratingHtml}</div>
                     <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 62px; overflow-y:auto; padding: 3px 4px 3px 2px; align-content:flex-start; scrollbar-width: thin;">
                         ${tagsStr}
                     </div>
@@ -2126,7 +2160,7 @@ function viewerMetaHtml(img, tagsClickable) {
     }
     let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
     let artistName = (img.tags?.artist || [])[0] || "";
-    let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${artistName.replace(/'/g, "\\'")}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
+    let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${escJs(artistName)}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
 
     return `
         <div class="g-meta-header">
