@@ -160,13 +160,13 @@ function renderWallpaperGrid() {
         let boxIdLight = `file_${tab}_light`;
 
         ui.innerHTML += `
-            <div style="display: flex; flex-direction: column; gap: 5px;">
-                <span style="color: var(--text-color); font-size: 13px; font-weight: bold;">${tab}</span>
-                <div style="display: flex; gap: 10px;">
-                    <div class="wp-box dark-mode" onclick="document.getElementById('${boxIdDark}').click()">Dark Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdDark}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'dark', this)"></div>
-                    <div class="wp-box light-mode" onclick="document.getElementById('${boxIdLight}').click()">Light Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdLight}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'light', this)"></div>
-                </div>
-            </div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+        <span style="color: var(--text-color); font-size: 13px; font-weight: bold;">${tab}</span>
+        <div style="display: flex; gap: 10px;">
+        <div class="wp-box dark-mode" onclick="document.getElementById('${boxIdDark}').click()">Dark Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdDark}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'dark', this)"></div>
+        <div class="wp-box light-mode" onclick="document.getElementById('${boxIdLight}').click()">Light Mode<br><span style="font-size:10px; opacity:0.7;">Click to upload</span><input type="file" id="${boxIdLight}" accept="image/*" style="display:none" onchange="uploadWpBox('${tab}', 'light', this)"></div>
+        </div>
+        </div>
         `;
     });
 }
@@ -346,7 +346,7 @@ function updateProgressBar(worker, msg) {
         workerRunning[worker] = false; renderRunBtn(worker);
         let match = msg.match(/All (\d+) downloads/);
         let countText = match ? match[1] : "";
-        
+
         let endText = countText ? `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7.96405.431215c-.10711-.328136-.45996-.5073077-.78809-.4001899-.32814.1071179-.50731.4599609-.40019.7880979.30408.931507.26406 1.941167-.11279 2.845677-.13275.31863.01793.68455.33656.8173.31863.13275.68455-.01793.8173-.33656.49188-1.18062.54412-2.49848.14721-3.714325ZM10.1206 2.56112c.3419-.04754.6575.19109.7051.53298.0915.65842-.0608 1.32759-.4282 1.88155-.1908.28764-.57871.36615-.86636.17534-.28764-.1908-.36615-.57866-.17534-.86631.1989-.29985.28133-.66206.23178-1.01845-.04753-.34189.19109-.65758.53302-.70511Zm.2309 3.74936c.6464-.14677 1.3242-.04928 1.903.27371.3014.16821.4094.54892.2412.85034s-.5489.40941-.8504.24121c-.3093-.17263-.6715-.22473-1.017-.14629-.3366.07643-.67144-.13448-.74788-.47109-.07643-.33661.13448-.67144.47108-.74788Zm1.6484-3.06049c0-.55229.4477-1 1-1s1 .44771 1 1c0 .55228-.4477 1-1 1s-1-.44772-1-1Zm-8.20286.66477c.28698-.07383.58794-.07401.875-.00053s.55092.21826.76712.42089l.01163.01126 4.19 4.19.00498.00498-.00004.00004c.20465.2105.35306.4691.43157.75199.0785.2829.0845.581.0176.86681-.0669.2859-.2047.5503-.40063.769-.19488.2174-.44106.3827-.7161.4806l-6.6763 2.4886-.00761.0029-.00003-.0001c-.3018.107-.62746.1275-.94032.0594s-.600501-.2222-.830541-.4449C.293328 13.293.130021 13.0105.0518304 12.7s-.0681611-.6366.0289612-.9417c.0023914-.0075.0049602-.015.0077042-.0224L2.5652 5.0648c.09213-.27758.25201-.52787.46524-.72821.21595-.2029.47963-.348.7666-.42183Z"/></svg> All ${countText} Media Downloaded Successfully! <svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7.96405.431215c-.10711-.328136-.45996-.5073077-.78809-.4001899-.32814.1071179-.50731.4599609-.40019.7880979.30408.931507.26406 1.941167-.11279 2.845677-.13275.31863.01793.68455.33656.8173.31863.13275.68455-.01793.8173-.33656.49188-1.18062.54412-2.49848.14721-3.714325ZM10.1206 2.56112c.3419-.04754.6575.19109.7051.53298.0915.65842-.0608 1.32759-.4282 1.88155-.1908.28764-.57871.36615-.86636.17534-.28764-.1908-.36615-.57866-.17534-.86631.1989-.29985.28133-.66206.23178-1.01845-.04753-.34189.19109-.65758.53302-.70511Zm.2309 3.74936c.6464-.14677 1.3242-.04928 1.903.27371.3014.16821.4094.54892.2412.85034s-.5489.40941-.8504.24121c-.3093-.17263-.6715-.22473-1.017-.14629-.3366.07643-.67144-.13448-.74788-.47109-.07643-.33661.13448-.67144.47108-.74788Zm1.6484-3.06049c0-.55229.4477-1 1-1s1 .44771 1 1c0 .55228-.4477 1-1 1s-1-.44772-1-1Zm-8.20286.66477c.28698-.07383.58794-.07401.875-.00053s.55092.21826.76712.42089l.01163.01126 4.19 4.19.00498.00498-.00004.00004c.20465.2105.35306.4691.43157.75199.0785.2829.0845.581.0176.86681-.0669.2859-.2047.5503-.40063.769-.19488.2174-.44106.3827-.7161.4806l-6.6763 2.4886-.00761.0029-.00003-.0001c-.3018.107-.62746.1275-.94032.0594s-.600501-.2222-.830541-.4449C.293328 13.293.130021 13.0105.0518304 12.7s-.0681611-.6366.0289612-.9417c.0023914-.0075.0049602-.015.0077042-.0224L2.5652 5.0648c.09213-.27758.25201-.52787.46524-.72821.21595-.2029.47963-.348.7666-.42183Z"/></svg>` : "✅ Task Finished Successfully!";
         if (msg.includes("No new") || msg.includes("No posts")) {
             endText = "✅ No New Images Found.";
@@ -367,11 +367,11 @@ function updateProgressBar(worker, msg) {
     // 2. ساخت مجدد نوارها در زمان استارت شدن یه اسکن جدید
     if (msg.includes("Phase 1")) {
         container.innerHTML = `
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:10px; margin-bottom:5px;">
-                <span>🚀 Downloading...</span>
-                <span id="dlText_${key}">0%</span>
-            </div>
-            <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_${key}" style="width:0%;"></div></div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:10px; margin-bottom:5px;">
+        <span>🚀 Downloading...</span>
+        <span id="dlText_${key}">0%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_${key}" style="width:0%;"></div></div>
         `;
         container.style.display = "block";
         return;
@@ -383,7 +383,7 @@ function updateProgressBar(worker, msg) {
 
     if (!dlBar || !dlText) return;
 
-    
+
 
     // آپدیت نوار دانلود
     if (msg.includes("[SUCCESS] Downloaded")) {
@@ -465,6 +465,13 @@ function logToConsole(tabID, msg) {
         else if (pLow.includes('/safe') || pLow.includes('/general') || pLow.includes('safebooru')) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(46, 204, 113, 0.15); color:#2ecc71;">Rating: Safe</div>`;
         }
+        // ponytail: badge only matters when the tab isn't already filtered to one rating
+        const _ratingInputByWorker = {dan:'danRating', gelbooru:'gelbooruRating', gsbooru:'gsbooruRating', kona:'konaRating', yande:'yandeRating', sankaku:'sankakuRating', nekosapi:'nekosapiRating', nekosia:'nekosiaRating', pixiv:'pixivRating'};
+        const _rsId = _ratingInputByWorker[tabID];
+        if (_rsId) {
+            const _rsEl = document.getElementById(_rsId);
+            if (_rsEl && _rsEl.value) ratingHtml = "";
+        }
 
         // بررسی اینکه فایل ویدیو هست یا نه، تا آیکون درست رو نشون بدیم
         let ext = fn.split('.').pop().toLowerCase();
@@ -476,18 +483,18 @@ function logToConsole(tabID, msg) {
         card.className = "image-card-log";
         let thumbSrc = '/api/gallery/thumb/' + pathUrlStr;
         let safeFn = escJs(fn);
-        
+
         card.innerHTML = `
-            <div class="img-card-left">
-                <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
-                <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
-            </div>
-            <div class="img-card-right">
-                <div class="img-card-title" style="display:flex;align-items:center;gap:8px;opacity:1;padding:2px 0;" title="${safeFn}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.6;">${fn}</span><span style="display:inline-flex;gap:6px;flex-shrink:0;">${logArtistBadge}</span></div>
-                <div class="img-card-tags">${tagsHtml}</div>
-                ${ratingHtml}
-            </div>
-            <div class="img-card-number">${countNum}</div>
+        <div class="img-card-left">
+        <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
+        <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
+        </div>
+        <div class="img-card-right">
+        <div class="img-card-title" style="display:flex;align-items:center;gap:8px;opacity:1;padding:2px 0;" title="${safeFn}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.6;">${fn}</span><span style="display:inline-flex;gap:6px;flex-shrink:0;">${logArtistBadge}</span></div>
+        <div class="img-card-tags">${tagsHtml}</div>
+        ${ratingHtml}
+        </div>
+        <div class="img-card-number">${countNum}</div>
         `;
         cb.appendChild(card);
         capConsole(cb);
@@ -503,6 +510,8 @@ function logToConsole(tabID, msg) {
     if (raw.includes("Phase 2") || raw.includes("Terminated") || raw.includes("Initializing") || raw.includes("Total valid items found") || raw.includes("Notice:") || raw.includes("API error") || raw.includes("API Exception") || raw.includes("API BAN") || raw.includes("No more images") || raw.includes("No new images") || raw.includes("ZERO images") || raw.includes("0 images found") || raw.includes("End of database") || raw.includes("Authenticating") || raw.includes("Proxy:") || raw.includes("Enqueued") || raw.includes("Rating:") || raw.includes("Exclusions:")) {
         if (raw.includes("Terminated")) { workerRunning[tabID] = false; renderRunBtn(tabID); }
         let clean = raw.replace(/\[.*?\]/g, '').split("|PATH|")[0].trim();
+        // ponytail: prettify quoted tags for display — skip paths (slashes) and files (dots)
+        clean = clean.replace(/'([^'/.,]*_[^'/.,]*)'/g, (m, t) => "'" + cleanTagDisplay(t) + "'");
         let card = document.createElement("div");
         card.className = "log-item system";
         card.innerHTML = `<span style="font-size:16px;display:inline-flex;"><svg width="1em" height="1em" viewBox="0 0 48 48" fill="none"><path fill="currentColor" fill-rule="evenodd" d="M18.98 2.458c0.805 -0.423 2.358 -0.958 5.02 -0.958s4.215 0.535 5.022 0.958c0.612 0.32 0.97 0.83 1.174 1.256 0.29 0.605 0.925 1.97 1.48 3.449a18.483 18.483 0 0 1 3.063 1.771c1.56 -0.26 3.061 -0.39 3.731 -0.443 0.47 -0.036 1.09 0.02 1.675 0.39 0.77 0.486 2.01 1.563 3.34 3.869 1.332 2.306 1.644 3.918 1.681 4.828 0.029 0.69 -0.233 1.255 -0.5 1.645a44.816 44.816 0 0 1 -2.25 3.01 18.738 18.738 0 0 1 0 3.534 44.867 44.867 0 0 1 2.25 3.01c0.267 0.39 0.529 0.954 0.5 1.645 -0.037 0.91 -0.35 2.522 -1.68 4.828 -1.332 2.306 -2.572 3.383 -3.341 3.87 -0.584 0.37 -1.204 0.425 -1.675 0.389a44.829 44.829 0 0 1 -3.731 -0.443 18.478 18.478 0 0 1 -3.063 1.771 44.816 44.816 0 0 1 -1.48 3.449c-0.204 0.426 -0.562 0.935 -1.174 1.256 -0.807 0.422 -2.36 0.958 -5.022 0.958 -2.662 0 -4.215 -0.535 -5.022 -0.958 -0.612 -0.32 -0.97 -0.83 -1.174 -1.256 -0.29 -0.605 -0.925 -1.97 -1.48 -3.449a18.48 18.48 0 0 1 -3.063 -1.771c-1.56 0.26 -3.062 0.39 -3.732 0.443 -0.47 0.036 -1.09 -0.02 -1.674 -0.39 -0.77 -0.486 -2.01 -1.563 -3.34 -3.869 -1.332 -2.306 -1.645 -3.918 -1.682 -4.828 -0.028 -0.69 0.234 -1.255 0.5 -1.645a44.84 44.84 0 0 1 2.25 -3.01 18.727 18.727 0 0 1 0 -3.534 44.844 44.844 0 0 1 -2.25 -3.01c-0.266 -0.39 -0.528 -0.954 -0.5 -1.645 0.038 -0.91 0.35 -2.522 1.681 -4.828 1.331 -2.306 2.572 -3.383 3.341 -3.87 0.584 -0.37 1.204 -0.425 1.675 -0.389 0.67 0.052 2.17 0.184 3.73 0.443a18.48 18.48 0 0 1 3.064 -1.771 44.852 44.852 0 0 1 1.48 -3.449c0.204 -0.426 0.562 -0.935 1.174 -1.256ZM32 24a8 8 0 1 1 -16 0 8 8 0 0 1 16 0Z" clip-rule="evenodd"></path></svg></span> <span style="flex:1;">${clean}</span>`;
@@ -576,8 +585,8 @@ function removeZerochanTag(tag) {
     zerochanSubTags.delete(tag);
     renderZerochanTags();
 }
-const ZERO_STAR_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7 0.276855c-0.19843 0 -0.39272 0.056768 -0.55993 0.163603 -0.16508 0.10547 -0.29697 0.255388 -0.38055 0.432443L4.47196 4.07799c-0.00312 0.0063 -0.00611 0.01266 -0.00896 0.01909 -0.00071 0.00159 -0.00183 0.00298 -0.00324 0.00401 -0.00141 0.00103 -0.00306 0.00168 -0.0048 0.00187 -0.00609 0.00067 -0.01217 0.00146 -0.01823 0.00236l-3.495581 0.51786c-0.193204 0.01879 -0.377444 0.09129 -0.531759 0.20949 -0.159672 0.12231 -0.280454 0.28829 -0.3477142 0.47784 -0.06726016 0.18955 -0.0781133 0.39454 -0.0312442 0.59014 0.0466876 0.19483 0.1486564 0.37202 0.2936224 0.51027L2.88283 8.87974l-0.00004 0.00005 0.00587 0.00548c0.00365 0.00342 0.0064 0.00769 0.00798 0.01244 0.00158 0.00474 0.00195 0.00981 0.00107 0.01473l-0.00056 0.00327 -0.60974 3.56839 -0.00015 0.0009c-0.0335 0.1934 -0.01214 0.3923 0.06167 0.5741 0.07391 0.1822 0.19747 0.3399 0.3566 0.4553 0.15914 0.1153 0.34746 0.1837 0.54354 0.1973 0.19569 0.0136 0.39127 -0.0279 0.56457 -0.1197l0.00006 -0.0001 0.00099 -0.0005 3.14948 -1.6645c0.01129 -0.0049 0.0235 -0.0075 0.03585 -0.0075s0.02455 0.0026 0.03585 0.0075l3.14943 1.6645 0.0006 0.0003c0.1734 0.0921 0.3692 0.1337 0.565 0.12 0.1961 -0.0136 0.3844 -0.082 0.5436 -0.1973 0.1591 -0.1154 0.2827 -0.2731 0.3566 -0.4553 0.0738 -0.1818 0.0951 -0.3806 0.0617 -0.5739l-0.0002 -0.0011 -0.6097 -3.5684 -0.0006 -0.00326c-0.0009 -0.00492 -0.0005 -0.00999 0.0011 -0.01473 0.0015 -0.00474 0.0043 -0.00902 0.0079 -0.01244l0.0001 0.00005 0.0058 -0.00558 2.5588 -2.46885c0.1449 -0.13825 0.2469 -0.31542 0.2936 -0.51024 0.0468 -0.1956 0.036 -0.40059 -0.0313 -0.59014 -0.0672 -0.18955 -0.188 -0.35553 -0.3477 -0.47784 -0.1543 -0.1182 -0.3385 -0.1907 -0.5317 -0.20949l-3.49562 -0.51786c-0.00606 -0.0009 -0.01214 -0.00169 -0.01823 -0.00236 -0.00174 -0.00019 -0.0034 -0.00084 -0.00481 -0.00187 -0.00141 -0.00103 -0.00252 -0.00242 -0.00323 -0.00401 -0.00285 -0.00643 -0.00584 -0.01279 -0.00896 -0.01909L7.94048 0.872887C7.8569 0.695838 7.72501 0.545925 7.55994 0.440458 7.39272 0.333623 7.19843 0.276855 7 0.276855Z"/></svg> ';
-const ZERO_CHECK_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M13.637 1.198a1 1 0 0 1 0.134 1.408l-8.04 9.73 -0.003 0.002a1.922 1.922 0 0 1 -1.5 0.693 1.923 1.923 0 0 1 -1.499 -0.748l-0.001 -0.002L0.21 9.045a1 1 0 1 1 1.578 -1.228l2.464 3.167 7.976 -9.652a1 1 0 0 1 1.408 -0.134Z"/></svg> ';
+const ZERO_STAR_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M7 0.276855c-0.19843 0 -0.39272 0.056768 -0.55993 0.163603 -0.16508 0.10547 -0.29697 0.255388 -0.38055 0.432443L4.47196 4.07799c-0.00312 0.0063 -0.00611 0.01266 -0.00896 0.01909 -0.00071 0.00159 -0.00183 0.00298 -0.00324 0.00401 -0.00141 0.00103 -0.00306 0.00168 -0.0048 0.00187 -0.00609 0.00067 -0.01217 0.00146 -0.01823 0.00236l-3.495581 0.51786c-0.193204 0.01879 -0.377444 0.09129 -0.531759 0.20949 -0.159672 0.12231 -0.280454 0.28829 -0.3477142 0.47784 -0.06726016 0.18955 -0.0781133 0.39454 -0.0312442 0.59014 0.0466876 0.19483 0.1486564 0.37202 0.2936224 0.51027L2.88283 8.87974l-0.00004 0.00005 0.00587 0.00548c0.00365 0.00342 0.0064 0.00769 0.00798 0.01244 0.00158 0.00474 0.00195 0.00981 0.00107 0.01473l-0.00056 0.00327 -0.60974 3.56839 -0.00015 0.0009c-0.0335 0.1934 -0.01214 0.3923 0.06167 0.5741 0.07391 0.1822 0.19747 0.3399 0.3566 0.4553 0.15914 0.1153 0.34746 0.1837 0.54354 0.1973 0.19569 0.0136 0.39127 -0.0279 0.56457 -0.1197l0.00006 -0.0001 0.00099 -0.0005 3.14948 -1.6645c0.01129 -0.0049 0.0235 -0.0075 0.03585 -0.0075s0.02455 0.0026 0.03585 0.0075l3.14943 1.6645 0.0006 0.0003c0.1734 0.0921 0.3692 0.1337 0.565 0.12 0.1961 -0.0136 0.3844 -0.082 0.5436 -0.1973 0.1591 -0.1154 0.2827 -0.2731 0.3566 -0.4553 0.0738 -0.1818 0.0951 -0.3806 0.0617 -0.5739l-0.0002 -0.0011 -0.6097 -3.5684 -0.0006 -0.00326c-0.0009 -0.00492 -0.0005 -0.00999 0.0011 -0.01473 0.0015 -0.00474 0.0043 -0.00902 0.0079 -0.01244l0.0001 0.00005 0.0058 -0.00558 2.5588 -2.46885c0.1449 -0.13825 0.2469 -0.31542 0.2936 -0.51024 0.0468 -0.1956 0.036 -0.40059 -0.0313 -0.59014 -0.0672 -0.18955 -0.188 -0.35553 -0.3477 -0.47784 -0.1543 -0.1182 -0.3385 -0.1907 -0.5317 -0.20949l-3.49562 -0.51786c-0.00606 -0.0009 -0.01214 -0.00169 -0.01823 -0.00236 -0.00174 -0.00019 -0.0034 -0.00084 -0.00481 -0.00187 -0.00141 -0.00103 -0.00252 -0.00242 -0.00323 -0.00401 -0.00285 -0.00643 -0.00584 -0.01279 -0.00896 -0.01909L7.94048 0.872887C7.8569 0.695838 7.72501 0.545925 7.55994 0.440458 7.39272 0.333623 7.19843 0.276855 7 0.276855Z"/></svg>';
+const ZERO_CHECK_ICON = '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="M13.637 1.198a1 1 0 0 1 0.134 1.408l-8.04 9.73 -0.003 0.002a1.922 1.922 0 0 1 -1.5 0.693 1.923 1.923 0 0 1 -1.499 -0.748l-0.001 -0.002L0.21 9.045a1 1 0 1 1 1.578 -1.228l2.464 3.167 7.976 -9.652a1 1 0 0 1 1.408 -0.134Z"/></svg>';
 function renderZerochanTags() {
     let container = document.getElementById("zeroTagsContainer");
     if (!container) return;
@@ -643,7 +652,7 @@ document.addEventListener("DOMContentLoaded", function() {
     input.addEventListener("input", function() {
         clearTimeout(r34SuggestTimer);
         let val = input.value.trim();
-        
+
         // Handle negative tags correctly for suggest (strip minus for query)
         let isNegative = val.startsWith('-');
         let queryVal = isNegative ? val.substring(1) : val;
@@ -828,21 +837,21 @@ document.addEventListener("DOMContentLoaded", function() {
         if (input.value.trim() === "") showZeroSubtags(dropdown, input);
     });
 
-    document.addEventListener("click", function(e) {
-        if (e.target !== input && e.target !== dropdown) {
-            dropdown.style.display = "none";
-        }
-    });
+        document.addEventListener("click", function(e) {
+            if (e.target !== input && e.target !== dropdown) {
+                dropdown.style.display = "none";
+            }
+        });
 
-    function updateZeroSuggestActive(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove("active");
+        function updateZeroSuggestActive(items) {
+            for (let i = 0; i < items.length; i++) {
+                items[i].classList.remove("active");
+            }
+            if (zeroSuggestActiveIndex > -1 && items[zeroSuggestActiveIndex]) {
+                items[zeroSuggestActiveIndex].classList.add("active");
+                items[zeroSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+            }
         }
-        if (zeroSuggestActiveIndex > -1 && items[zeroSuggestActiveIndex]) {
-            items[zeroSuggestActiveIndex].classList.add("active");
-            items[zeroSuggestActiveIndex].scrollIntoView({ block: "nearest" });
-        }
-    }
 });
 
 // --- AnimeDL tag box: same pattern, joined with '&&', child tags standalone ---
@@ -1008,21 +1017,21 @@ document.addEventListener("DOMContentLoaded", function() {
         if (input.value.trim() === "") showAnimeDlSubtags(dropdown, input);
     });
 
-    document.addEventListener("click", function(e) {
-        if (e.target !== input && e.target !== dropdown) {
-            dropdown.style.display = "none";
-        }
-    });
+        document.addEventListener("click", function(e) {
+            if (e.target !== input && e.target !== dropdown) {
+                dropdown.style.display = "none";
+            }
+        });
 
-    function updateAnimeDlSuggestActive(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove("active");
+        function updateAnimeDlSuggestActive(items) {
+            for (let i = 0; i < items.length; i++) {
+                items[i].classList.remove("active");
+            }
+            if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
+                items[animeDlSuggestActiveIndex].classList.add("active");
+                items[animeDlSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+            }
         }
-        if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
-            items[animeDlSuggestActiveIndex].classList.add("active");
-            items[animeDlSuggestActiveIndex].scrollIntoView({ block: "nearest" });
-        }
-    }
 });
 
 
@@ -1100,7 +1109,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint, displayFn) {
         clearTimeout(suggestTimer);
         delete input.dataset.raw;
         let val = input.value.trim();
-        
+
         let isNegative = val.startsWith('-');
         let queryVal = isNegative ? val.substring(1) : val;
 
@@ -1202,7 +1211,7 @@ function danTagForRequest(inputId) {
 
 document.addEventListener("DOMContentLoaded", function() {
     enhanceAllSelects();
-    setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu");
+    setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu", cleanTagDisplay);
     setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi", cleanTagDisplay);
     setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia", cleanTagDisplay);
     setupAutosuggest("danTag", "danAutosuggest", "/api/tags/dan", cleanTagDisplay);
@@ -1211,7 +1220,7 @@ document.addEventListener("DOMContentLoaded", function() {
     setupAutosuggest("safeTag", "safeAutosuggest", "/api/tags/safe", cleanTagDisplay);
     setupAutosuggest("sankakuTag", "sankakuAutosuggest", "/api/tags/sankaku", cleanTagDisplay);
     setupAutosuggest("yandeTag", "yandeAutosuggest", "/api/tags/yande", cleanTagDisplay);
-    setupAutosuggest("gsbooruTag", "gsbooruAutosuggest", "/api/tags/gsbooru");
+    setupAutosuggest("gsbooruTag", "gsbooruAutosuggest", "/api/tags/gsbooru", cleanTagDisplay);
 
 
     document.addEventListener("click", function(e) {
@@ -1343,7 +1352,7 @@ function toggleGifExclusion(formatId, checkboxId) {
     let format = document.getElementById(formatId).value;
     let checkbox = document.getElementById(checkboxId);
     let label = checkbox.nextElementSibling;
-    if (format === 'gifs') { checkbox.style.display = 'none'; label.style.display = 'none'; } 
+    if (format === 'gifs') { checkbox.style.display = 'none'; label.style.display = 'none'; }
     else { checkbox.style.display = ''; label.style.display = ''; }
 }
 
@@ -1351,15 +1360,15 @@ function updateNekosLifeType() {
     const gifOnly = ["ngif", "hug", "pat", "cuddle", "tickle", "feed", "slap", "kiss", "smug"];
     const staticOnly = ["gecg", "meow", "neko", "lewd", "gasm", "8ball", "avatar", "woof", "fox_girl", "waifu"];
     const mixed = ["goose", "wallpaper", "lizard", "span"];
-    
+
     let cat = document.getElementById("nekosLifeCat").value;
     let typeEl = document.getElementById("nekosLifeType");
     let formatLabel = document.getElementById("nekosLifeFormatLabel");
     let formatSelect = document.getElementById("nekosLifeFormat");
-    
-    if (gifOnly.includes(cat)) { typeEl.textContent = "[GIF]"; typeEl.style.color = "var(--accent-color)"; formatLabel.style.display = "none"; formatSelect.style.display = "none"; } 
-    else if (staticOnly.includes(cat)) { typeEl.textContent = "[STATIC]"; typeEl.style.color = "#00d2d3"; formatLabel.style.display = "none"; formatSelect.style.display = "none"; } 
-    else if (mixed.includes(cat)) { typeEl.textContent = "[MIXED]"; typeEl.style.color = "#ffd93d"; formatLabel.style.display = ""; formatSelect.style.display = ""; } 
+
+    if (gifOnly.includes(cat)) { typeEl.textContent = "[GIF]"; typeEl.style.color = "var(--accent-color)"; formatLabel.style.display = "none"; formatSelect.style.display = "none"; }
+    else if (staticOnly.includes(cat)) { typeEl.textContent = "[STATIC]"; typeEl.style.color = "#00d2d3"; formatLabel.style.display = "none"; formatSelect.style.display = "none"; }
+    else if (mixed.includes(cat)) { typeEl.textContent = "[MIXED]"; typeEl.style.color = "#ffd93d"; formatLabel.style.display = ""; formatSelect.style.display = ""; }
     else { typeEl.textContent = ""; formatLabel.style.display = "none"; formatSelect.style.display = "none"; }
 }
 
@@ -1450,20 +1459,20 @@ function startWorker(workerName) {
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
     payload.net_config.retry_wait = document.getElementById("retryWait").value;
     payload.net_config.anti_ban_pause = document.getElementById("antiBanPause").value;
-    
-    if (workerName === 'zero') { payload.tag = currentZerochanTags.join(','); payload.limit = document.getElementById('zeroLimit').value; } 
-    else if (workerName === 'waifu') { payload.tag = document.getElementById('waifuTag').value; payload.limit = document.getElementById('waifuLimit').value; payload.nsfw = document.getElementById('waifuNsfw').checked; } 
-    else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; } 
-    else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; } 
-    else if (workerName === 'safe') { payload.tag = danTagForRequest('safeTag'); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; } 
+
+    if (workerName === 'zero') { payload.tag = currentZerochanTags.join(','); payload.limit = document.getElementById('zeroLimit').value; }
+    else if (workerName === 'waifu') { payload.tag = document.getElementById('waifuTag').value; payload.limit = document.getElementById('waifuLimit').value; payload.nsfw = document.getElementById('waifuNsfw').checked; }
+    else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; }
+    else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; }
+    else if (workerName === 'safe') { payload.tag = danTagForRequest('safeTag'); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; }
     else if (workerName === 'gelbooru') { payload.tag = danTagForRequest('gelbooruTag'); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
-    else if (workerName === 'gsbooru') { payload.tag = document.getElementById('gsbooruTag').value; payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
-    else if (workerName === 'yande') { payload.tag = danTagForRequest('yandeTag'); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; } 
-    else if (workerName === 'dan') { payload.tag = danTagForRequest(); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
-    else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; } 
-    else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; } 
-    else if (workerName === 'sankaku') { payload.tag = danTagForRequest('sankakuTag'); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; } 
-    else if (workerName === 'anime_dl') { payload.tag = currentAnimeDlTags.join('&&'); payload.limit = document.getElementById('animeDlLimit').value; } 
+    else if (workerName === 'gsbooru') { payload.tag = danTagForRequest('gsbooruTag'); payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
+    else if (workerName === 'yande') { payload.tag = danTagForRequest('yandeTag'); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; }
+    else if (workerName === 'dan') { payload.tag = danTagForRequest(); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
+    else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
+    else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; }
+    else if (workerName === 'sankaku') { payload.tag = danTagForRequest('sankakuTag'); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; }
+    else if (workerName === 'anime_dl') { payload.tag = currentAnimeDlTags.join('&&'); payload.limit = document.getElementById('animeDlLimit').value; }
     else if (workerName === 'pinterest') { payload.tag = document.getElementById('pinterestTag').value; payload.limit = document.getElementById('pinterestLimit').value; payload.is_search = document.getElementById('pinterestMode').value === 'search'; payload.min_w = parseInt(document.getElementById('pinterestMinW').value) || 0; payload.min_h = parseInt(document.getElementById('pinterestMinH').value) || 0; }
     else if (workerName === 'pixiv') {
         let mode = document.getElementById('pixivMode').value;
@@ -1482,7 +1491,7 @@ function startWorker(workerName) {
         payload.exclusions = [];
     }
     else if (workerName === 'eshuushuu') {
-        payload.tag = document.getElementById('eshuushuuTag').value;
+        payload.tag = danTagForRequest('eshuushuuTag');
         payload.user_id = document.getElementById('eshuushuuUser').value;
         payload.limit = document.getElementById('eshuushuuLimit').value;
     }
@@ -1740,20 +1749,20 @@ function renderImageHistory() {
         // ponytail: render in pages — full DOM + 100 thumb requests froze the tab
         imageHistory.slice(0, imageHistoryVisible).forEach(img => {
             let tagsStr = renderCategorizedTags(img.tags || {}, false);
-            
+
             let ratingHtml = "";
             let allTags = [];
             let tagsDict = normalizeTags(img.tags || {});
             TAG_CATEGORIES.forEach(c => { if (tagsDict[c]) allTags.push(...tagsDict[c]); });
-            let pLow = ((img.filepath || img.filename) + " " + allTags.join(' ')).toLowerCase(); 
+            let pLow = ((img.filepath || img.filename) + " " + allTags.join(' ')).toLowerCase();
             let siteLower = (img.site || "").toLowerCase();
             if (siteLower === "rule34") {
                 ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">NSFW</span>`;
-            } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) { 
+            } else if (pLow.includes('nsfw') || pLow.includes('explicit') || pLow.includes('rating:e')) {
                 ratingHtml = `<span style="background:rgba(231, 76, 60, 0.15); color:#e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">NSFW</span>`;
             } else if (pLow.includes('/sensitive') || pLow.includes('rating:sensitive')) {
                 ratingHtml = `<span style="background:rgba(155, 89, 182, 0.15); color:#9b59b6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Sensitive</span>`;
-            } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) { 
+            } else if (pLow.includes('moderate') || pLow.includes('questionable') || pLow.includes('rating:q')) {
                 ratingHtml = `<span style="background:rgba(243, 156, 18, 0.15); color:#f39c12; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Questionable</span>`;
             } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:s') || pLow.includes('rating:g')) {
                 ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Safe</span>`;
@@ -1768,17 +1777,17 @@ function renderImageHistory() {
 
             htmlStr += `
             <div class="image-card-log" style="position: relative; align-items: stretch; background: rgba(15, 15, 20, 0.75);">
-                <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid transparent; box-shadow: 0 0 0 1px #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s; line-height: 1; padding-bottom: 2px;">×</button>
-                <button onclick="toggleImageHistoryFav('${safeFn}', this)" title="Favourite" style="position: absolute; top: 10px; right: 42px; background: rgba(0,0,0,0.55); border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,64,128,0.5); color: #ff4080; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; transition: 0.2s; line-height: 1;">${heartIcon(img.favourite)}</button>
-                <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
-                    <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
-                </div>
-                <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
-                    <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold; padding: 2px; opacity:1;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.6;">${img.filename || "image"}</span>${artistHtml} ${siteBadge} ${ratingHtml}</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 62px; overflow-y:auto; padding: 3px 4px 3px 2px; align-content:flex-start; scrollbar-width: thin;">
-                        ${tagsStr}
-                    </div>
-                </div>
+            <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid transparent; box-shadow: 0 0 0 1px #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s; line-height: 1; padding-bottom: 2px;">×</button>
+            <button onclick="toggleImageHistoryFav('${safeFn}', this)" title="Favourite" style="position: absolute; top: 10px; right: 42px; background: rgba(0,0,0,0.55); border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,64,128,0.5); color: #ff4080; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; transition: 0.2s; line-height: 1;">${heartIcon(img.favourite)}</button>
+            <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
+            <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+            </div>
+            <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
+            <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold; padding: 2px; opacity:1;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.6;">${img.filename || "image"}</span>${artistHtml} ${siteBadge} ${ratingHtml}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 62px; overflow-y:auto; padding: 3px 4px 3px 2px; align-content:flex-start; scrollbar-width: thin;">
+            ${tagsStr}
+            </div>
+            </div>
             </div>`;
         });
     }
@@ -1826,19 +1835,19 @@ function updateRatingDropdown() {
         if (common === null) common = new Set(r);
         else common = new Set([...common].filter(x => r.includes(x)));
     });
-    if (common === null) common = new Set();
-    common.add('');
+        if (common === null) common = new Set();
+        common.add('');
     document.querySelectorAll('#ratingDropdown .dd-item').forEach(el => {
         const cb = el.querySelector('input[type="checkbox"]');
         const show = common.has(cb.value);
         el.style.display = show ? '' : 'none';
         if (!show) cb.checked = false;
     });
-    const firstCheck = document.querySelector('#ratingDropdown .dd-item input[type="checkbox"]');
-    if (firstCheck) {
-        const anyChecked = [...document.querySelectorAll('#ratingDropdown input[type="checkbox"]')].some(c => c.checked);
-        if (!anyChecked) firstCheck.checked = true;
-    }
+        const firstCheck = document.querySelector('#ratingDropdown .dd-item input[type="checkbox"]');
+        if (firstCheck) {
+            const anyChecked = [...document.querySelectorAll('#ratingDropdown input[type="checkbox"]')].some(c => c.checked);
+            if (!anyChecked) firstCheck.checked = true;
+        }
 }
 function updateSourceDropdown() {
     const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]');
@@ -1857,11 +1866,11 @@ function updateSourceDropdown() {
         el.style.display = show ? '' : 'none';
         if (!show) cb.checked = false;
     });
-    const firstCheck = document.querySelector('#sourceDropdown .dd-item input[type="checkbox"]');
-    if (firstCheck) {
-        const anyChecked = [...document.querySelectorAll('#sourceDropdown input[type="checkbox"]')].some(c => c.checked);
-        if (!anyChecked) firstCheck.checked = true;
-    }
+        const firstCheck = document.querySelector('#sourceDropdown .dd-item input[type="checkbox"]');
+        if (firstCheck) {
+            const anyChecked = [...document.querySelectorAll('#sourceDropdown input[type="checkbox"]')].some(c => c.checked);
+            if (!anyChecked) firstCheck.checked = true;
+        }
 }
 function getMultiSelectValues(id) {
     const checks = document.querySelectorAll(`#${id} input[type="checkbox"]`);
@@ -2133,7 +2142,7 @@ function openViewerSingle(url, filename) {
     const metaPanel = document.getElementById("galleryViewerMeta");
     if (metaPanel) {
         const entry = (typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === filename) : null)
-            || { filename: filename, filepath: "", site: "", tags: {} };
+        || { filename: filename, filepath: "", site: "", tags: {} };
         metaPanel.innerHTML = viewerMetaHtml(entry, true);
         document.getElementById("galleryViewerFav").innerHTML = heartIcon(!!entry.favourite);
     }
@@ -2163,11 +2172,11 @@ function viewerMetaHtml(img, tagsClickable) {
     let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${escJs(artistName)}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
 
     return `
-        <div class="g-meta-header">
-            <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
-            <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
-        </div>
-        <div class="g-meta-tags">${tagsHtml}</div>
+    <div class="g-meta-header">
+    <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
+    <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
+    </div>
+    <div class="g-meta-tags">${tagsHtml}</div>
     `;
 }
 function showViewerImage() {
@@ -2235,7 +2244,7 @@ function showViewerImage() {
     } else if (fullSrc) { loadViewerRaster(fullSrc, img.filename); }
     else { clearViewerResource(); viewerImg.style.display = ''; }
     document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite);
-    
+
     // === پنل اطلاعات و تگ‌ها پایین صفحه ===
     const metaPanel = document.getElementById("galleryViewerMeta");
     if(metaPanel) {
@@ -2249,344 +2258,342 @@ function viewerNav(dir) { if (viewerSingle) return; const total = galleryState.i
 function toggleViewerFav() {
     if (viewerSingle) {
         fetch("/api/gallery/favourite_by_name", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ filename: viewerSingleFilename }) })
-            .then(r => r.json()).then(data => {
-                if (data.success) {
-                    document.getElementById("galleryViewerFav").innerHTML = heartIcon(data.favourite);
-                    const h = typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === viewerSingleFilename) : null;
-                    if (h) h.favourite = data.favourite;
-                }
-            }).catch(e => console.error("Fav toggle error:", e));
+        .then(r => r.json()).then(data => {
+            if (data.success) {
+                document.getElementById("galleryViewerFav").innerHTML = heartIcon(data.favourite);
+                const h = typeof imageHistory !== "undefined" ? imageHistory.find(i => i.filename === viewerSingleFilename) : null;
+                if (h) h.favourite = data.favourite;
+            }
+        }).catch(e => console.error("Fav toggle error:", e));
         return;
     }
     const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite); fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
-let _copyBusy = false;
-async function copyUrlToClipboard(url, filename) {
-    // ponytail: copy the original bytes untouched — no canvas, no re-encode
-    let blob = await (await fetch(url)).blob();
-    try {
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-        showToast("📋 Image copied to clipboard");
-    } catch (err) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'file';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
-    }
-}
-async function copyBlobToClipboard(blob, url, filename) {
-    // ponytail: blob is the viewer's already-loaded bytes — no second fetch, no canvas, no re-encode
-    try {
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-        showToast("📋 Image copied to clipboard");
-    } catch (err) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'file';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
-    }
-}
-async function copyViewerImage() {
-    if (_copyBusy) return;
-    _copyBusy = true;
-    try {
-        let url, filename;
-        if (viewerSingle) {
-            if (!viewerSingleUrl) return;
-            url = viewerSingleUrl;
-            filename = viewerSingleFilename;
-        } else {
-            const img = galleryState.images[viewerIndex];
-            if (!img) return;
-            const rel = (img.filepath || "").replace(/\\/g, '/');
-            url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
-            filename = img.filename;
+    let _copyBusy = false;
+    async function copyUrlToClipboard(url, filename) {
+        // ponytail: copy the original bytes untouched — no canvas, no re-encode
+        let blob = await (await fetch(url)).blob();
+        try {
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
+            showToast("📋 Image copied to clipboard");
+        } catch (err) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'file';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
         }
-        // Videos keep the previous fetch-then-clipboard-or-download behavior;
-        // the Blob resource manager is for raster images only.
-        if (/\.(mp4|webm|mov|avi|mkv)$/i.test(filename || "") || (!viewerResource.blob && !viewerResource.loadPromise)) {
-            showToast("📋 Copying...");
-            await copyUrlToClipboard(url, filename);
-            return;
+    }
+    async function copyBlobToClipboard(blob, url, filename) {
+        // ponytail: blob is the viewer's already-loaded bytes — no second fetch, no canvas, no re-encode
+        try {
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
+            showToast("📋 Image copied to clipboard");
+        } catch (err) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'file';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
         }
-        const generation = viewerResource.generation;
-        if (!viewerResource.blob && viewerResource.loadPromise) {
-            showToast("📋 Preparing image...");
-            try {
-                await viewerResource.loadPromise;
-            } catch (err) {
-                if (generation !== viewerResource.generation) showToast("⚠ Image changed — press Copy again");
-                else showToast("⚠ Copy failed: image did not load");
+    }
+    async function copyViewerImage() {
+        if (_copyBusy) return;
+        _copyBusy = true;
+        try {
+            let url, filename;
+            if (viewerSingle) {
+                if (!viewerSingleUrl) return;
+                url = viewerSingleUrl;
+                filename = viewerSingleFilename;
+            } else {
+                const img = galleryState.images[viewerIndex];
+                if (!img) return;
+                const rel = (img.filepath || "").replace(/\\/g, '/');
+                url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
+                filename = img.filename;
+            }
+            // Videos keep the previous fetch-then-clipboard-or-download behavior;
+            // the Blob resource manager is for raster images only.
+            if (/\.(mp4|webm|mov|avi|mkv)$/i.test(filename || "") || (!viewerResource.blob && !viewerResource.loadPromise)) {
+                showToast("📋 Copying...");
+                await copyUrlToClipboard(url, filename);
                 return;
             }
-        }
-        if (generation !== viewerResource.generation) { showToast("⚠ Image changed — press Copy again"); return; }
-        const blob = viewerResource.blob;
-        if (!blob) { showToast("⚠ Image is not ready yet — try again"); return; }
-        showToast("📋 Copying...");
-        await copyBlobToClipboard(blob, viewerResource.url || url, viewerResource.filename || filename);
-    } catch (e) { showToast("⚠ Copy failed: " + (e && e.message || e)); }
-    finally { _copyBusy = false; }
-}
-function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
-function setViewerTransform(tx, ty) {
-    const img = document.getElementById("galleryViewerImg");
-
-
-    if (viewerZoom > 1) {
-        img.classList.add('zoomed');
-        img.style.transformOrigin = '0 0';
-        // ponytail: whole-pixel translation — fractional tx/ty makes the GPU
-        // resample across pixel boundaries (shimmer/seams while zoomed)
-        img.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${viewerZoom})`;
-    } else {
-        img.classList.remove('zoomed');
-        img.style.transformOrigin = '50% 50%';
-        img.style.transform = '';
+            const generation = viewerResource.generation;
+            if (!viewerResource.blob && viewerResource.loadPromise) {
+                showToast("📋 Preparing image...");
+                try {
+                    await viewerResource.loadPromise;
+                } catch (err) {
+                    if (generation !== viewerResource.generation) showToast("⚠ Image changed — press Copy again");
+                    else showToast("⚠ Copy failed: image did not load");
+                    return;
+                }
+            }
+            if (generation !== viewerResource.generation) { showToast("⚠ Image changed — press Copy again"); return; }
+            const blob = viewerResource.blob;
+            if (!blob) { showToast("⚠ Image is not ready yet — try again"); return; }
+            showToast("📋 Copying...");
+            await copyBlobToClipboard(blob, viewerResource.url || url, viewerResource.filename || filename);
+        } catch (e) { showToast("⚠ Copy failed: " + (e && e.message || e)); }
+        finally { _copyBusy = false; }
     }
-}
-function zoomViewer(delta, cx, cy) {
-    const img = document.getElementById("galleryViewerImg");
-    const viewer = document.getElementById("galleryViewer");
-
-
-    if (!img || !viewer || img.style.display === 'none') return;
-    if (!img.complete || img.naturalWidth === 0) return;
-
-
-    const oldZoom = viewerZoom;
-    const newZoom = Math.max(0.25, Math.min(10, oldZoom + delta));
-
-
-    if (newZoom === oldZoom) return;
-
-
-    /*
-     * IMPORTANT:
-     *
-     * At 100% the image is still using:
-     *   max-width: 95vw
-     *   max-height: 90vh
-     *
-     * We get its ORIGINAL untransformed rectangle here.
-     *
-     * Once zoomed, getBoundingClientRect() contains the transform,
-     * so we reconstruct the original rectangle using the current
-     * translation and zoom.
-     */
-
-
-    const rect = img.getBoundingClientRect();
-    const [oldTx, oldTy] = getViewerTransform();
-
-
-    // Position of the image before transform.
-    const baseLeft = rect.left - oldTx;
-    const baseTop = rect.top - oldTy;
-
-
-    // Mouse position. If called from keyboard, use viewer center.
-    if (cx == null || cy == null) {
-        const viewerRect = viewer.getBoundingClientRect();
-        cx = viewerRect.left + viewerRect.width / 2;
-        cy = viewerRect.top + viewerRect.height / 2;
-    }
-
-
-    /*
-     * Find which point on the ORIGINAL image is underneath
-     * the mouse cursor.
-     *
-     * This is the key calculation.
-     */
-    const imageX = (cx - baseLeft - oldTx) / oldZoom;
-    const imageY = (cy - baseTop - oldTy) / oldZoom;
-
-
-    /*
-     * Calculate the new translation so the SAME image pixel
-     * remains underneath the mouse.
-     */
-    const newTx = cx - baseLeft - imageX * newZoom;
-    const newTy = cy - baseTop - imageY * newZoom;
-
-
-    viewerZoom = newZoom;
-
-
-    const label = document.getElementById("galleryViewerZoom");
-
-
-    if (label) {
-        label.textContent = Math.round(viewerZoom * 100) + '%';
+    function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
+    function setViewerTransform(tx, ty) {
+        const img = document.getElementById("galleryViewerImg");
 
 
         if (viewerZoom > 1) {
-            label.classList.add('show');
+            img.classList.add('zoomed');
+            img.style.transformOrigin = '0 0';
+            // ponytail: whole-pixel translation — fractional tx/ty makes the GPU
+            // resample across pixel boundaries (shimmer/seams while zoomed)
+            img.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${viewerZoom})`;
         } else {
-            label.classList.remove('show');
+            img.classList.remove('zoomed');
+            img.style.transformOrigin = '50% 50%';
+            img.style.transform = '';
         }
     }
+    function zoomViewer(delta, cx, cy) {
+        const img = document.getElementById("galleryViewerImg");
+        const viewer = document.getElementById("galleryViewer");
 
 
-    if (viewerZoom <= 1) {
-        setViewerTransform(0, 0);
-        stopViewerDrag();
-    } else {
-        setViewerTransform(newTx, newTy);
-    }
-}
-document.addEventListener('keydown', function(e) { 
-    const viewer = document.getElementById("galleryViewer");
-    if (viewer.style.display !== 'flex') return; 
-    
-    if (e.key === 'Escape') {
-        if (viewer.classList.contains("focus")) {
-            viewer.classList.remove("focus");
+        if (!img || !viewer || img.style.display === 'none') return;
+        if (!img.complete || img.naturalWidth === 0) return;
+
+
+        const oldZoom = viewerZoom;
+        const newZoom = Math.max(0.25, Math.min(10, oldZoom + delta));
+
+
+        if (newZoom === oldZoom) return;
+
+
+        /*
+         * IMPORTANT:
+         *
+         * At 100% the image is still using:
+         *   max-width: 95vw
+         *   max-height: 90vh
+         *
+         * We get its ORIGINAL untransformed rectangle here.
+         *
+         * Once zoomed, getBoundingClientRect() contains the transform,
+         * so we reconstruct the original rectangle using the current
+         * translation and zoom.
+         */
+
+
+        const rect = img.getBoundingClientRect();
+        const [oldTx, oldTy] = getViewerTransform();
+
+
+        // Position of the image before transform.
+        const baseLeft = rect.left - oldTx;
+        const baseTop = rect.top - oldTy;
+
+
+        // Mouse position. If called from keyboard, use viewer center.
+        if (cx == null || cy == null) {
+            const viewerRect = viewer.getBoundingClientRect();
+            cx = viewerRect.left + viewerRect.width / 2;
+            cy = viewerRect.top + viewerRect.height / 2;
+        }
+
+
+        /*
+         * Find which point on the ORIGINAL image is underneath
+         * the mouse cursor.
+         *
+         * This is the key calculation.
+         */
+        const imageX = (cx - baseLeft - oldTx) / oldZoom;
+        const imageY = (cy - baseTop - oldTy) / oldZoom;
+
+
+        /*
+         * Calculate the new translation so the SAME image pixel
+         * remains underneath the mouse.
+         */
+        const newTx = cx - baseLeft - imageX * newZoom;
+        const newTy = cy - baseTop - imageY * newZoom;
+
+
+        viewerZoom = newZoom;
+
+
+        const label = document.getElementById("galleryViewerZoom");
+
+
+        if (label) {
+            label.textContent = Math.round(viewerZoom * 100) + '%';
+
+
+            if (viewerZoom > 1) {
+                label.classList.add('show');
+            } else {
+                label.classList.remove('show');
+            }
+        }
+
+
+        if (viewerZoom <= 1) {
+            setViewerTransform(0, 0);
+            stopViewerDrag();
         } else {
-            closeGalleryViewer();
+            setViewerTransform(newTx, newTy);
         }
     }
-    else if (e.key === 'ArrowLeft') viewerNav(-1); 
-    else if (e.key === 'ArrowRight') viewerNav(1); 
-    else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
-    else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
-    else if (e.key === 'Delete') { deleteViewerImage(); }
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { copyViewerImage(); }
-});
-let _resizeTimer = null;
-window.addEventListener('resize', function() { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(() => { if (document.getElementById("galleryGrid")) loadGallery(); }, 300); });
-let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
-document.getElementById("galleryViewer").addEventListener('click', function(e) { if (e.target === this) closeGalleryViewer(); });
-let zoomThrottle = 0;
+    document.addEventListener('keydown', function(e) {
+        const viewer = document.getElementById("galleryViewer");
+        if (viewer.style.display !== 'flex') return;
 
-
-document.getElementById("galleryViewer").addEventListener('wheel', function(e) {
-    if (e.target.closest('.gallery-viewer-meta')) return;
-    e.preventDefault();
-
-
-    const now = performance.now();
-
-
-    // Ignore duplicate/high-frequency wheel events.
-    if (now - zoomThrottle < 40) return;
-    zoomThrottle = now;
-
-
-    const delta = e.deltaY < 0 ? 0.05 : -0.05;
-
-
-    zoomViewer(
-        delta,
-        e.clientX,
-        e.clientY
-    );
-}, { passive: false });
-function stopViewerDrag() { viewerDrag.active = false; const img = document.getElementById("galleryViewerImg"); if (img) img.classList.remove('dragging'); }
-document.getElementById("galleryViewerImg").addEventListener('mousedown', function(e) { if (viewerZoom <= 1 || e.button !== 0) return; e.preventDefault(); viewerDrag.active = true; viewerDrag.startX = e.clientX; viewerDrag.startY = e.clientY; const t = getViewerTransform(); viewerDrag.imgX = t[0]; viewerDrag.imgY = t[1]; this.classList.add('dragging'); });
-document.addEventListener('mousemove', function(e) { if (!viewerDrag.active) return; e.preventDefault(); const dx = e.clientX - viewerDrag.startX; const dy = e.clientY - viewerDrag.startY; setViewerTransform(viewerDrag.imgX + dx, viewerDrag.imgY + dy); });
-document.addEventListener('mouseup', stopViewerDrag); document.addEventListener('mouseleave', stopViewerDrag);
-async function importGallery() { if (localStorage.getItem('gallery_imported')) return; try { let resp = await fetch("/api/gallery/import", {method: "POST"}); let data = await resp.json(); if (data.success) { localStorage.setItem('gallery_imported', '1'); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
-async function rescanGallery() { try { let resp = await fetch("/api/gallery/rescan", {method: "POST"}); let data = await resp.json(); if (data.success) { alert(`Rescan complete. Added ${data.added} new images.`); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
-function toggleCheck(el) { const cb = el.querySelector('input[type="checkbox"]'); const menu = el.closest('.gallery-dropdown-menu'); if (cb.value !== '') { const allCheck = menu.querySelector('input[value=""]'); if (allCheck && allCheck.checked) allCheck.checked = false; } cb.checked = !cb.checked; if (menu.id === 'sourceDropdown') onSourceChange(); else if (menu.id === 'ratingDropdown') onRatingChange(); else if (menu.id === 'typeDropdown') onTypeChange(); }
-let _siteFilterSeq = 0;
-async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site.charAt(0).toUpperCase() + site.slice(1)} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
-function toggleDropdown(id) { const menu = document.getElementById(id); document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); }); menu.classList.toggle('open'); }
-function onSourceChange() { const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateRatingDropdown(); loadGallery(1); }
-function onRatingChange() { const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾'; updateSourceDropdown(); loadGallery(1); }
-function onTypeChange() { const checks = document.querySelectorAll('#typeDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'typeDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('typeDropdown', 'All Types') + ' ▾'; loadGallery(1); }
-function selectSort(el, value) { document.getElementById("sortDropdown").dataset.sort = value; const btn = document.querySelector('[onclick="toggleDropdown(\'sortDropdown\')"]'); btn.textContent = el.textContent.trim() + ' ▾'; document.getElementById("sortDropdown").classList.remove('open'); loadGallery(1); }
-document.addEventListener('click', function(e) { if (!e.target.closest('.gallery-dropdown')) { document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open')); } });
-
-// themed replacement for native confirm() (which ignores dark mode)
-function customConfirm(message, okLabel) {
-    return new Promise(resolve => {
-        const ov = document.createElement("div");
-        ov.className = "custom-confirm-overlay";
-        ov.innerHTML = `<div class="custom-confirm-box"><div class="custom-confirm-msg">${message}</div><div class="custom-confirm-btns"><button class="action-btn stop-btn" id="cfOk">${okLabel || "Delete"}</button><button class="action-btn" id="cfCancel">Cancel</button></div></div>`;
-        document.body.appendChild(ov);
-        const done = (v) => { document.removeEventListener("keydown", esc); ov.remove(); resolve(v); };
-        ov.querySelector("#cfOk").onclick = () => done(true);
-        ov.querySelector("#cfCancel").onclick = () => done(false);
-        ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
-        const esc = (e) => { if (e.key === "Escape") done(false); };
-        document.addEventListener("keydown", esc);
-        ov.querySelector("#cfCancel").focus();
+        if (e.key === 'Escape') {
+            if (viewer.classList.contains("focus")) {
+                viewer.classList.remove("focus");
+            } else {
+                closeGalleryViewer();
+            }
+        }
+        else if (e.key === 'ArrowLeft') viewerNav(-1);
+        else if (e.key === 'ArrowRight') viewerNav(1);
+        else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
+        else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
+        else if (e.key === 'Delete') { deleteViewerImage(); }
+        else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { copyViewerImage(); }
     });
-}
-// تابع حذف تصویر خراب
-async function deleteViewerImage() {
-    if (viewerSingle) {
+    let _resizeTimer = null;
+    window.addEventListener('resize', function() { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(() => { if (document.getElementById("galleryGrid")) loadGallery(); }, 300); });
+    let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
+    document.getElementById("galleryViewer").addEventListener('click', function(e) { if (e.target === this) closeGalleryViewer(); });
+    let zoomThrottle = 0;
+
+
+    document.getElementById("galleryViewer").addEventListener('wheel', function(e) {
+        if (e.target.closest('.gallery-viewer-meta')) return;
+        e.preventDefault();
+
+
+        const now = performance.now();
+
+
+        // Ignore duplicate/high-frequency wheel events.
+        if (now - zoomThrottle < 40) return;
+        zoomThrottle = now;
+
+
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+
+
+        zoomViewer(
+            delta,
+            e.clientX,
+            e.clientY
+        );
+    }, { passive: false });
+    function stopViewerDrag() { viewerDrag.active = false; const img = document.getElementById("galleryViewerImg"); if (img) img.classList.remove('dragging'); }
+    document.getElementById("galleryViewerImg").addEventListener('mousedown', function(e) { if (viewerZoom <= 1 || e.button !== 0) return; e.preventDefault(); viewerDrag.active = true; viewerDrag.startX = e.clientX; viewerDrag.startY = e.clientY; const t = getViewerTransform(); viewerDrag.imgX = t[0]; viewerDrag.imgY = t[1]; this.classList.add('dragging'); });
+    document.addEventListener('mousemove', function(e) { if (!viewerDrag.active) return; e.preventDefault(); const dx = e.clientX - viewerDrag.startX; const dy = e.clientY - viewerDrag.startY; setViewerTransform(viewerDrag.imgX + dx, viewerDrag.imgY + dy); });
+    document.addEventListener('mouseup', stopViewerDrag); document.addEventListener('mouseleave', stopViewerDrag);
+    async function importGallery() { if (localStorage.getItem('gallery_imported')) return; try { let resp = await fetch("/api/gallery/import", {method: "POST"}); let data = await resp.json(); if (data.success) { localStorage.setItem('gallery_imported', '1'); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
+    async function rescanGallery() { try { let resp = await fetch("/api/gallery/rescan", {method: "POST"}); let data = await resp.json(); if (data.success) { alert(`Rescan complete. Added ${data.added} new images.`); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
+    function toggleCheck(el) { const cb = el.querySelector('input[type="checkbox"]'); const menu = el.closest('.gallery-dropdown-menu'); if (cb.value !== '') { const allCheck = menu.querySelector('input[value=""]'); if (allCheck && allCheck.checked) allCheck.checked = false; } cb.checked = !cb.checked; if (menu.id === 'sourceDropdown') onSourceChange(); else if (menu.id === 'ratingDropdown') onRatingChange(); else if (menu.id === 'typeDropdown') onTypeChange(); }
+    let _siteFilterSeq = 0;
+    async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site.charAt(0).toUpperCase() + site.slice(1)} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
+    function toggleDropdown(id) { const menu = document.getElementById(id); document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); }); menu.classList.toggle('open'); }
+    function onSourceChange() { const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateRatingDropdown(); loadGallery(1); }
+    function onRatingChange() { const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾'; updateSourceDropdown(); loadGallery(1); }
+    function onTypeChange() { const checks = document.querySelectorAll('#typeDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'typeDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('typeDropdown', 'All Types') + ' ▾'; loadGallery(1); }
+    function selectSort(el, value) { document.getElementById("sortDropdown").dataset.sort = value; const btn = document.querySelector('[onclick="toggleDropdown(\'sortDropdown\')"]'); btn.textContent = el.textContent.trim() + ' ▾'; document.getElementById("sortDropdown").classList.remove('open'); loadGallery(1); }
+    document.addEventListener('click', function(e) { if (!e.target.closest('.gallery-dropdown')) { document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => m.classList.remove('open')); } });
+
+    // themed replacement for native confirm() (which ignores dark mode)
+    function customConfirm(message, okLabel) {
+        return new Promise(resolve => {
+            const ov = document.createElement("div");
+            ov.className = "custom-confirm-overlay";
+            ov.innerHTML = `<div class="custom-confirm-box"><div class="custom-confirm-msg">${message}</div><div class="custom-confirm-btns"><button class="action-btn stop-btn" id="cfOk">${okLabel || "Delete"}</button><button class="action-btn" id="cfCancel">Cancel</button></div></div>`;
+            document.body.appendChild(ov);
+            const done = (v) => { document.removeEventListener("keydown", esc); ov.remove(); resolve(v); };
+            ov.querySelector("#cfOk").onclick = () => done(true);
+            ov.querySelector("#cfCancel").onclick = () => done(false);
+            ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+            const esc = (e) => { if (e.key === "Escape") done(false); };
+            document.addEventListener("keydown", esc);
+            ov.querySelector("#cfCancel").focus();
+        });
+    }
+    // تابع حذف تصویر خراب
+    async function deleteViewerImage() {
+        if (viewerSingle) {
+            if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;
+            try {
+                let resp = await fetch("/api/gallery/delete_by_name", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ filename: viewerSingleFilename }) });
+                if (resp.ok) {
+                    showToast("🗑️ Image deleted completely!");
+                    closeGalleryViewer();
+                    loadGallery();
+                } else {
+                    showToast("⚠ Delete failed: not found in gallery");
+                }
+            } catch (e) { showToast("⚠ Delete failed: " + e.message); }
+            return;
+        }
+        const img = galleryState.images[viewerIndex];
+        if (!img) return;
         if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;
         try {
-            let resp = await fetch("/api/gallery/delete_by_name", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ filename: viewerSingleFilename }) });
+            let resp = await fetch("/api/gallery/delete", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) });
             if (resp.ok) {
                 showToast("🗑️ Image deleted completely!");
-                closeGalleryViewer();
-                loadGallery();
-            } else {
-                showToast("⚠ Delete failed: not found in gallery");
-            }
-        } catch (e) { showToast("⚠ Delete failed: " + e.message); }
-        return;
-    }
-    const img = galleryState.images[viewerIndex];
-    if (!img) return;
-    if (!await customConfirm("Are you sure you want to delete this image? It will be removed from disk.", "Delete")) return;
-    try {
-        let resp = await fetch("/api/gallery/delete", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) });
-        if (resp.ok) {
-            showToast("🗑️ Image deleted completely!");
-            let card = document.querySelector(`.gallery-card[onclick="openGalleryViewer('${img.id}')"]`);
-            if (card) card.remove();
-            galleryState.images.splice(viewerIndex, 1);
-            if (galleryState.images.length > 0) {
-                if (viewerIndex >= galleryState.images.length) {
-                    viewerIndex = galleryState.images.length - 1;
+                let card = document.querySelector(`.gallery-card[onclick="openGalleryViewer('${img.id}')"]`);
+                if (card) card.remove();
+                galleryState.images.splice(viewerIndex, 1);
+                if (galleryState.images.length > 0) {
+                    if (viewerIndex >= galleryState.images.length) {
+                        viewerIndex = galleryState.images.length - 1;
+                    }
+                    showViewerImage();
+                } else {
+                    closeGalleryViewer();
                 }
-                showViewerImage(); 
-            } else {
-                closeGalleryViewer();
             }
+        } catch (e) {
+            console.error("Delete error", e);
         }
-    } catch (e) {
-        console.error("Delete error", e);
     }
-}
 
-// تابع حالت تمرکز
-function toggleFocusMode() {
-    const viewer = document.getElementById("galleryViewer");
-    if (viewer) viewer.classList.toggle("focus");
-}
+    // تابع حالت تمرکز
+    function toggleFocusMode() {
+        const viewer = document.getElementById("galleryViewer");
+        if (viewer) viewer.classList.toggle("focus");
+    }
 
-document.addEventListener("DOMContentLoaded", function() {
-    // ponytail: Enter in any tag box starts its worker (rule34 input keeps
-    // its own add-tag-on-Enter handler, so it's excluded here)
-    const ENTER_TO_WORKER = {
-        zeroTag: 'zero', waifuTag: 'waifu', safeTag: 'safe',
-        gelbooruTag: 'gelbooru', gsbooruTag: 'gsbooru', yandeTag: 'yande',
-        danTag: 'dan', konaTag: 'kona', sankakuTag: 'sankaku',
-        animeDlTag: 'anime_dl', pinterestTag: 'pinterest', pixivTag: 'pixiv',
-        eshuushuuTag: 'eshuushuu', eshuushuuUser: 'eshuushuu',
-        nekosapiTag: 'nekosapi', nekosiaTag: 'nekosia'
-    };
-    document.addEventListener("keydown", function(e) {
-        if (e.key !== "Enter") return;
-        const w = ENTER_TO_WORKER[e.target && e.target.id];
-        if (w) { e.preventDefault(); startWorker(w); }
-    });
-    document.querySelectorAll('input[type="number"]').forEach(function(el) {
-        el.addEventListener("input", function() {
-            this.value = this.value.replace(/[^0-9]/g, "");
+    document.addEventListener("DOMContentLoaded", function() {
+        // ponytail: Enter in any tag box starts its worker (rule34 input keeps
+        // its own add-tag-on-Enter handler, so it's excluded here)
+        const ENTER_TO_WORKER = {
+            zeroTag: 'zero', waifuTag: 'waifu', safeTag: 'safe',
+            gelbooruTag: 'gelbooru', gsbooruTag: 'gsbooru', yandeTag: 'yande',
+            danTag: 'dan', konaTag: 'kona', sankakuTag: 'sankaku',
+            animeDlTag: 'anime_dl', pinterestTag: 'pinterest', pixivTag: 'pixiv',
+            eshuushuuTag: 'eshuushuu', eshuushuuUser: 'eshuushuu',
+            nekosapiTag: 'nekosapi', nekosiaTag: 'nekosia'
+        };
+        document.addEventListener("keydown", function(e) {
+            if (e.key !== "Enter") return;
+            const w = ENTER_TO_WORKER[e.target && e.target.id];
+            if (w) { e.preventDefault(); startWorker(w); }
+        });
+        document.querySelectorAll('input[type="number"]').forEach(function(el) {
+            el.addEventListener("input", function() {
+                this.value = this.value.replace(/[^0-9]/g, "");
+            });
         });
     });
-});
-
-

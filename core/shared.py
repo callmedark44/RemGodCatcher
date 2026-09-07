@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import threading
 import json
 import time
@@ -8,7 +9,14 @@ import hashlib
 import aiohttp
 from PIL import Image, PngImagePlugin
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+def _app_base_dir():
+    # core/ lives one level below the repo root — go up one more.
+    # Frozen (PyInstaller) builds: keep user data next to the exe.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BASE_DIR = _app_base_dir()
 MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
 HISTORY_LOCK = threading.Lock()
 STOP_EVENTS = {}

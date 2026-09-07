@@ -1,8 +1,14 @@
 import os
+import sys
 import json
 
 
-DATABASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database")
+def _app_base_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_DIR = os.path.join(_app_base_dir(), "database")
 
 TAG_HISTORY_FILE = os.path.join(DATABASE_DIR, "tag_history.json")
 FAV_TAGS_FILE = os.path.join(DATABASE_DIR, "fav_tags.json")
@@ -58,7 +64,7 @@ class DatabaseManager:
     # --- Image History ---
     @staticmethod
     def load_image_history():
-        from shared import tags_dict_from_lists
+        from core.shared import tags_dict_from_lists
         data = DatabaseManager.load_json(IMAGE_HISTORY_FILE)
         changed = False
         for entry in data:
@@ -76,7 +82,7 @@ class DatabaseManager:
 
     @staticmethod
     def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
-        from shared import tags_dict_from_lists
+        from core.shared import tags_dict_from_lists
         hist = DatabaseManager.load_image_history()
         tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
         entry = {

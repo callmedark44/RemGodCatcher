@@ -27,7 +27,7 @@ from flask_socketio import SocketIO
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from dotenv import load_dotenv
-from database import DatabaseManager, SettingsManager
+from core.database import DatabaseManager, SettingsManager
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -40,7 +40,7 @@ else:
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-import shared
+import core.shared as shared
 from workers.rule34 import worker_rule34
 from workers.safebooru import worker_safebooru
 from workers.zerochan import worker_zerochan
@@ -716,18 +716,18 @@ def get_gsbooru_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
     if len(query) < 2: return jsonify([])
-    local = _suggest(GSBOORU_TAGS_DB, query) if GSBOORU_TAGS_DB else []
-    if local:
-        return jsonify(local)
     try:
         session = get_session("gsbooru", data.get("net_config", {}))
-        live = _live_tag_suggest(
-            session,
-            f"https://gsbooru.net/index.php?page=autocomplete2&term={urllib.parse.quote(query)}&type=tag_query&limit=20")
-        if live:
-            return jsonify(live)
+        resp = session.get("https://gsbooru.org/api/tags/tag-suggestions",
+                           params={"tag_string": query}, timeout=5)
+        if resp.status_code == 200:
+            items = resp.json().get("tags", [])
+            names = [t.get("name") for t in items
+                     if isinstance(t, dict) and t.get("name")]
+            if names: return jsonify(names[:50])
     except Exception:
         pass
+    local = _suggest(GSBOORU_TAGS_DB, query) if GSBOORU_TAGS_DB else []
     return jsonify(local)
 
 # --- TAG HISTORY & FAVORITES API ---
@@ -1156,7 +1156,7 @@ def rescan_gallery():
 
 @app.route("/api/gallery/import", methods=["POST"])
 def import_gallery_from_history():
-    from shared import tags_dict_from_lists
+    from core.shared import tags_dict_from_lists
     hist = DatabaseManager.load_image_history()
     gallery = shared.load_gallery()
     existing = {i["filename"] for i in gallery["images"]}

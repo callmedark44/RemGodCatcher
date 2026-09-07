@@ -85,16 +85,16 @@
             <div id="AnimeDL" class="tab-content" style="display: none;">
                 <h2>Anime Pictures Downloader</h2>
                 <div class="input-group" style="align-items: flex-start;">
-                    <label style="padding-top: 4px;">Tags:</label>
+                    <label style="padding-top: 8px;">Tags:</label>
                     <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
                         <div style="display:flex; gap:6px; position: relative;">
-                            <input style="flex:1; padding: 4px 8px; font-size: 13px;" autocomplete="off" type="text" id="animeDlTag" placeholder="e.g. rem">
+                            <input style="flex:1;" autocomplete="off" type="text" id="animeDlTag" placeholder="e.g. rem">
                             <div id="animeDlAutosuggest" class="autosuggest-dropdown" style="display:none; right: 70px;"></div>
-                            <button class="action-btn" onclick="addAnimeDlTag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
+                            <button class="action-btn" onclick="addAnimeDlTag()" style="padding: 0 14px; font-size: 13px; align-self: stretch;">Add</button>
                         </div>
                         <div id="animeDlTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label style="padding-top: 4px;">Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="animeDlLimit" value="50" min="0" style="width: 80px;">
                     <button id="runBtn_anime_dl" class="action-btn" onclick="toggleWorker('anime_dl')">START</button>
                 </div>
@@ -267,7 +267,7 @@
                     </select>
                     <button id="runBtn_dan" class="action-btn" onclick="toggleWorker('dan')">START</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="danFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -275,6 +275,7 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('dan')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_dan" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -282,7 +283,6 @@
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_dan"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
                     <div id="consoleLog_dan" class="console-log"></div>
                 </div>
             </div>
@@ -348,7 +348,7 @@
                     </select>
                     <button id="runBtn_gelbooru" class="action-btn" onclick="toggleWorker('gelbooru')">START</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="gelFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -356,6 +356,7 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="gelNoAI"> <label for="gelNoAI">Exclude AI</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('gelbooru')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_gelbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -363,7 +364,6 @@
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_gelbooru"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('gelbooru')">Clear</button>
                     <div id="consoleLog_gelbooru" class="console-log"></div>
                 </div>
             </div>
@@ -430,7 +430,7 @@
                     </select>
                     <button id="runBtn_kona" class="action-btn" onclick="toggleWorker('kona')">START</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="konaFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -438,6 +438,7 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="konaExGif"> <label for="konaExGif">Exclude GIF</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('kona')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_kona" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
@@ -445,7 +446,6 @@
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_kona"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('kona')">Clear</button>
                     <div id="consoleLog_kona" class="console-log"></div>
                 </div>
             </div>
@@ -841,16 +841,16 @@
             <div id="Zero" class="tab-content" style="display: none;">
                 <h2>Zerochan Downloader</h2>
                 <div class="input-group" style="align-items: flex-start;">
-                    <label style="padding-top: 4px;">Tag Name:</label>
+                    <label style="padding-top: 8px;">Tag Name:</label>
                     <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
                         <div style="display:flex; gap:6px; position: relative;">
-                            <input style="flex:1; padding: 4px 8px; font-size: 13px;" autocomplete="off" type="text" id="zeroTag" placeholder="e.g. Rem (Re:Zero)">
+                            <input style="flex:1;" autocomplete="off" type="text" id="zeroTag" placeholder="e.g. Rem (Re:Zero)">
                             <div id="zeroAutosuggest" class="autosuggest-dropdown" style="display:none; right: 70px;"></div>
-                            <button class="action-btn" onclick="addZerochanTag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
+                            <button class="action-btn" onclick="addZerochanTag()" style="padding: 0 14px; font-size: 13px; align-self: stretch;">Add</button>
                         </div>
-                        <div id="zeroTagsContainer" class="tag-visualizer tag-pills-path" style="margin-top: 0;"></div>
+                        <div id="zeroTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label style="padding-top: 4px;">Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="zeroLimit" value="50" min="0" style="width: 80px;">
                     <button id="runBtn_zero" class="action-btn" onclick="toggleWorker('zero')">START</button>
                 </div>

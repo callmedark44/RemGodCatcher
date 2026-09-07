@@ -51,6 +51,16 @@
     text-rendering: optimizeLegibility;
 }
 
+/* ponytail: forces proper AA of backdrop-blur to the border-radius curve */
+.glass-panel,
+.tab-buttons > *,
+.gallery-viewer-nav,
+.gallery-viewer-top-btn,
+.gallery-viewer-meta {
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
+}
+
 body {
     height: 100vh;
     width: 100vw;
@@ -247,18 +257,13 @@ input:focus, select:focus {
 
 /* ===== VISUAL TAGS (RED/GREEN) ===== */
 .tag-visualizer { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; width: 100%; }
-.v-tag { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.v-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: 600; line-height: 1; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.v-tag svg { flex-shrink: 0; vertical-align: 0; }
 .v-tag.positive { background: linear-gradient(45deg, #2ecc71, #27ae60); border: 1px solid transparent; box-shadow: 0 0 0 1px #27ae60; }
 .v-tag.warning { background: linear-gradient(45deg, #f39c12, #f1c40f); border: 1px solid transparent; box-shadow: 0 0 0 1px #f39c12; color: #1a1a1a; text-shadow: none; opacity: 1; }
 .v-tag.main { background: linear-gradient(45deg, #e040a0, #ff6ec7); border: 1px solid transparent; box-shadow: 0 0 0 1px #ff6ec7; }
 .v-tag.sub { background: linear-gradient(45deg, #0ea5a5, #2dd4bf); border: 1px solid transparent; box-shadow: 0 0 0 1px #2dd4bf; color: #062a30; text-shadow: none; }
 .v-tag.neutral { background: #3b82c4; border: 1px solid transparent; box-shadow: 0 0 0 1px #3b82c4; }
-/* adaptive chevron chain for tag boxes with sub-tags (backgrounds only — clip-path would slice rings) */
-.tag-pills-path { row-gap: 4px; }
-.tag-pills-path .v-tag { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%); padding-left: 14px; margin-left: -8px; }
-.tag-pills-path .v-tag:first-child { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); margin-left: 0; padding-left: 10px; }
-.tag-pills-path .v-tag:last-child { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%); padding-right: 10px; }
-.tag-pills-path .v-tag:only-child { clip-path: none; }
 
 /* ===== BUTTONS ===== */
 .action-btn {

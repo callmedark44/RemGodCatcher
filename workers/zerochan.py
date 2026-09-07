@@ -2,7 +2,7 @@ import os, re, urllib.parse, subprocess
 import asyncio
 from html.parser import HTMLParser
 from requests.adapters import HTTPAdapter
-from shared import BaseDownloader
+from core.shared import BaseDownloader
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
