@@ -4,6 +4,7 @@ let uiConfig = {};
 let currentActiveTheme = 'dark';
 
 const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "outfit", "group", "hair", "eyes", "mangaka", "game", "theme", "source", "meta", "vtuber", "series", "studio", "tag"];
+const RATING_INPUT_BY_WORKER = {dan:'danRating', gelbooru:'gelbooruRating', gsbooru:'gsbooruRating', kona:'konaRating', yande:'yandeRating', sankaku:'sankakuRating', nekosapi:'nekosapiRating', nekosia:'nekosiaRating', pixiv:'pixivRating'};
 
 function getTagCategoryClass(cat) {
     return 'tag-' + cat;
@@ -466,7 +467,7 @@ function logToConsole(tabID, msg) {
             ratingHtml = `<div class="img-card-rating" style="background:rgba(46, 204, 113, 0.15); color:#2ecc71;">Rating: Safe</div>`;
         }
         // ponytail: badge only matters when the tab isn't already filtered to one rating
-        const _ratingInputByWorker = {dan:'danRating', gelbooru:'gelbooruRating', gsbooru:'gsbooruRating', kona:'konaRating', yande:'yandeRating', sankaku:'sankakuRating', nekosapi:'nekosapiRating', nekosia:'nekosiaRating', pixiv:'pixivRating'};
+        const _ratingInputByWorker = RATING_INPUT_BY_WORKER;
         const _rsId = _ratingInputByWorker[tabID];
         if (_rsId) {
             const _rsEl = document.getElementById(_rsId);
@@ -1420,6 +1421,15 @@ socket.on("python_log", function (data) {
     logToConsole(data.worker, data.msg);
 });
 
+// ponytail: authoritative finish signal — reuses the log parser so both paths render identically
+socket.on("worker_finished", function (data) {
+    if (!data || data.stopped) return;
+    const d = data.downloaded || 0, f = data.failed || 0;
+    if (d > 0 && f > 0) updateProgressBar(data.worker, `--- Task finished: ${d} downloaded successfully, ${f} failed to download! ---`);
+    else if (d > 0) updateProgressBar(data.worker, `--- All ${d} downloads completed successfully! ---`);
+    else updateProgressBar(data.worker, "Task finished. No new images to download.");
+});
+
 let _histReloadTimer = null;
 socket.on("update_history", function () {
     loadGallery();
@@ -1839,7 +1849,11 @@ function renderHistory() {
             let isFav = isFavorite(item.site, item.tag);
             let heartBtn = heartIcon(isFav);
             let heartColor = isFav ? "#ff6b6b" : "var(--text-color)";
-            let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag)}</span></div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${escJs(item.site)}', '${escJs(item.tag)}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${escJs(item.site)}', '${escJs(item.tag)}')">&times;</button></div></div>`;
+            let heartBg = isFav ? "rgba(255, 107, 107, 0.2)" : "transparent";            const RATING_LABELS_DAN = {'rating:g':'Safe','rating:s':'Sensitive','rating:q':'Questionable','rating:e':'NSFW','rating:general':'Safe','rating:sensitive':'Sensitive','rating:questionable':'Questionable','rating:explicit':'NSFW','safe':'Safe','sensitive':'Sensitive','questionable':'Questionable','explicit':'NSFW','general':'Safe'};
+            const RATING_LABELS_YANDE = {'rating:s':'Safe','rating:q':'Questionable','rating:e':'NSFW','safe':'Safe','questionable':'Questionable','explicit':'NSFW'};
+            const _rl = ['yande', 'kona', 'sankaku'].includes(item.site) ? RATING_LABELS_YANDE : RATING_LABELS_DAN;
+            let ratingBadge = item.rating ? `<span style="color: #2dd4bf; font-size: 11px; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.4); padding: 2px 5px; border-radius: 4px; margin-left: 10px;">${_rl[item.rating] || item.rating}</span>` : "";
+            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag.replace(/^[a-z_]+:/i, ""))}</span>${ratingBadge}</div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${escJs(item.site)}', '${escJs(item.tag)}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')">&times;</button></div></div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1873,10 +1887,10 @@ async function toggleFavorite(site, tag) {
     } catch(e) {}
 }
 
-async function removeFromHistory(site, tag) { await fetch("/api/history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag }) }); await loadTagsData(); }
+async function removeFromHistory(site, tag, rating) { await fetch("/api/history/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site: site, tag: tag, rating: rating || "" }) }); await loadTagsData(); }
 async function clearHistory() { if(await customConfirm("Are you sure you want to delete all search history?", "Delete")) { await fetch("/api/history/clear", { method: "POST" }); await loadTagsData(); } }
 
-function jumpToSite(site, tag) {
+function jumpToSite(site, tag, rating) {
     // ponytail: pill-based tabs take separate tags, not one joined string
     if (site === "zero") {
         currentZerochanTags = String(tag || "").split(",").map(t => t.trim()).filter(Boolean);
@@ -1896,6 +1910,10 @@ function jumpToSite(site, tag) {
     let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
     if(btn) openTab(mapping.tab, btn);
     if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl" && site !== "dan") { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
+    if (rating) {
+        const rsId = RATING_INPUT_BY_WORKER[site];
+        if (rsId) { const rsEl = document.getElementById(rsId); if (rsEl) rsEl.value = rating; }
+    }
 }
 
 // یک هلپر حرفه‌ای برای درست کردن آدرس‌های عکس بدون قاطی کردن Flask

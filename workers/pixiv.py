@@ -199,37 +199,57 @@ class PixivWorker(BaseDownloader):
     async def scraper_task(self):
         self.log(f"Pixiv mode: {self.mode}, value: {self.value}")
         api = self._api_instance()
+        need = self.amount or 0
 
-        try:
-            works = await asyncio.to_thread(self._fetch_works, api)
-        except ValueError as e:
-            self.log(f"Auth error: {e}")
-            return
-        except Exception as e:
-            self.log(f"API error: {e}")
-            return
+        if self.mode == "bookmark":
+            endpoint, params = "/v1/user/bookmarks/illust", {"user_id": str(self.value), "restrict": "public"}
+        elif self.mode == "search":
+            endpoint, params = "/v1/search/illust", {"word": self.value, "sort": "date_desc",
+                                                     "search_target": "partial_match_for_tags"}
+        elif self.mode == "ranking":
+            endpoint, params = "/v1/illust/ranking", {"mode": self.value}
+        else:
+            endpoint, params = "/v1/user/illusts", {"user_id": str(self.value)}
 
-        self.log(f"Found {len(works)} works")
         collected = 0
-        for work in works:
-            if self.stop_event.is_set():
+        page = 0
+        MAX_PAGES = 100
+        while (need == 0 or collected < need) and not self.stop_event.is_set() and page < MAX_PAGES:
+            try:
+                data = await asyncio.to_thread(api._call, endpoint, params)
+            except ValueError as e:
+                self.log(f"Auth error: {e}")
+                return
+            except Exception as e:
+                self.log(f"API error: {e}")
+                return
+
+            works = data.get("illusts", []) if isinstance(data, dict) else []
+            if not works:
+                self.log("No more posts found.")
                 break
-            if self.amount > 0 and collected >= self.amount:
+            for work in works:
+                if self.stop_event.is_set() or (need and collected >= need):
+                    break
+                collected += await self._process_work(work)
+                if collected < len(works) and (need == 0 or collected < need):
+                    await asyncio.sleep(self.anti_ban_pause)
+            if need and collected >= need:
                 break
-            collected += await self._process_work(work)
-            if collected < len(works) and (
-                    self.amount == 0 or collected < self.amount):
+            nxt = data.get("next_url") if isinstance(data, dict) else None
+            if not nxt:
+                break
+            qs = nxt.rpartition("?")[2]
+            params = dict(
+                (k, unquote(v)) for part in qs.split("&") if "=" in part
+                for k, v in [part.split("=", 1)]
+            )
+            page += 1
+            if not self.stop_event.is_set():
                 await asyncio.sleep(self.anti_ban_pause)
 
-    def _fetch_works(self, api):
-        if self.mode == "bookmark":
-            return api.user_bookmarks(self.value, limit=0)
-        if self.mode == "search":
-            return api.search(self.value, limit=0)
-        if self.mode == "ranking":
-            return api.ranking(self.value, limit=0)
-        return api.user_illusts(self.value, limit=0)
-
+        if collected:
+            self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
     async def _process_work(self, work):
         work_id = work.get("id")
         if not work_id:

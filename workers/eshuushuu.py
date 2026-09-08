@@ -1,4 +1,5 @@
 import os, re, asyncio, json
+import requests
 from core.shared import BaseDownloader
 
 class EShuushuuWorker(BaseDownloader):
@@ -28,16 +29,58 @@ class EShuushuuWorker(BaseDownloader):
         self.tag_dir = os.path.join(self.site_root, self.safe_tag or "all")
         os.makedirs(self.tag_dir, exist_ok=True)
 
+    def _http_session(self):
+        s = requests.Session()
+        if self.net_config.get("use_proxy"):
+            p = self.net_config.get("proxy_url")
+            s.proxies = {"http": p, "https": p}
+        s.verify = self.net_config.get("verify_tls", False)
+        return s
+
     def _resolve_tag_id(self, tag_name):
+        # ponytail: exclusions/underscores are input syntax, not tag titles
+        name = " ".join(t for t in tag_name.replace("_", " ").split()
+                        if not t.startswith('-')).strip()
+        if not name:
+            return ""
         db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "eshuushuu_tags.json")
         if os.path.exists(db_path):
             try:
                 with open(db_path, encoding="utf-8") as f:
                     tags = json.load(f)
                 for t in tags:
-                    if t["title"].lower() == tag_name.lower():
+                    if t["title"].lower() == name.lower():
                         return str(t["tag_id"])
             except Exception: pass
+        # local DB is absent — resolve live or not at all. A raw-text
+        # tags= query is silently ignored by the site (serves the
+        # homepage feed), so never fall back to one.
+        return self._resolve_tag_id_online(name)
+
+    def _resolve_tag_id_online(self, name, _depth=0):
+        try:
+            resp = self._http_session().get(
+                "https://e-shuushuu.net/api/v1/tags",
+                params={"search": name}, timeout=15)
+            if resp.status_code != 200:
+                return ""
+            payload = resp.json()
+            tags = payload.get("tags", []) if isinstance(payload, dict) else []
+            exact = [t for t in tags if isinstance(t, dict)
+                     and str(t.get("title", "")).lower() == name.lower()]
+            if not exact:
+                return ""
+            canon = [t for t in exact if not t.get("is_alias")]
+            if canon:
+                canon.sort(key=lambda t: t.get("usage_count") or 0, reverse=True)
+                tid = canon[0].get("tag_id")
+                return str(tid) if tid else ""
+            if _depth == 0:
+                target = exact[0].get("alias_of_name") or ""
+                if target:
+                    return self._resolve_tag_id_online(target, _depth + 1)
+        except Exception:
+            pass
         return ""
 
     def _resolve_user_id(self, username):
@@ -63,21 +106,19 @@ class EShuushuuWorker(BaseDownloader):
             label = f"'{self.original_tag}' + user_id:{self.user_id}"
         self.log(f"Scanning e-shuushuu for: {label}")
 
+        if self.original_tag and not self.tag_id:
+            self.log(f"Unknown tag '{self.original_tag}' — not downloading anything.")
+            return
+
         collected = 0
         page = 1
-        
-        import requests
-        req_session = requests.Session()
-        if self.net_config.get("use_proxy"):
-            p = self.net_config.get("proxy_url")
-            req_session.proxies = {"http": p, "https": p}
-        req_session.verify = self.net_config.get("verify_tls", False)
+
+        req_session = self._http_session()
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected < self.amount):
             try:
                 params = []
                 if self.tag_id: params.append(f"tags={self.tag_id}")
-                elif self.original_tag: params.append(f"tags={self.original_tag.replace(' ', '+')}")
                 if self.user_id: params.append(f"user_id={self.user_id}")
                 params.append(f"page={page}")
                 search_url = f"https://e-shuushuu.net/search?{'&'.join(params)}"
