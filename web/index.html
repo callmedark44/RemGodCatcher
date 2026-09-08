@@ -661,7 +661,10 @@
                     </select>
                     <button id="runBtn_pixiv" class="action-btn" onclick="toggleWorker('pixiv')">START</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div></div>
+                <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_pixiv">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pixiv"></div></div>
+                </div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
                     <div id="consoleLog_pixiv" class="console-log"></div>
