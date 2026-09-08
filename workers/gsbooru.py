@@ -273,6 +273,7 @@ class GsbooruWorker(BaseWorker):
 
         self.log(
             f"Initializing worker for tag: '{self.api_tag}'"
+            + (f" (rating: {self.rating_label_map.get(self.filter_word, '')})" if self.filter_word else "")
         )
 
         if self.stop_event.is_set():
@@ -605,9 +606,10 @@ class GsbooruWorker(BaseWorker):
             )
         )
 
-        self.log(
-            "--- Worker Terminated ---"
-        )
+        if self.stop_event.is_set():
+            self.log(
+                "--- Worker Terminated ---"
+            )
 
 
 def worker_gsbooru(

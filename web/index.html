@@ -250,13 +250,17 @@
 
             <div id="Danbooru" class="tab-content" style="display: none;">
                 <h2>Danbooru Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="danTag" placeholder="e.g. rem blue_hair">
-                        <div id="danAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                <div class="input-group" style="align-items: flex-start;">
+                    <label style="padding-top: 8px;">Tags:</label>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="danTag" placeholder="e.g. rem blue_hair">
+                            <div id="danAutosuggest" class="autosuggest-dropdown" style="display:none; right: 70px;"></div>
+                            <button class="action-btn" onclick="addDanTag()" style="padding: 0 14px; font-size: 13px; align-self: stretch;">Add</button>
+                        </div>
+                        <div id="danTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label>Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="danLimit" value="50" min="0" style="width: 80px;">
                     <select id="danRating" style="width: 130px;">
                         <option value="">All Ratings</option>

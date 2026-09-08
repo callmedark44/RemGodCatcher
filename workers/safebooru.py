@@ -165,7 +165,8 @@ class SafebooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_safebooru(tag, amount, exclusions, net_config):
     worker = SafebooruWorker(tag, amount, exclusions, net_config)

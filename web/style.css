@@ -51,16 +51,6 @@
     text-rendering: optimizeLegibility;
 }
 
-/* ponytail: forces proper AA of backdrop-blur to the border-radius curve */
-.glass-panel,
-.tab-buttons > *,
-.gallery-viewer-nav,
-.gallery-viewer-top-btn,
-.gallery-viewer-meta {
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
-    mask-image: radial-gradient(white, black);
-}
-
 body {
     height: 100vh;
     width: 100vw;

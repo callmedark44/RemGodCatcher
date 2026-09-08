@@ -40,6 +40,12 @@ else:
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
+# ponytail: a dead system proxy must never blackhole the local UI server
+for _k in ("no_proxy", "NO_PROXY"):
+    _have = {h.strip() for h in os.environ.get(_k, "").split(",") if h.strip()}
+    if not {"127.0.0.1", "localhost"}.issubset(_have):
+        os.environ[_k] = ",".join(sorted(_have | {"127.0.0.1", "localhost"}))
+
 import core.shared as shared
 from workers.rule34 import worker_rule34
 from workers.safebooru import worker_safebooru
@@ -554,6 +560,38 @@ def get_kona_suggestions():
     except Exception: pass
     if not KONA_TAGS_DB: return jsonify([])
     return jsonify(_suggest(KONA_TAGS_DB, query))
+
+@app.route("/api/tags/dan/subtags", methods=["POST"])
+def get_dan_subtags():
+    """Related + wiki-linked tags from danbooru's related_tag endpoint."""
+    data = request.json or {}
+    tag = (data.get("tag", "") or "").strip().lstrip("-")
+    if not tag:
+        return jsonify([])
+    try:
+        session = get_session("dan", data.get("net_config", {}))
+        _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
+        auth = (_login, _key) if _login and _key else None
+        resp = session.get("https://danbooru.donmai.us/related_tag.json",
+                           params={"query": tag}, auth=auth, timeout=8)
+        if resp.status_code != 200:
+            return jsonify([])
+        payload = resp.json()
+        seen = {}
+        wiki = payload.get("wiki_page_tags", []) if isinstance(payload, dict) else []
+        for t in wiki:
+            if isinstance(t, dict) and t.get("name"):
+                seen.setdefault(t["name"], t.get("post_count", 0))
+        for item in payload.get("related_tags", []) if isinstance(payload, dict) else []:
+            if isinstance(item, (list, tuple)) and len(item) >= 1 and item[0]:
+                seen.setdefault(str(item[0]), item[1] if len(item) > 1 else 0)
+            elif isinstance(item, dict) and item.get("name"):
+                seen.setdefault(item["name"], item.get("post_count", 0))
+        out = [{"tag": n, "count": c} for n, c in seen.items()
+               if n.lower() != tag.lower()][:15]
+        return jsonify(out)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/dan", methods=["POST"])
 def get_dan_suggestions():

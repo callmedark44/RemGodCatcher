@@ -3,7 +3,7 @@ var workerRunning = {};
 let uiConfig = {};
 let currentActiveTheme = 'dark';
 
-const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag", "mangaka", "game", "outfit", "theme", "source", "meta", "vtuber", "series", "group", "studio", "hair", "eyes"];
+const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "outfit", "group", "hair", "eyes", "mangaka", "game", "theme", "source", "meta", "vtuber", "series", "studio", "tag"];
 
 function getTagCategoryClass(cat) {
     return 'tag-' + cat;
@@ -1023,15 +1023,195 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 
-        function updateAnimeDlSuggestActive(items) {
-            for (let i = 0; i < items.length; i++) {
-                items[i].classList.remove("active");
+    function updateAnimeDlSuggestActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active");
+        }
+        if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
+            items[animeDlSuggestActiveIndex].classList.add("active");
+            items[animeDlSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+});
+
+// --- Danbooru tag box: same pattern, joined with ' ', related tags as subs ---
+let currentDanTags = [];
+let danSubtagCache = {};
+let danSubTags = new Set();
+function addDanTagName(name, viaSubtag) {
+    let val = (name || "").trim().toLowerCase();
+    if (val && !currentDanTags.includes(val)) {
+        currentDanTags.push(val);
+        if (viaSubtag) danSubTags.add(val);
+        renderDanTags();
+    }
+}
+function addDanTag() {
+    let input = document.getElementById("danTag");
+    if (!input) return;
+    addDanTagName(input.value);
+    input.value = "";
+    renderDanTags();
+    input.focus();
+}
+function removeDanTag(tag) {
+    currentDanTags = currentDanTags.filter(function(t) { return t !== tag; });
+    danSubTags.delete(tag);
+    renderDanTags();
+}
+function renderDanTags() {
+    let container = document.getElementById("danTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentDanTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (danSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeDanTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+async function showDanSubtags(dropdown, input) {
+    if (!currentDanTags.length || input.value.trim() !== "") { dropdown.style.display = "none"; return; }
+    const baseTag = currentDanTags[currentDanTags.length - 1].replace(/^-/, '');
+    const key = baseTag.toLowerCase();
+    if (!danSubtagCache[key]) {
+        try {
+            let resp = await fetch("/api/tags/dan/subtags", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tag: baseTag, net_config: globalNetConfig })
+            });
+            danSubtagCache[key] = await resp.json();
+        } catch(e) { danSubtagCache[key] = []; }
+    }
+    if (input.value.trim() !== "") return;
+    const items = (danSubtagCache[key] || []).filter(s => s && (s.tag || s.name) && !currentDanTags.includes(s.tag || s.name));
+    dropdown.innerHTML = "";
+    if (!items.length) { dropdown.style.display = "none"; return; }
+    danSuggestActiveIndex = -1;
+    items.forEach((s) => {
+        const nm = s.tag || s.name;
+        let div = document.createElement("div");
+        div.className = "autosuggest-item";
+        div.textContent = `${cleanTagDisplay(nm)} (${s.count || 0})`;
+        div.onclick = function() {
+            input.value = "";
+            dropdown.style.display = "none";
+            addDanTagName(nm, true);
+            input.focus();
+        };
+        dropdown.appendChild(div);
+    });
+    dropdown.style.display = "block";
+}
+
+let danSuggestTimer = null;
+let danSuggestActiveIndex = -1;
+
+document.addEventListener("DOMContentLoaded", function() {
+    let input = document.getElementById("danTag");
+    let dropdown = document.getElementById("danAutosuggest");
+    if (!input || !dropdown) return;
+
+    input.addEventListener("input", function() {
+        clearTimeout(danSuggestTimer);
+        let val = input.value.trim();
+        let isNegative = val.startsWith('-');
+        let queryVal = isNegative ? val.substring(1) : val;
+
+        if (!queryVal) { showDanSubtags(dropdown, input); return; }
+        if (queryVal.length < 2) { dropdown.style.display = "none"; return; }
+
+        danSuggestTimer = setTimeout(async () => {
+            try {
+                let resp = await fetch("/api/tags/dan", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
+                });
+                let data = await resp.json();
+                if (input.value.trim() === "") return;
+                if (data && data.length > 0) {
+                    danSuggestActiveIndex = -1;
+                    dropdown.innerHTML = "";
+                    data.forEach((item) => {
+                        let name = (typeof item === "string") ? item : (item.tag || item.value || "");
+                        if (!name) return;
+                        let finalTag = isNegative ? '-' + name : name;
+                        let div = document.createElement("div");
+                        div.className = "autosuggest-item";
+                        div.textContent = cleanTagDisplay(finalTag);
+                        div.onclick = function() {
+                            input.value = "";
+                            dropdown.style.display = "none";
+                            addDanTagName(finalTag);
+                            input.focus();
+                        };
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = "block";
+                } else {
+                    dropdown.style.display = "none";
+                }
+            } catch(e) {
+                dropdown.style.display = "none";
             }
-            if (animeDlSuggestActiveIndex > -1 && items[animeDlSuggestActiveIndex]) {
-                items[animeDlSuggestActiveIndex].classList.add("active");
-                items[animeDlSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }, 400);
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (dropdown.style.display === "block") {
+            let items = dropdown.getElementsByClassName("autosuggest-item");
+            if (e.key === "ArrowDown") {
+                danSuggestActiveIndex++;
+                if (danSuggestActiveIndex >= items.length) danSuggestActiveIndex = 0;
+                updateDanSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "ArrowUp") {
+                danSuggestActiveIndex--;
+                if (danSuggestActiveIndex < 0) danSuggestActiveIndex = items.length - 1;
+                updateDanSuggestActive(items);
+                e.preventDefault();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (danSuggestActiveIndex > -1 && items[danSuggestActiveIndex]) {
+                    items[danSuggestActiveIndex].click();
+                } else {
+                    dropdown.style.display = "none";
+                    addDanTag();
+                }
+            } else if (e.key === "Escape") {
+                dropdown.style.display = "none";
+            }
+        } else {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addDanTag();
+            } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && input.value.trim() === "") {
+                e.preventDefault();
+                showDanSubtags(dropdown, input);
             }
         }
+    });
+
+    input.addEventListener("focus", function() {
+        if (input.value.trim() === "") showDanSubtags(dropdown, input);
+    });
+
+    document.addEventListener("click", function(e) {
+        if (e.target !== input && e.target !== dropdown) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    function updateDanSuggestActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active");
+        }
+        if (danSuggestActiveIndex > -1 && items[danSuggestActiveIndex]) {
+            items[danSuggestActiveIndex].classList.add("active");
+            items[danSuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
 });
 
 
@@ -1214,7 +1394,6 @@ document.addEventListener("DOMContentLoaded", function() {
     setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu", cleanTagDisplay);
     setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi", cleanTagDisplay);
     setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia", cleanTagDisplay);
-    setupAutosuggest("danTag", "danAutosuggest", "/api/tags/dan", cleanTagDisplay);
     setupAutosuggest("gelbooruTag", "gelbooruAutosuggest", "/api/tags/gelbooru", cleanTagDisplay);
     setupAutosuggest("konaTag", "konaAutosuggest", "/api/tags/kona", cleanTagDisplay);
     setupAutosuggest("safeTag", "safeAutosuggest", "/api/tags/safe", cleanTagDisplay);
@@ -1224,8 +1403,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
     document.addEventListener("click", function(e) {
-        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "danAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "gsbooruAutosuggest"];
-        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "danTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "gsbooruTag"];
+        let dropdowns = ["eshuushuuAutosuggest", "nekosapiAutosuggest", "nekosiaAutosuggest", "gelbooruAutosuggest", "konaAutosuggest", "safeAutosuggest", "sankakuAutosuggest", "yandeAutosuggest", "gsbooruAutosuggest"];
+        let inputs = ["eshuushuuTag", "nekosapiTag", "nekosiaTag", "gelbooruTag", "konaTag", "safeTag", "sankakuTag", "yandeTag", "gsbooruTag"];
         for (let i = 0; i < dropdowns.length; i++) {
             let dp = document.getElementById(dropdowns[i]);
             let inp = document.getElementById(inputs[i]);
@@ -1468,7 +1647,7 @@ function startWorker(workerName) {
     else if (workerName === 'gelbooru') { payload.tag = danTagForRequest('gelbooruTag'); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
     else if (workerName === 'gsbooru') { payload.tag = danTagForRequest('gsbooruTag'); payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
     else if (workerName === 'yande') { payload.tag = danTagForRequest('yandeTag'); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; }
-    else if (workerName === 'dan') { payload.tag = danTagForRequest(); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
+    else if (workerName === 'dan') { payload.tag = currentDanTags.join(' '); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
     else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
     else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; }
     else if (workerName === 'sankaku') { payload.tag = danTagForRequest('sankakuTag'); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; }
@@ -1527,6 +1706,7 @@ function startWorker(workerName) {
     // ponytail: submitted combo clears so the box is fresh for the next search
     if (workerName === 'zero') { currentZerochanTags = []; zerochanSubTags.clear(); renderZerochanTags(); document.getElementById('zeroTag').value = ''; }
     if (workerName === 'anime_dl') { currentAnimeDlTags = []; animeDlSubTags.clear(); renderAnimeDlTags(); document.getElementById('animeDlTag').value = ''; }
+    if (workerName === 'dan') { currentDanTags = []; danSubTags.clear(); renderDanTags(); document.getElementById('danTag').value = ''; }
 
     let key = WORKER_TO_TAB[workerName];
     if (key) {
@@ -1701,6 +1881,9 @@ function jumpToSite(site, tag) {
     if (site === "zero") {
         currentZerochanTags = String(tag || "").split(",").map(t => t.trim()).filter(Boolean);
         renderZerochanTags();
+    } else if (site === "dan") {
+        currentDanTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderDanTags();
     } else if (site === "rule34") {
         currentRule34Tags = String(tag || "").split(/\s+/).filter(Boolean);
         renderRule34Tags();
@@ -1712,7 +1895,7 @@ function jumpToSite(site, tag) {
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
     let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
     if(btn) openTab(mapping.tab, btn);
-    if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl") { let inputEl = document.getElementById(mapping.input); if(inputEl) { if (site === "dan") { inputEl.value = cleanTagDisplay(tag); inputEl.dataset.raw = tag; } else inputEl.value = tag; } }
+    if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl" && site !== "dan") { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
 }
 
 // یک هلپر حرفه‌ای برای درست کردن آدرس‌های عکس بدون قاطی کردن Flask

@@ -85,7 +85,7 @@ class SankakuWorker(BaseWorker):
         await self.scraper_task()
 
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_map.get(self.rating.split(":")[-1], "")})" if self.rating else ""))
 
         collected_count = 0
         page = 1
@@ -211,7 +211,8 @@ class SankakuWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 
 def worker_sankaku(tag, amount, rating, exclusions, net_config):

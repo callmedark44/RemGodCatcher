@@ -1,4 +1,4 @@
-import os, re, urllib.parse, subprocess
+import os, re, time, urllib.parse, subprocess
 import asyncio
 from html.parser import HTMLParser
 from requests.adapters import HTTPAdapter
@@ -263,12 +263,7 @@ class ZerochanWorker(BaseDownloader):
             p = self.net_config.get("proxy_url")
             self.req_session.proxies = {"http": p, "https": p}
 
-        try:
-            import browser_cookie3
-            self.req_session.cookies.update(browser_cookie3.chrome(domain_name="zerochan.net"))
-            self.log("Loaded Zerochan cookies from Chrome.")
-        except Exception as e:
-            self.log(f"⚠️ No Chrome cookies ({e}) — falling back to credentials only.")
+        self._cookies_loaded = False
 
         self.log(f"Configured: tag='{self.original_tag}' encoded='{self.encoded_tag}' "
                  f"amount={amount} UA='{self.ua}'")
@@ -294,17 +289,19 @@ class ZerochanWorker(BaseDownloader):
 
         base_cmd = [gallery_dl_path]
         # ponytail: reading the browser cookie store costs seconds per
-        # spawn. Export once on page 1, reuse the file for later pages —
-        # same session, ~10x less overhead per page.
+        # spawn, and the export stays valid for hours — reuse a fresh file.
         cookie_file = os.path.join(self.tag_dir, ".zerochan_cookies.txt")
+        cookie_fresh = (
+            os.path.exists(cookie_file)
+            and (time.time() - os.path.getmtime(cookie_file) < 12 * 3600)
+        )
         browser = next((b for b in ("chrome", "chromium", "edge", "firefox") if shutil.which(b)), None)
-        if page == 1 or not os.path.exists(cookie_file):
-            if browser:
-                base_cmd.extend(["--cookies-from-browser", browser, "--cookies-export", cookie_file])
-            else:
-                self.log("No supported browser found for cookies — continuing anonymously (safe content only).")
-        else:
+        if cookie_fresh:
             base_cmd.extend(["--cookies", cookie_file])
+        elif browser:
+            base_cmd.extend(["--cookies-from-browser", browser, "--cookies-export", cookie_file])
+        else:
+            self.log("No supported browser found for cookies — continuing anonymously (safe content only).")
 
         if username and password:
             base_cmd.extend(["-u", username, "-p", password])
@@ -320,9 +317,14 @@ class ZerochanWorker(BaseDownloader):
             "-o", "extractor.zerochan.page-html=true",
         ])
 
-        PAGE_SIZE = 2
-        start = (page - 1) * PAGE_SIZE + 1
-        end = page * PAGE_SIZE
+        PAGE_SIZE = 20
+        FIRST_PAGE_SIZE = 6
+        if page == 1:
+            # ponytail: small first page — first image in ~10s, not ~1min
+            start, end = 1, FIRST_PAGE_SIZE
+        else:
+            start = FIRST_PAGE_SIZE + (page - 2) * PAGE_SIZE + 1
+            end = start + PAGE_SIZE - 1
 
         cmd = base_cmd + [
             "--range", f"{start}-{end}",
@@ -370,20 +372,22 @@ class ZerochanWorker(BaseDownloader):
 
     def _fetch_subtags(self):
         """Download the tag page and return its sub-tag boxes."""
+        if not self._cookies_loaded:
+            self._cookies_loaded = True
+            try:
+                import browser_cookie3
+                self.req_session.cookies.update(browser_cookie3.chrome(domain_name="zerochan.net"))
+                self.log("Loaded Zerochan cookies from Chrome.")
+            except Exception as e:
+                self.log(f"⚠️ No Chrome cookies ({e}) — falling back to credentials only.")
         resp = self.req_session.get(f"https://www.zerochan.net/{self.encoded_tag}",
                                     timeout=30)
         resp.raise_for_status()
         self.subtags = parse_zerochan_subtags(resp.text)
         return self.subtags
 
-    async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.original_tag}'")
-        collected_count = 0
-        page = 1
-        MAX_PAGES = 50
-
-        # ponytail: one tag-page fetch lists the sub-tag boxes (outfits etc.)
-        # so the user can see and directly search them — gallery-dl can't.
+    async def _log_subtags(self):
+        # ponytail: runs beside page 1, never ahead of it — first image first
         try:
             subtags = await asyncio.to_thread(self._fetch_subtags)
             for s in subtags:
@@ -391,6 +395,14 @@ class ZerochanWorker(BaseDownloader):
                          f"(search '{s['name']}' to download)")
         except Exception as e:
             self.log(f"Sub-tag listing skipped: {e}")
+
+    async def scraper_task(self):
+        self.log(f"Initializing worker for tag: '{self.original_tag}'")
+        collected_count = 0
+        page = 1
+        MAX_PAGES = 50
+
+        asyncio.create_task(self._log_subtags())
 
         while page <= MAX_PAGES:
             if self.stop_event.is_set():
@@ -458,7 +470,7 @@ class ZerochanWorker(BaseDownloader):
                         collected_count += 1
                         enqueued_this_page += 1
                         self.log(f"Enqueued {filename} ({collected_count}/{self.amount})")
-                    await asyncio.sleep(self.anti_ban_pause)
+                        await asyncio.sleep(self.anti_ban_pause)
 
                 except Exception as e:
                     self.log(f"Error processing post {post.get('id', '?')}: {e}")
@@ -477,7 +489,8 @@ class ZerochanWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 
 def worker_zerochan(tag, amount, net_config):

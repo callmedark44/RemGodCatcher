@@ -148,41 +148,73 @@ class AnimeDlWorker(BaseDownloader):
                 self.log("No more posts found.")
                 break
 
-            for p in posts:
-                if self.stop_event.is_set() or collected >= need: break
-                
-                post_id = p["id"]
-                try:
-                    det_resp = await asyncio.to_thread(self.curl_session.get, f"{API}/posts/{post_id}", params={"lang": "en"}, timeout=30)
-                    if det_resp.status_code != 200: continue
-                    detail = det_resp.json()
-                except Exception as e:
-                    self.log(f"Failed to get details for post {post_id}: {e}")
-                    continue
+            sem = asyncio.Semaphore(6)
 
-                file_url = detail.get("file_url", "")
-                if not file_url: continue
+            async def fetch_detail(pid):
+                async with sem:
+                    if self.stop_event.is_set():
+                        return None
+                    try:
+                        resp = await asyncio.to_thread(
+                            self.curl_session.get, f"{API}/posts/{pid}",
+                            params={"lang": "en"}, timeout=30)
+                        if resp.status_code != 200:
+                            return None
+                        return resp.json()
+                    except Exception as e:
+                        self.log(f"Failed to get details for post {pid}: {e}")
+                        return None
 
-                dl_url = f"https://api.anime-pictures.net/pictures/download_image/{file_url}"
-                ext = file_url.rsplit(".", 1)[-1]
-                filename = f"{self.tag_slug}_{post_id}.{ext}"
-                filepath = os.path.join(self.tag_dir, filename)
+            async def fetch_one(pid):
+                return pid, await fetch_detail(pid)
 
-                raw_tags = detail.get("tags", [])
-                artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
-                for t in raw_tags:
-                    tag_info = t.get("tag", {}) if isinstance(t, dict) else {}
-                    tag_name = tag_info.get("tag", "")
-                    tag_type = tag_info.get("type", 0)
-                    if not tag_name: continue
-                    if tag_type == 4: artists.append(tag_name)
-                    elif tag_type == 1: characters.append(tag_name)
-                    elif tag_type == 5: copyrights.append(tag_name)
-                    elif tag_type == 7: metadata_tags.append(tag_name)
-                    else: general.append(tag_name)
+            pending = {asyncio.create_task(fetch_one(p["id"]))
+                       for p in posts
+                       if isinstance(p, dict) and p.get("id") is not None}
+            try:
+                while pending and not self.stop_event.is_set() and collected < need:
+                    done, pending = await asyncio.wait(
+                        pending, return_when=asyncio.FIRST_COMPLETED)
+                    for fut in done:
+                        if fut.cancelled():
+                            continue
+                        try:
+                            post_id, detail = fut.result()
+                        except Exception as e:
+                            self.log(f"Detail task failed: {e}")
+                            continue
+                        if not detail:
+                            continue
 
-                if await self.enqueue_download(dl_url, filepath, filename, general, artists, characters, copyrights, metadata_tags):
-                    collected += 1
+                    file_url = detail.get("file_url", "")
+                    if not file_url: continue
+
+                    dl_url = f"https://api.anime-pictures.net/pictures/download_image/{file_url}"
+                    ext = file_url.rsplit(".", 1)[-1]
+                    filename = f"{self.tag_slug}_{post_id}.{ext}"
+                    filepath = os.path.join(self.tag_dir, filename)
+
+                    raw_tags = detail.get("tags", [])
+                    artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
+                    for t in raw_tags:
+                        tag_info = t.get("tag", {}) if isinstance(t, dict) else {}
+                        tag_name = tag_info.get("tag", "")
+                        tag_type = tag_info.get("type", 0)
+                        if not tag_name: continue
+                        if tag_type == 4: artists.append(tag_name)
+                        elif tag_type == 1: characters.append(tag_name)
+                        elif tag_type == 5: copyrights.append(tag_name)
+                        elif tag_type == 7: metadata_tags.append(tag_name)
+                        else: general.append(tag_name)
+
+                    if await self.enqueue_download(dl_url, filepath, filename, general, artists, characters, copyrights, metadata_tags):
+                        collected += 1
+            finally:
+                for t in pending:
+                    if not t.done():
+                        t.cancel()
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
 
             if collected >= need or not posts: break
             page += 1
@@ -194,7 +226,8 @@ class AnimeDlWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_anime_dl(tag, amount, net_config):
     AnimeDlWorker(tag, amount, net_config).run()

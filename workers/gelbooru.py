@@ -19,6 +19,9 @@ class GelbooruWorker(BaseWorker):
 
         self.rating_code_map = {"g": "general", "s": "sensitive", "q": "questionable", "e": "explicit"}
         self.rating_label_map = {"general": "Safe", "sensitive": "Sensitive", "questionable": "Questionable", "explicit": "NSFW"}
+        self.rating_display = ""
+        if self.rating:
+            self.rating_display = self.rating_label_map.get(self.rating_code_map.get(self.rating.split(":")[-1], ""), "")
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag_name = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
@@ -79,7 +82,7 @@ class GelbooruWorker(BaseWorker):
         return general, artists, characters, copyrights, metadata_tags
 
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_display})" if self.rating_display else ""))
         api_key = os.getenv("GELBOORU_API_KEY", "")
         user_id = os.getenv("GELBOORU_USER_ID", "")
 
@@ -172,7 +175,8 @@ class GelbooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_gelbooru(tag, amount, rating, exclusions, net_config):
     worker = GelbooruWorker(tag, amount, rating, exclusions, net_config)
