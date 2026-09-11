@@ -42,12 +42,14 @@ class KonachanWorker(BaseWorker):
                 try:
                     resp = await self.session.get(
                         "https://konachan.com/tag.json",
-                        params={"name": tag_name, "order": "count"}
+                        params={"name": tag_name, "order": "count", "limit": 50}
                     )
                     if resp.status == 200:
                         tags = await resp.json()
-                        if tags:
-                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(tags[0].get("type", 0), "tag")
+                        # ponytail: scan every row for the exact tag
+                        match = next((t for t in tags if str(t.get("name", "")).lower() == tag_name.lower()), None)
+                        if match:
+                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(match.get("type", 0), "tag")
                         else:
                             self.tag_cache[tag_name] = "tag"
                     else:
@@ -188,6 +190,9 @@ class KonachanWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:

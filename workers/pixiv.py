@@ -183,6 +183,7 @@ class PixivWorker(BaseDownloader):
         else:
             self.mode = "artworks"
             self.value = self.raw_tag
+        self._artist_resolved = False
 
         safe_value = re.sub(r'[\\/*?:"<>|]', "", self.value) or "pixiv"
         if self.mode == "ranking":
@@ -228,6 +229,8 @@ class PixivWorker(BaseDownloader):
             if not works:
                 self.log("No more posts found.")
                 break
+            if self.mode == "artworks" and self.value.isdigit() and not self._artist_resolved:
+                self._resolve_artist_dir(works)
             for work in works:
                 if self.stop_event.is_set() or (need and collected >= need):
                     break
@@ -248,8 +251,31 @@ class PixivWorker(BaseDownloader):
             if not self.stop_event.is_set():
                 await asyncio.sleep(self.anti_ban_pause)
 
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if collected:
             self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
+
+    def _resolve_artist_dir(self, works):
+        # ponytail: the artist name rides free in the works payload — no extra API call
+        self._artist_resolved = True
+        name = ""
+        for w in works or []:
+            name = ((w.get("user") or {}).get("name") or "").strip()
+            if name:
+                break
+        old = self.tag_dir
+        if name:
+            safe = re.sub(r'[\\/*?:"<>|]', "", name).strip() or self.value
+            self.tag_dir = os.path.join(MASTER_FOLDER, "Artists", safe)
+            self.log(f"Artist: {name}")
+        os.makedirs(self.tag_dir, exist_ok=True)
+        try:
+            if old != self.tag_dir and os.path.isdir(old) and not os.listdir(old):
+                os.rmdir(old)
+        except Exception:
+            pass
     async def _process_work(self, work):
         work_id = work.get("id")
         if not work_id:

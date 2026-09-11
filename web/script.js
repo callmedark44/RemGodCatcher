@@ -53,7 +53,7 @@ function normalizeTags(tagsInput) {
     return result;
 }
 
-function cleanTagDisplay(t) { const s = String(t || "").replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
+function cleanTagDisplay(t) { const s = String(t || "").replace(/_/g, ' '); return (s.charAt(0).toUpperCase() + s.slice(1)).replace(/\.([a-z])/g, (_, c) => '.' + c.toUpperCase()); }
 function escJs(s) { return String(s || "").replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'"); }
 
 // Streamline heart (web/icons/heart.svg): one asset, both states via paint
@@ -369,7 +369,7 @@ function updateProgressBar(worker, msg) {
     if (msg.includes("Phase 1")) {
         container.innerHTML = `
         <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:10px; margin-bottom:5px;">
-        <span>🚀 Downloading...</span>
+        <span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span>
         <span id="dlText_${key}">0%</span>
         </div>
         <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_${key}" style="width:0%;"></div></div>
@@ -437,10 +437,11 @@ function logToConsole(tabID, msg) {
             let artistNames = cats.artist || [];
             delete cats.artist;
             var logArtistBadge = artistNames.map(a => `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(a)}</span>`).join('');
-            tagsHtml = renderCategorizedTags(cats, false);
+            // ponytail: log cards show plain tag text — only the artist keeps a colored badge
+            tagsHtml = `<span style="color: var(--text-color); opacity: 0.85;">` + Object.values(cats).flat().map(t => cleanTagDisplay(t)).join(', ') + `</span>`;
         } else {
             var logArtistBadge = "";
-            tagsHtml = (tagsStr && tagsStr !== "No tags") ? renderCategorizedTags({ tag: tagsStr.split(', ') }, false) : "No tags";
+            tagsHtml = (tagsStr && tagsStr !== "No tags") ? `<span style="color: var(--text-color); opacity: 0.85;">` + tagsStr.split(', ').map(t => cleanTagDisplay(t)).join(', ') + `</span>` : "No tags";
         }
         let fnMatch = raw.match(/Downloaded ([^\s]+)/);
         let fn = fnMatch ? fnMatch[1] : "image";
@@ -473,12 +474,15 @@ function logToConsole(tabID, msg) {
             const _rsEl = document.getElementById(_rsId);
             if (_rsEl && _rsEl.value) ratingHtml = "";
         }
+        // ponytail: safebooru is all-safe and rule34 all-explicit — badge states the obvious
+        if (tabID === 'safe' || tabID === 'rule34') ratingHtml = "";
 
         // بررسی اینکه فایل ویدیو هست یا نه، تا آیکون درست رو نشون بدیم
         let ext = fn.split('.').pop().toLowerCase();
         let isVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext);
-        let fallbackIcon = isVideo ? '🎬' : '⚠';
-        let fallbackSrc = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><rect width='90' height='90' fill='%231a1c29' rx='8'/><text x='45' y='55' font-size='30' text-anchor='middle'>${fallbackIcon}</text></svg>`;
+        let fallbackSrc = isVideo
+            ? `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><rect width='90' height='90' fill='%231a1c29' rx='8'/><text x='45' y='55' font-size='30' text-anchor='middle'>🎬</text></svg>`
+            : `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><rect width='90' height='90' fill='%231a1c29' rx='8'/><g transform='translate(26,26) scale(2.714)'><path fill='%23888888' fill-rule='evenodd' clip-rule='evenodd' d='M3.05245 2.51408C4.03771 1.6911 5.49493 1.25 7.00004 1.25c1.5051 0 2.96232 0.4411 3.94756 1.26408 1.0842 0.9056 1.706 2.44224 1.7926 4.09343 0.0866 1.6505 -0.3692 3.29207 -1.2845 4.36679 -0.98 1.1509 -2.67952 1.7757 -4.45566 1.7757 -1.77614 0 -3.47564 -0.6248 -4.45569 -1.7757 -0.91524 -1.07472 -1.37107 -2.71629 -1.28451 -4.36679 0.08659 -1.65119 0.70844 -3.18783 1.79261 -4.09343Zm8.69655 -0.95935C10.4845 0.498503 8.71831 0 7.00004 0 5.28177 0 3.51561 0.498503 2.25111 1.55473 0.823564 2.74715 0.11037 4.65779 0.0115513 6.54204 -0.0873029 8.42697 0.42108 10.409 1.59266 11.7848 2.87827 13.2945 4.97748 14 7.00004 14s4.12176 -0.7055 5.40736 -2.2152c1.1716 -1.3758 1.68 -3.35783 1.5811 -5.24276 -0.0988 -1.88425 -0.812 -3.79489 -2.2395 -4.98731ZM7.87691 3.7829c0 -0.34518 -0.27982 -0.625 -0.625 -0.625 -0.34517 0 -0.625 0.27982 -0.625 0.625v0.31657c0 0.34518 0.27983 0.625 0.625 0.625 0.34518 0 0.625 -0.27982 0.625 -0.625V3.7829ZM5.14498 6.01923c0 -0.34518 0.27982 -0.625 0.625 -0.625h0.48689c0.88685 0 1.60579 0.71894 1.60577 1.6058v1.88259c0.33235 0.03652 0.66758 0.10241 1.01035 0.19769 0.33257 0.09243 0.52723 0.43697 0.4348 0.76954 -0.09244 0.33255 -0.43698 0.52725 -0.76955 0.43485 -0.89263 -0.2482 -1.69361 -0.2482 -2.58624 0 -0.33257 0.0924 -0.67711 -0.1023 -0.76954 -0.43485 -0.09244 -0.33257 0.10223 -0.67711 0.4348 -0.76954 0.33762 -0.09384 0.66793 -0.15919 0.99538 -0.19603V7.00003c0.00001 -0.19649 -0.15928 -0.3558 -0.35577 -0.3558h-0.48689c-0.34518 0 -0.625 -0.27983 -0.625 -0.625Z'/></g></svg>`;
 
         let card = document.createElement("div");
         card.className = "image-card-log";
@@ -488,7 +492,7 @@ function logToConsole(tabID, msg) {
         card.innerHTML = `
         <div class="img-card-left">
         <!-- استفاده از Date.now برای جلوگیری از باگ لود شدن -->
-        <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" onerror="this.onerror=null; this.src='${fallbackSrc}';" style="cursor: pointer;">
+        <img src="${thumbSrc}" onclick="openFullImage('${pathUrlStr}', '${safeFn}')" data-fb="${fallbackSrc}" onerror="this.onerror=null; this.src=this.dataset.fb;" style="cursor: pointer;">
         </div>
         <div class="img-card-right">
         <div class="img-card-title" style="display:flex;align-items:center;gap:8px;opacity:1;padding:2px 0;" title="${safeFn}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.6;">${fn}</span><span style="display:inline-flex;gap:6px;flex-shrink:0;">${logArtistBadge}</span></div>
@@ -557,6 +561,306 @@ function renderRule34Tags() {
         let icon = isNeg ? '− ' : '✔ ';
         let safeT = escJs(t);
         return '<span class="v-tag ' + cls + '" onclick="removeRule34Tag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + text + '</span>';
+    }).join('');
+}
+
+// --- Gelbooru interactive tags (mirrors rule34; joined with ' ' for the worker) ---
+let currentGelbooruTags = [];
+let gelbooruSubTags = new Set();
+function addGelbooruTag() {
+    let input = document.getElementById("gelbooruTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: read via danTagForRequest, not input.value — the box shows
+    // pretty text ("reze (chainsaw man)") while dataset.raw holds the real
+    // tag ("reze_(chainsaw_man)"); splitting pretty text shreds it into chips
+    danTagForRequest('gelbooruTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentGelbooruTags.includes(val)) {
+            currentGelbooruTags.push(val);
+            if (val === raw) gelbooruSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderGelbooruTags(); }
+}
+function removeGelbooruTag(tag) {
+    currentGelbooruTags = currentGelbooruTags.filter(function(t) { return t !== tag; });
+    gelbooruSubTags.delete(tag);
+    renderGelbooruTags();
+}
+function renderGelbooruTags() {
+    let container = document.getElementById("gelbooruTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentGelbooruTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        // ponytail: zerochan-style pills — negatives stay warning; else first
+        // pill is main, dropdown picks are sub, typed are neutral
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (gelbooruSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeGelbooruTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- E-Shuushuu interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentEshuushuuTags = [];
+let eshuushuuSubTags = new Set();
+function addEshuushuuTag() {
+    let input = document.getElementById("eshuushuuTag");
+    if (!input) return;
+    let added = false;
+    // ponytail: same pretty-box/raw-tag split as gelbooru — and a picked
+    // multi-word tag ("long hair") stays ONE chip, extra typed words split
+    let full = danTagForRequest('eshuushuuTag').trim().toLowerCase();
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    let vals;
+    if (raw && (full === raw || full.startsWith(raw + ' '))) {
+        vals = [raw].concat(full.slice(raw.length).trim().split(/\s+/).filter(Boolean));
+    } else {
+        vals = full.split(/\s+/).filter(Boolean);
+    }
+    vals.forEach(function(val) {
+        if (!currentEshuushuuTags.includes(val)) {
+            currentEshuushuuTags.push(val);
+            if (val === raw) eshuushuuSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderEshuushuuTags(); }
+}
+function removeEshuushuuTag(tag) {
+    currentEshuushuuTags = currentEshuushuuTags.filter(function(t) { return t !== tag; });
+    eshuushuuSubTags.delete(tag);
+    renderEshuushuuTags();
+}
+function renderEshuushuuTags() {
+    let container = document.getElementById("eshuushuuTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentEshuushuuTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (eshuushuuSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeEshuushuuTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Gsbooru interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentGsbooruTags = [];
+let gsbooruSubTags = new Set();
+function addGsbooruTag() {
+    let input = document.getElementById("gsbooruTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('gsbooruTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentGsbooruTags.includes(val)) {
+            currentGsbooruTags.push(val);
+            if (val === raw) gsbooruSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderGsbooruTags(); }
+}
+function removeGsbooruTag(tag) {
+    currentGsbooruTags = currentGsbooruTags.filter(function(t) { return t !== tag; });
+    gsbooruSubTags.delete(tag);
+    renderGsbooruTags();
+}
+function renderGsbooruTags() {
+    let container = document.getElementById("gsbooruTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentGsbooruTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (gsbooruSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeGsbooruTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Konachan interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentKonaTags = [];
+let konaSubTags = new Set();
+function addKonaTag() {
+    let input = document.getElementById("konaTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('konaTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentKonaTags.includes(val)) {
+            currentKonaTags.push(val);
+            if (val === raw) konaSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderKonaTags(); }
+}
+function removeKonaTag(tag) {
+    currentKonaTags = currentKonaTags.filter(function(t) { return t !== tag; });
+    konaSubTags.delete(tag);
+    renderKonaTags();
+}
+function renderKonaTags() {
+    let container = document.getElementById("konaTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentKonaTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (konaSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeKonaTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Nekosia interactive tags (mirrors gelbooru; first chip is the category) ---
+let currentNekosiaTags = [];
+let nekosiaSubTags = new Set();
+function addNekosiaTag() {
+    let input = document.getElementById("nekosiaTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('nekosiaTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentNekosiaTags.includes(val)) {
+            currentNekosiaTags.push(val);
+            if (val === raw) nekosiaSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderNekosiaTags(); }
+}
+function removeNekosiaTag(tag) {
+    currentNekosiaTags = currentNekosiaTags.filter(function(t) { return t !== tag; });
+    nekosiaSubTags.delete(tag);
+    renderNekosiaTags();
+}
+function renderNekosiaTags() {
+    let container = document.getElementById("nekosiaTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentNekosiaTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (nekosiaSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeNekosiaTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Safebooru interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentSafeTags = [];
+let safeSubTags = new Set();
+function addSafeTag() {
+    let input = document.getElementById("safeTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('safeTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentSafeTags.includes(val)) {
+            currentSafeTags.push(val);
+            if (val === raw) safeSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderSafeTags(); }
+}
+function removeSafeTag(tag) {
+    currentSafeTags = currentSafeTags.filter(function(t) { return t !== tag; });
+    safeSubTags.delete(tag);
+    renderSafeTags();
+}
+function renderSafeTags() {
+    let container = document.getElementById("safeTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentSafeTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (safeSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeSafeTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Sankaku interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentSankakuTags = [];
+let sankakuSubTags = new Set();
+function addSankakuTag() {
+    let input = document.getElementById("sankakuTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('sankakuTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentSankakuTags.includes(val)) {
+            currentSankakuTags.push(val);
+            if (val === raw) sankakuSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderSankakuTags(); }
+}
+function removeSankakuTag(tag) {
+    currentSankakuTags = currentSankakuTags.filter(function(t) { return t !== tag; });
+    sankakuSubTags.delete(tag);
+    renderSankakuTags();
+}
+function renderSankakuTags() {
+    let container = document.getElementById("sankakuTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentSankakuTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (sankakuSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeSankakuTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
+    }).join('');
+}
+
+// --- Yande.re interactive tags (mirrors gelbooru; joined with ' ' for the worker) ---
+let currentYandeTags = [];
+let yandeSubTags = new Set();
+function addYandeTag() {
+    let input = document.getElementById("yandeTag");
+    if (!input) return;
+    let added = false;
+    let raw = ((input.dataset && input.dataset.raw) || "").trim().toLowerCase();
+    // ponytail: same pretty-box/raw-tag split as the other chip tabs
+    danTagForRequest('yandeTag').trim().toLowerCase().split(/\s+/).filter(Boolean).forEach(function(val) {
+        if (!currentYandeTags.includes(val)) {
+            currentYandeTags.push(val);
+            if (val === raw) yandeSubTags.add(val);
+            added = true;
+        }
+    });
+    if (added) { input.value = ""; delete input.dataset.raw; renderYandeTags(); }
+}
+function removeYandeTag(tag) {
+    currentYandeTags = currentYandeTags.filter(function(t) { return t !== tag; });
+    yandeSubTags.delete(tag);
+    renderYandeTags();
+}
+function renderYandeTags() {
+    let container = document.getElementById("yandeTagsContainer");
+    if (!container) return;
+    container.innerHTML = currentYandeTags.map(function(t, idx) {
+        let isNeg = t.startsWith('-');
+        let text = isNeg ? t.substring(1) : t;
+        let cls = isNeg ? 'warning' : (idx === 0 ? 'main' : (yandeSubTags.has(t) ? 'sub' : 'neutral'));
+        let icon = isNeg ? '− ' : (idx === 0 ? ZERO_STAR_ICON : ZERO_CHECK_ICON);
+        let safeT = escJs(t);
+        return '<span class="v-tag ' + cls + '" onclick="removeYandeTag(\'' + safeT + '\')" style="cursor:pointer;" title="Click to remove">' + icon + cleanTagDisplay(text) + '</span>';
     }).join('');
 }
 
@@ -683,6 +987,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             input.value = finalTag;
                             dropdown.style.display = "none";
                             input.focus();
+                            addRule34Tag();
                         };
                         dropdown.appendChild(div);
                     });
@@ -741,6 +1046,118 @@ document.addEventListener("DOMContentLoaded", function() {
         if (r34SuggestActiveIndex > -1 && items[r34SuggestActiveIndex]) {
             items[r34SuggestActiveIndex].classList.add("active");
             items[r34SuggestActiveIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+});
+
+// --- E-Shuushuu Autosuggest (rows colored by tag type) ---
+let eshuSuggestTimer = null;
+let eshuSuggestActiveIndex = -1;
+const ESHU_TAG_COLOR = { 1: '#00e5e5', 2: '#ff69b4', 3: '#e67e00', 4: '#228b22' };
+
+document.addEventListener("DOMContentLoaded", function() {
+    let input = document.getElementById("eshuushuuTag");
+    let dropdown = document.getElementById("eshuushuuAutosuggest");
+    if (!input || !dropdown) return;
+
+    // Remove inline onkeydown from HTML to prevent double trigger
+    input.removeAttribute("onkeydown");
+
+    input.addEventListener("input", function() {
+        clearTimeout(eshuSuggestTimer);
+        delete input.dataset.raw;
+        let val = input.value.trim();
+
+        let isNegative = val.startsWith('-');
+        let queryVal = isNegative ? val.substring(1) : val;
+
+        if (queryVal.length < 2) {
+            dropdown.style.display = "none";
+            return;
+        }
+
+        eshuSuggestTimer = setTimeout(async () => {
+            try {
+                let resp = await fetch("/api/tags/eshuushuu", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
+                });
+                let data = await resp.json();
+                if (data && data.length > 0) {
+                    eshuSuggestActiveIndex = -1;
+                    dropdown.innerHTML = "";
+                    data.forEach((item) => {
+                        let title = (item && item.title) || item;
+                        let finalTag = isNegative ? '-' + title : title;
+                        let div = document.createElement("div");
+                        div.className = "autosuggest-item";
+                        // ponytail: text color only, gallery-pill hues
+                        div.style.color = ESHU_TAG_COLOR[item && item.type] || '';
+                        div.textContent = cleanTagDisplay(finalTag);
+                        div.onclick = function() {
+                            input.value = (isNegative ? '-' : '') + cleanTagDisplay(title);
+                            input.dataset.raw = finalTag;
+                            dropdown.style.display = "none";
+                            input.focus();
+                            if (typeof addEshuushuuTag === 'function') addEshuushuuTag();
+                        };
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = "block";
+                } else {
+                    dropdown.style.display = "none";
+                }
+            } catch(e) {
+                dropdown.style.display = "none";
+            }
+        }, 400); // 400ms debounce
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (dropdown.style.display === "block") {
+            let items = dropdown.getElementsByClassName("autosuggest-item");
+            if (e.key === "ArrowDown") {
+                eshuSuggestActiveIndex++;
+                if (eshuSuggestActiveIndex >= items.length) eshuSuggestActiveIndex = 0;
+                updateEshuActive(items);
+                e.preventDefault();
+            } else if (e.key === "ArrowUp") {
+                eshuSuggestActiveIndex--;
+                if (eshuSuggestActiveIndex < 0) eshuSuggestActiveIndex = items.length - 1;
+                updateEshuActive(items);
+                e.preventDefault();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (eshuSuggestActiveIndex > -1 && items[eshuSuggestActiveIndex]) {
+                    items[eshuSuggestActiveIndex].click();
+                } else {
+                    dropdown.style.display = "none";
+                    addEshuushuuTag();
+                }
+            } else if (e.key === "Escape") {
+                dropdown.style.display = "none";
+            }
+        } else {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addEshuushuuTag();
+            }
+        }
+    });
+
+    document.addEventListener("click", function(e) {
+        if (e.target !== input && e.target !== dropdown) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    function updateEshuActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active");
+        }
+        if (eshuSuggestActiveIndex > -1 && items[eshuSuggestActiveIndex]) {
+            items[eshuSuggestActiveIndex].classList.add("active");
+            items[eshuSuggestActiveIndex].scrollIntoView({ block: "nearest" });
         }
     }
 });
@@ -1289,6 +1706,10 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint, displayFn) {
     input.addEventListener("input", function() {
         clearTimeout(suggestTimer);
         delete input.dataset.raw;
+        // ponytail: stamp every keystroke — a slow earlier response must
+        // never overwrite rows fetched for newer text (stale "1gir" rows)
+        let mySeq = (parseInt(input.dataset.suggestSeq || "0", 10) + 1);
+        input.dataset.suggestSeq = String(mySeq);
         let val = input.value.trim();
 
         let isNegative = val.startsWith('-');
@@ -1306,6 +1727,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint, displayFn) {
                     body: JSON.stringify({ query: queryVal, net_config: globalNetConfig })
                 });
                 let data = await resp.json();
+                if (String(input.dataset.suggestSeq || "0") !== String(mySeq)) return;
                 if (data && data.length > 0) {
                     activeIndex = -1;
                     dropdown.innerHTML = "";
@@ -1325,6 +1747,9 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint, displayFn) {
                             }
                             dropdown.style.display = "none";
                             input.focus();
+                            // ponytail: chip tabs add on pick — other tabs keep fill-then-confirm
+                            var _chipFn = { 'gelbooruTag': 'addGelbooruTag', 'gsbooruTag': 'addGsbooruTag', 'konaTag': 'addKonaTag', 'nekosiaTag': 'addNekosiaTag', 'safeTag': 'addSafeTag', 'sankakuTag': 'addSankakuTag', 'yandeTag': 'addYandeTag' }[inputId];
+                            if (_chipFn && typeof window[_chipFn] === 'function') window[_chipFn]();
                         };
                         dropdown.appendChild(div);
                     });
@@ -1392,7 +1817,6 @@ function danTagForRequest(inputId) {
 
 document.addEventListener("DOMContentLoaded", function() {
     enhanceAllSelects();
-    setupAutosuggest("eshuushuuTag", "eshuushuuAutosuggest", "/api/tags/eshuushuu", cleanTagDisplay);
     setupAutosuggest("nekosapiTag", "nekosapiAutosuggest", "/api/tags/nekosapi", cleanTagDisplay);
     setupAutosuggest("nekosiaTag", "nekosiaAutosuggest", "/api/tags/nekosia", cleanTagDisplay);
     setupAutosuggest("gelbooruTag", "gelbooruAutosuggest", "/api/tags/gelbooru", cleanTagDisplay);
@@ -1478,6 +1902,10 @@ window.onload = async function () {
     updatePixivMode();
     await loadUIConfig();
 
+    // ponytail: history/settings/import are mutually independent — run them
+    // alongside the external waifu call instead of gated behind it
+    const _startupTail = Promise.allSettled([loadTagsData(), loadApiSettings(), importGallery()]);
+
     try {
         let resp = await fetch("/api/tags/waifu", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig)
@@ -1491,9 +1919,7 @@ window.onload = async function () {
         });
     } catch (e) {}
 
-    await loadTagsData();
-    await loadApiSettings();
-    await importGallery();
+    await _startupTail;
     loadGallery();
     populateGallerySiteFilter();
 };
@@ -1616,7 +2042,7 @@ function showToast(msg, opts) {
     const container = document.getElementById("toastContainer") || (() => { const c = document.createElement('div'); c.id = 'toastContainer'; c.className = 'toast-container'; document.body.appendChild(c); return c; })();
     let toast = document.createElement("div");
     toast.className = "toast-item" + (opts.warn ? " warn" : "");
-    toast.innerHTML = `<div class="toast-icon">${opts.icon || "ℹ️"}</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
+    toast.innerHTML = `<div class="toast-icon">${opts.icon || '<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M3.05245 2.51408C4.03771 1.6911 5.49493 1.25 7.00004 1.25c1.5051 0 2.96232 0.4411 3.94756 1.26408 1.0842 0.9056 1.706 2.44224 1.7926 4.09343 0.0866 1.6505 -0.3692 3.29207 -1.2845 4.36679 -0.98 1.1509 -2.67952 1.7757 -4.45566 1.7757 -1.77614 0 -3.47564 -0.6248 -4.45569 -1.7757 -0.91524 -1.07472 -1.37107 -2.71629 -1.28451 -4.36679 0.08659 -1.65119 0.70844 -3.18783 1.79261 -4.09343Zm8.69655 -0.95935C10.4845 0.498503 8.71831 0 7.00004 0 5.28177 0 3.51561 0.498503 2.25111 1.55473 0.823564 2.74715 0.11037 4.65779 0.0115513 6.54204 -0.0873029 8.42697 0.42108 10.409 1.59266 11.7848 2.87827 13.2945 4.97748 14 7.00004 14s4.12176 -0.7055 5.40736 -2.2152c1.1716 -1.3758 1.68 -3.35783 1.5811 -5.24276 -0.0988 -1.88425 -0.812 -3.79489 -2.2395 -4.98731ZM7.87691 3.7829c0 -0.34518 -0.27982 -0.625 -0.625 -0.625 -0.34517 0 -0.625 0.27982 -0.625 0.625v0.31657c0 0.34518 0.27983 0.625 0.625 0.625 0.34518 0 0.625 -0.27982 0.625 -0.625V3.7829ZM5.14498 6.01923c0 -0.34518 0.27982 -0.625 0.625 -0.625h0.48689c0.88685 0 1.60579 0.71894 1.60577 1.6058v1.88259c0.33235 0.03652 0.66758 0.10241 1.01035 0.19769 0.33257 0.09243 0.52723 0.43697 0.4348 0.76954 -0.09244 0.33255 -0.43698 0.52725 -0.76955 0.43485 -0.89263 -0.2482 -1.69361 -0.2482 -2.58624 0 -0.33257 0.0924 -0.67711 -0.1023 -0.76954 -0.43485 -0.09244 -0.33257 0.10223 -0.67711 0.4348 -0.76954 0.33762 -0.09384 0.66793 -0.15919 0.99538 -0.19603V7.00003c0.00001 -0.19649 -0.15928 -0.3558 -0.35577 -0.3558h-0.48689c-0.34518 0 -0.625 -0.27983 -0.625 -0.625Z"/></svg>'}</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
     container.appendChild(toast);
     // ponytail: warnings (e.g. copy fallback) stay until dismissed; info toasts fade
     if (!opts.sticky) setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, 4000);
@@ -1653,14 +2079,14 @@ function startWorker(workerName) {
     else if (workerName === 'waifu') { payload.tag = document.getElementById('waifuTag').value; payload.limit = document.getElementById('waifuLimit').value; payload.nsfw = document.getElementById('waifuNsfw').checked; }
     else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; }
     else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; }
-    else if (workerName === 'safe') { payload.tag = danTagForRequest('safeTag'); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; }
-    else if (workerName === 'gelbooru') { payload.tag = danTagForRequest('gelbooruTag'); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
-    else if (workerName === 'gsbooru') { payload.tag = danTagForRequest('gsbooruTag'); payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
-    else if (workerName === 'yande') { payload.tag = danTagForRequest('yandeTag'); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; }
+    else if (workerName === 'safe') { payload.tag = currentSafeTags.join(' '); payload.limit = document.getElementById('safeLimit').value; payload.exclusions = []; }
+    else if (workerName === 'gelbooru') { payload.tag = currentGelbooruTags.join(' '); payload.limit = document.getElementById('gelbooruLimit').value; payload.rating = document.getElementById('gelbooruRating').value; let format = document.getElementById('gelFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } payload.exclusions = ex; if (document.getElementById('gelNoAI').checked) payload.tag += " -ai_generated"; }
+    else if (workerName === 'gsbooru') { payload.tag = currentGsbooruTags.join(' '); payload.limit = document.getElementById('gsbooruLimit').value; payload.rating = document.getElementById('gsbooruRating').value; }
+    else if (workerName === 'yande') { payload.tag = currentYandeTags.join(' '); payload.limit = document.getElementById('yandeLimit').value; payload.rating = document.getElementById('yandeRating').value; }
     else if (workerName === 'dan') { payload.tag = currentDanTags.join(' '); payload.limit = document.getElementById('danLimit').value; payload.rating = document.getElementById('danRating').value; let format = document.getElementById('danFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('danExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
-    else if (workerName === 'kona') { payload.tag = danTagForRequest('konaTag'); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
-    else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; }
-    else if (workerName === 'sankaku') { payload.tag = danTagForRequest('sankakuTag'); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; }
+    else if (workerName === 'kona') { payload.tag = currentKonaTags.join(' '); payload.limit = document.getElementById('konaLimit').value; payload.rating = document.getElementById('konaRating').value; let format = document.getElementById('konaFormat').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('konaExGif').checked) ex.push('-gif'); payload.exclusions = ex; }
+    else if (workerName === 'rule34') { payload.tag = currentRule34Tags.join(' '); payload.limit = document.getElementById('rule34Limit').value; payload.method = document.getElementById('rule34Method').value; payload.sort_type = document.getElementById('rule34SortType').value; payload.sort_order = document.getElementById('rule34SortOrder').value; let format = document.getElementById('rule34Format').value; let ex = []; if (format === 'images') ex.push('-video'); else if (format === 'gifs') { ex.push('-video'); ex.push('-image'); } else if (format === 'videos') { ex.push('-image'); payload.tag += " video"; } if (document.getElementById('exGif').checked) ex.push('-gif'); if (document.getElementById('exComic').checked) ex.push('-comic'); if (document.getElementById('ex3D').checked) ex.push('-3d'); payload.exclusions = ex; payload.exclude_ai = document.getElementById('exAI').checked; }
+    else if (workerName === 'sankaku') { payload.tag = currentSankakuTags.join(' '); payload.limit = document.getElementById('sankakuLimit').value; payload.rating = document.getElementById('sankakuRating').value; payload.exclusions = []; payload.net_config.hide_pools = document.getElementById('sankakuHideBooks').checked; }
     else if (workerName === 'anime_dl') { payload.tag = currentAnimeDlTags.join('&&'); payload.limit = document.getElementById('animeDlLimit').value; }
     else if (workerName === 'pinterest') { payload.tag = document.getElementById('pinterestTag').value; payload.limit = document.getElementById('pinterestLimit').value; payload.is_search = document.getElementById('pinterestMode').value === 'search'; payload.min_w = parseInt(document.getElementById('pinterestMinW').value) || 0; payload.min_h = parseInt(document.getElementById('pinterestMinH').value) || 0; }
     else if (workerName === 'pixiv') {
@@ -1680,7 +2106,7 @@ function startWorker(workerName) {
         payload.exclusions = [];
     }
     else if (workerName === 'eshuushuu') {
-        payload.tag = danTagForRequest('eshuushuuTag');
+        payload.tag = currentEshuushuuTags.join(' ');
         payload.user_id = document.getElementById('eshuushuuUser').value;
         payload.limit = document.getElementById('eshuushuuLimit').value;
     }
@@ -1690,7 +2116,7 @@ function startWorker(workerName) {
         payload.rating = document.getElementById('nekosapiRating').value;
     }
     else if (workerName === 'nekosia') {
-        payload.tag = danTagForRequest('nekosiaTag');
+        payload.tag = currentNekosiaTags.join(' ');
         payload.limit = document.getElementById('nekosiaLimit').value;
         payload.rating = document.getElementById('nekosiaRating').value;
     }
@@ -1717,6 +2143,14 @@ function startWorker(workerName) {
     if (workerName === 'zero') { currentZerochanTags = []; zerochanSubTags.clear(); renderZerochanTags(); document.getElementById('zeroTag').value = ''; }
     if (workerName === 'anime_dl') { currentAnimeDlTags = []; animeDlSubTags.clear(); renderAnimeDlTags(); document.getElementById('animeDlTag').value = ''; }
     if (workerName === 'dan') { currentDanTags = []; danSubTags.clear(); renderDanTags(); document.getElementById('danTag').value = ''; }
+    if (workerName === 'gelbooru') { currentGelbooruTags = []; gelbooruSubTags.clear(); renderGelbooruTags(); document.getElementById('gelbooruTag').value = ''; }
+    if (workerName === 'eshuushuu') { currentEshuushuuTags = []; eshuushuuSubTags.clear(); renderEshuushuuTags(); document.getElementById('eshuushuuTag').value = ''; }
+    if (workerName === 'gsbooru') { currentGsbooruTags = []; gsbooruSubTags.clear(); renderGsbooruTags(); document.getElementById('gsbooruTag').value = ''; }
+    if (workerName === 'kona') { currentKonaTags = []; konaSubTags.clear(); renderKonaTags(); document.getElementById('konaTag').value = ''; }
+    if (workerName === 'nekosia') { currentNekosiaTags = []; nekosiaSubTags.clear(); renderNekosiaTags(); document.getElementById('nekosiaTag').value = ''; }
+    if (workerName === 'safe') { currentSafeTags = []; safeSubTags.clear(); renderSafeTags(); document.getElementById('safeTag').value = ''; }
+    if (workerName === 'sankaku') { currentSankakuTags = []; sankakuSubTags.clear(); renderSankakuTags(); document.getElementById('sankakuTag').value = ''; }
+    if (workerName === 'yande') { currentYandeTags = []; yandeSubTags.clear(); renderYandeTags(); document.getElementById('yandeTag').value = ''; }
 
     let key = WORKER_TO_TAB[workerName];
     if (key) {
@@ -1749,6 +2183,8 @@ async function loadApiSettings() {
     let settings = await resp.json();
     document.getElementById("r34Key").value = settings.rule34_api_key || "";
     document.getElementById("r34Uid").value = settings.rule34_user_id || "";
+    document.getElementById("danLogin").value = settings.danbooru_login || "";
+    document.getElementById("danApiKey").value = settings.danbooru_api_key || "";
     document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
     document.getElementById("gelUid").value = settings.gelbooru_user_id || "";
     document.getElementById("konaLogin").value = settings.konachan_login || "";
@@ -1768,6 +2204,8 @@ async function saveApiSettings() {
     let payload = {
         rule34_api_key: document.getElementById("r34Key").value.trim(),
         rule34_user_id: document.getElementById("r34Uid").value.trim(),
+        danbooru_login: document.getElementById("danLogin").value.trim(),
+        danbooru_api_key: document.getElementById("danApiKey").value.trim(),
         gelbooru_api_key: document.getElementById("gelKey").value.trim(),
         gelbooru_user_id: document.getElementById("gelUid").value.trim(),
         konachan_login: document.getElementById("konaLogin").value.trim(),
@@ -1823,12 +2261,15 @@ let imageHistory = [];
 
 async function loadTagsData() {
     try {
-        let resHist = await fetch("/api/history");
-        historyTags = await resHist.json();
-        let resFav = await fetch("/api/favorites");
-        favoriteTags = await resFav.json();
-        let resImgHist = await fetch("/api/image_history");
-        imageHistory = await resImgHist.json();
+        // ponytail: independent reads — never serialize round trips
+        let [hist, favs, imgHist] = await Promise.all([
+            fetch("/api/history").then(r => r.json()),
+            fetch("/api/favorites").then(r => r.json()),
+            fetch("/api/image_history").then(r => r.json())
+        ]);
+        historyTags = hist;
+        favoriteTags = favs;
+        imageHistory = imgHist;
         renderHistory();
         renderFavorites();
         renderImageHistory();
@@ -1853,7 +2294,7 @@ function renderHistory() {
             const RATING_LABELS_YANDE = {'rating:s':'Safe','rating:q':'Questionable','rating:e':'NSFW','safe':'Safe','questionable':'Questionable','explicit':'NSFW'};
             const _rl = ['yande', 'kona', 'sankaku'].includes(item.site) ? RATING_LABELS_YANDE : RATING_LABELS_DAN;
             let ratingBadge = item.rating ? `<span style="color: #2dd4bf; font-size: 11px; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.4); padding: 2px 5px; border-radius: 4px; margin-left: 10px;">${_rl[item.rating] || item.rating}</span>` : "";
-            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag.replace(/^[a-z_]+:/i, ""))}</span>${ratingBadge}</div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')">&rarr;</button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${escJs(item.site)}', '${escJs(item.tag)}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')">&times;</button></div></div>`;
+            htmlStr += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color);"><div><span style="color: var(--accent-color); font-size: 11px; text-transform: uppercase; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--accent-color); padding: 2px 5px; border-radius: 4px; margin-right: 10px;">${item.site}</span><span style="font-size: 14px; color: var(--text-color);">${cleanTagDisplay(item.tag.replace(/^[a-z_]+:/i, ""))}</span>${ratingBadge}</div><div style="display: flex; gap: 8px;"><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px var(--border-color); color: var(--text-color);" onclick="jumpToSite('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M23.987 12a2.411 2.411 0 0 0 -0.814 -1.8L11.994 0.361a1.44 1.44 0 0 0 -1.9 2.162l8.637 7.6a0.25 0.25 0 0 1 -0.165 0.437H1.452a1.44 1.44 0 0 0 0 2.88h17.111a0.251 0.251 0 0 1 0.165 0.438l-8.637 7.6a1.44 1.44 0 1 0 1.9 2.161L23.172 13.8a2.409 2.409 0 0 0 0.815 -1.8Z"/></svg></button><button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: ${heartBg}; border: 1px solid transparent; box-shadow: 0 0 0 1px ${heartColor}; color: ${heartColor};" onclick="toggleFavorite('${escJs(item.site)}', '${escJs(item.tag)}')">${heartBtn}</button><button class="action-btn stop-btn" style="padding: 4px 8px; font-size: 12px;" onclick="removeFromHistory('${escJs(item.site)}', '${escJs(item.tag)}', '${escJs(item.rating || '')}')">&times;</button></div></div>`;
         });
     }
     ui.innerHTML = htmlStr;
@@ -1901,15 +2342,41 @@ function jumpToSite(site, tag, rating) {
     } else if (site === "rule34") {
         currentRule34Tags = String(tag || "").split(/\s+/).filter(Boolean);
         renderRule34Tags();
+    } else if (site === "gelbooru") {
+        currentGelbooruTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderGelbooruTags();
+    } else if (site === "eshuushuu") {
+        currentEshuushuuTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderEshuushuuTags();
+    } else if (site === "gsbooru") {
+        currentGsbooruTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderGsbooruTags();
+    } else if (site === "kona") {
+        currentKonaTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderKonaTags();
+    } else if (site === "nekosia") {
+        currentNekosiaTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderNekosiaTags();
+    } else if (site === "safe") {
+        currentSafeTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderSafeTags();
+    } else if (site === "sankaku") {
+        currentSankakuTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderSankakuTags();
+    } else if (site === "yande") {
+        currentYandeTags = String(tag || "").split(/\s+/).filter(Boolean);
+        renderYandeTags();
     } else if (site === "anime_dl") {
         currentAnimeDlTags = String(tag || "").split("&&").map(t => t.trim()).filter(Boolean);
         renderAnimeDlTags();
     }
     let siteMap = { "zero": { tab: "Zero", input: "zeroTag" }, "waifu": { tab: "Waifu", input: "waifuTag" }, "neko": { tab: "Neko", input: null }, "nekos_life":{ tab: "NekosLife", input: null }, "safe": { tab: "Safe", input: "safeTag" }, "gelbooru": { tab: "Gelbooru", input: "gelbooruTag" }, "gsbooru": { tab: "Gsbooru", input: "gsbooruTag" }, "yande": { tab: "Yande", input: "yandeTag" }, "kona": { tab: "Kona", input: "konaTag" }, "dan": { tab: "Danbooru", input: "danTag" }, "rule34": { tab: "Rule34", input: "rule34Tag" }, "sankaku": { tab: "Sankaku", input: "sankakuTag" }, "anime_dl": { tab: "AnimeDL", input: "animeDlTag" }, "pinterest": { tab: "Pinterest", input: "pinterestTag" }, "pixiv": { tab: "Pixiv", input: "pixivTag" }, "eshuushuu": { tab: "EShuushuu", input: "eshuushuuTag" }, "nekosapi": { tab: "NekosAPI", input: "nekosapiTag" }, "nekosia": { tab: "Nekosia", input: "nekosiaTag" } };
     let mapping = siteMap[site] || { tab: "Safe", input: "safeTag" };
-    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => el.textContent.toLowerCase().includes(mapping.tab.toLowerCase()));
+    // ponytail: match the button's openTab target, not its label —
+    // labels like "e-shuushuu" never contain the key "eshuushuu"
+    let btn = Array.from(document.querySelectorAll('.tab-btn')).find(el => (el.getAttribute('onclick') || '').includes("'" + mapping.tab + "'"));
     if(btn) openTab(mapping.tab, btn);
-    if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl" && site !== "dan") { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
+    if(mapping.input && site !== "zero" && site !== "rule34" && site !== "anime_dl" && site !== "dan" && site !== "gelbooru" && site !== "eshuushuu" && site !== "gsbooru" && site !== "kona" && site !== "nekosia" && site !== "safe" && site !== "sankaku" && site !== "yande") { let inputEl = document.getElementById(mapping.input); if(inputEl) inputEl.value = tag; }
     if (rating) {
         const rsId = RATING_INPUT_BY_WORKER[site];
         if (rsId) { const rsEl = document.getElementById(rsId); if (rsEl) rsEl.value = rating; }
@@ -1971,6 +2438,7 @@ function renderImageHistory() {
 
             let thumbUrl = getSafeThumbUrl(img.filepath, img.filename);
             let safeFn = escJs(img.filename || "");
+            let fallbackSrc = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='%231a1c29' rx='8'/><g transform='translate(31,31) scale(2.714)'><path fill='%23888888' fill-rule='evenodd' clip-rule='evenodd' d='M3.05245 2.51408C4.03771 1.6911 5.49493 1.25 7.00004 1.25c1.5051 0 2.96232 0.4411 3.94756 1.26408 1.0842 0.9056 1.706 2.44224 1.7926 4.09343 0.0866 1.6505 -0.3692 3.29207 -1.2845 4.36679 -0.98 1.1509 -2.67952 1.7757 -4.45566 1.7757 -1.77614 0 -3.47564 -0.6248 -4.45569 -1.7757 -0.91524 -1.07472 -1.37107 -2.71629 -1.28451 -4.36679 0.08659 -1.65119 0.70844 -3.18783 1.79261 -4.09343Zm8.69655 -0.95935C10.4845 0.498503 8.71831 0 7.00004 0 5.28177 0 3.51561 0.498503 2.25111 1.55473 0.823564 2.74715 0.11037 4.65779 0.0115513 6.54204 -0.0873029 8.42697 0.42108 10.409 1.59266 11.7848 2.87827 13.2945 4.97748 14 7.00004 14s4.12176 -0.7055 5.40736 -2.2152c1.1716 -1.3758 1.68 -3.35783 1.5811 -5.24276 -0.0988 -1.88425 -0.812 -3.79489 -2.2395 -4.98731ZM7.87691 3.7829c0 -0.34518 -0.27982 -0.625 -0.625 -0.625 -0.34517 0 -0.625 0.27982 -0.625 0.625v0.31657c0 0.34518 0.27983 0.625 0.625 0.625 0.34518 0 0.625 -0.27982 0.625 -0.625V3.7829ZM5.14498 6.01923c0 -0.34518 0.27982 -0.625 0.625 -0.625h0.48689c0.88685 0 1.60579 0.71894 1.60577 1.6058v1.88259c0.33235 0.03652 0.66758 0.10241 1.01035 0.19769 0.33257 0.09243 0.52723 0.43697 0.4348 0.76954 -0.09244 0.33255 -0.43698 0.52725 -0.76955 0.43485 -0.89263 -0.2482 -1.69361 -0.2482 -2.58624 0 -0.33257 0.0924 -0.67711 -0.1023 -0.76954 -0.43485 -0.09244 -0.33257 0.10223 -0.67711 0.4348 -0.76954 0.33762 -0.09384 0.66793 -0.15919 0.99538 -0.19603V7.00003c0.00001 -0.19649 -0.15928 -0.3558 -0.35577 -0.3558h-0.48689c-0.34518 0 -0.625 -0.27983 -0.625 -0.625Z'/></g></svg>`;
             let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/'/g, "%27");
             let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
             let artistName = (img.tags?.artist || [])[0] || "";
@@ -1981,7 +2449,7 @@ function renderImageHistory() {
             <button onclick="removeImageHistory('${safeFn}')" title="Delete from History" style="position: absolute; top: 10px; right: 10px; background: rgba(255,107,107,0.2); border: 1px solid transparent; box-shadow: 0 0 0 1px #ff6b6b; color: #ff6b6b; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; font-weight: bold; transition: 0.2s; line-height: 1; padding-bottom: 2px;">×</button>
             <button onclick="toggleImageHistoryFav('${safeFn}', this)" title="Favourite" style="position: absolute; top: 10px; right: 42px; background: rgba(0,0,0,0.55); border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,64,128,0.5); color: #ff4080; border-radius: 50%; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; cursor: pointer; z-index: 5; font-size: 14px; transition: 0.2s; line-height: 1;">${heartIcon(img.favourite)}</button>
             <div class="img-card-left" style="width: 100px; display: flex; flex-direction: column; gap: 6px;">
-            <img src="${thumbUrl}" loading="lazy" decoding="async" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+            <img src="${thumbUrl}" loading="lazy" decoding="async" data-fb="${fallbackSrc}" onerror="this.onerror=null; this.src=this.dataset.fb;" onclick="openFullImage('${safeFp}', '${safeFn}')" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;">
             </div>
             <div class="img-card-right" style="justify-content: flex-start; gap: 8px; flex: 1; padding-right: 25px;">
             <div class="img-card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size: 14px; color: #fff; font-weight: bold; padding: 2px; opacity:1;"><span title="${safeFn}" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.6;">${img.filename || "image"}</span>${artistHtml} ${siteBadge} ${ratingHtml}</div>
@@ -2019,7 +2487,7 @@ async function clearImageHistory() { if(await customConfirm("Delete all image ta
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
-const SOURCE_RATINGS = { safebooru: ['safe'], danbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], konachan: ['safe', 'questionable', 'explicit'], yande: ['safe', 'questionable', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], rule34: ['explicit'], nekosapi: ['safe', 'sensitive', 'questionable', 'explicit'], nekosia: ['safe', 'sensitive'], 'waifu.im': ['safe', 'explicit'], pinterest: [], pixiv: [] };
+const SOURCE_RATINGS = { safebooru: ['safe'], danbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], konachan: ['safe', 'questionable', 'explicit'], yande: ['safe', 'questionable', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], rule34: ['explicit'], nekosapi: ['safe', 'sensitive', 'questionable', 'explicit'], nekosia: ['safe', 'sensitive'], 'waifu.im': ['safe', 'explicit'], pinterest: ['safe'], pixiv: ['safe', 'explicit'] };
 // ... [rest of gallery code stays intact] ...
 function updateRatingDropdown() {
     const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]');
@@ -2300,7 +2768,7 @@ function loadViewerRaster(url, filename) {
     const p = (async () => {
         try {
             const resp = await fetch(url, { signal: controller.signal });
-            if (!resp.ok) throw new Error("Image load failed (" + resp.status + ")");
+            if (!resp.ok) throw new Error(resp.status === 404 ? "image was deleted" : "Image load failed (" + resp.status + ")");
             const blob = await resp.blob();
             if (generation !== viewerResource.generation) return null;
             viewerResource.blob = blob;
@@ -2374,7 +2842,7 @@ function viewerMetaHtml(img, tagsClickable) {
 
     return `
     <div class="g-meta-header">
-    <div class="g-meta-title">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
+    <div class="g-meta-title" title="${escJs(img.filename || "image")}">${img.filename || "image"} <span class="g-expand-hint">Hover to see tags ▼</span></div>
     <div class="g-meta-badges">${artistHtml} ${siteBadge} ${ratingHtml}</div>
     </div>
     <div class="g-meta-tags">${tagsHtml}</div>

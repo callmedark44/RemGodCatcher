@@ -48,7 +48,7 @@ class GelbooruWorker(BaseWorker):
         sem = asyncio.Semaphore(4)
         async def query_one(tag_name):
             async with sem:
-                params = {"page": "dapi", "s": "tag", "q": "index", "name": tag_name, "json": 1}
+                params = {"page": "dapi", "s": "tag", "q": "index", "name": tag_name, "json": 1, "limit": 50}
                 if api_key and user_id:
                     params["api_key"] = api_key
                     params["user_id"] = user_id
@@ -57,8 +57,10 @@ class GelbooruWorker(BaseWorker):
                     if resp.status == 200:
                         data = await resp.json()
                         tags = data.get("tag", [])
-                        if tags:
-                            t = tags[0]
+                        # ponytail: only trust the exact tag, never a near miss
+                        match = next((t for t in tags if str(t.get("name", "")).lower() == tag_name.lower()), None)
+                        if match:
+                            t = match
                             self.tag_cache[tag_name] = TAG_TYPE_MAP.get(t.get("type", 0), "tag")
                         else:
                             self.tag_cache[tag_name] = "tag"
@@ -168,6 +170,9 @@ class GelbooruWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:

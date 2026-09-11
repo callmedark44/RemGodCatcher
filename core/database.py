@@ -44,17 +44,20 @@ class DatabaseManager:
         DatabaseManager.save_json(TAG_HISTORY_FILE, data)
 
     @staticmethod
-    def add_tag_history(site, tag):
+    def add_tag_history(site, tag, rating=""):
         hist = DatabaseManager.load_tag_history()
-        entry = {"site": site, "tag": tag}
+        entry = {"site": site, "tag": tag, "rating": rating or ""}
         if entry not in hist:
             hist.insert(0, entry)
             DatabaseManager.save_tag_history(hist)
 
     @staticmethod
-    def remove_tag_history(site, tag):
+    def remove_tag_history(site, tag, rating=None):
         hist = DatabaseManager.load_tag_history()
-        hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag)]
+        if rating is None:
+            hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag)]
+        else:
+            hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag and (x.get("rating") or "") == rating)]
         DatabaseManager.save_tag_history(hist)
 
     @staticmethod
@@ -375,7 +378,9 @@ class SettingsManager:
             "PINTEREST_EMAIL": data.get("pinterest_email", ""),
             "PINTEREST_PASSWORD": data.get("pinterest_password", ""),
             "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", ""),
-            "PIXIV_COOKIE": data.get("pixiv_cookie", "")
+            "PIXIV_COOKIE": data.get("pixiv_cookie", ""),
+            "DANBOORU_LOGIN": data.get("danbooru_login", ""),
+            "DANBOORU_API_KEY": data.get("danbooru_api_key", "")
         }
         self._upsert_env_keys(keys_to_save)
         for k, v in keys_to_save.items():
@@ -405,5 +410,7 @@ class SettingsManager:
             "pinterest_email": config.get("PINTEREST_EMAIL", ""),
             "pinterest_password": config.get("PINTEREST_PASSWORD", ""),
             "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", ""),
-            "pixiv_cookie": config.get("PIXIV_COOKIE", "")
+            "pixiv_cookie": config.get("PIXIV_COOKIE", ""),
+            "danbooru_login": config.get("DANBOORU_LOGIN", ""),
+            "danbooru_api_key": config.get("DANBOORU_API_KEY", "")
         }

@@ -95,11 +95,19 @@ def tags_dict_from_lists(tags_list, artists=None, characters=None, copyrights=No
 def build_tagd(artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None, tags_list=None, limit=5):
     """Compact categorized tag segment for SUCCESS log lines: 'outfit:X, character:Y'."""
     seen = []
-    for _cat, _items in (("artist", artists), ("character", characters), ("copyright", copyrights), ("metadata", metadata_tags), ("outfit", outfits), ("group", groups), ("hair", hair), ("eyes", eyes), ("tag", tags_list)):
+    # ponytail: artists render as badges outside the pill row — if they shared
+    # its budget, an artist-bearing post would show one pill fewer
+    for _t in artists or []:
+        _t = _t.strip()
+        if _t:
+            seen.append(f"artist:{_t}")
+    pills = 0
+    for _cat, _items in (("character", characters), ("copyright", copyrights), ("metadata", metadata_tags), ("outfit", outfits), ("group", groups), ("hair", hair), ("eyes", eyes), ("tag", tags_list)):
         for _t in _items or []:
             _t = _t.strip()
-            if _t and len(seen) < limit:
+            if _t and pills < limit:
                 seen.append(f"{_cat}:{_t}")
+                pills += 1
     return ", ".join(seen)
 
 def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
@@ -449,9 +457,9 @@ class BaseDownloader:
                     target_total = max(self.amount, self.enqueued_count)
                 else:
                     target_total = max(self.enqueued_count, self.downloaded_count)
-                    
+
                 pct = int((self.downloaded_count / target_total) * 100) if target_total > 0 else 0
-                
+
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
                 tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes, tags_list)
@@ -521,6 +529,11 @@ class BaseDownloader:
                 self.log(f"--- All {self.downloaded_count} downloads completed successfully! ---")
             elif not self.stop_event.is_set():
                 self.log("Task finished. No new images to download.")
+            # ponytail: dedicated finish signal — log parsing alone is too fragile to drive UI state
+            try:
+                socketio_emit("worker_finished", {"worker": self.name, "downloaded": self.downloaded_count, "failed": self.failed_count, "stopped": bool(self.stop_event.is_set())})
+            except Exception:
+                pass
         except Exception as critical_e:
             self.log(f"CRITICAL ERROR: {critical_e}")
         finally:

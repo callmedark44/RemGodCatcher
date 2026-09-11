@@ -87,6 +87,9 @@ class NekosLifeWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:

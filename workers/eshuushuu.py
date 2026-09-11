@@ -17,17 +17,41 @@ class EShuushuuWorker(BaseDownloader):
             else:
                 self.log(f"Could not resolve username '{self.user_id}' from DB")
                 
-        self.tag_id = ""
-        if self.original_tag:
-            if self.original_tag.isdigit():
-                self.tag_id = self.original_tag
-            else:
-                self.tag_id = self._resolve_tag_id(self.original_tag)
-                
+        self.tag_names = [t for t in self.original_tag.split() if not t.startswith('-')]
+        self.tag_ids, self.unknown_tags = self._resolve_many(self.tag_names)
+        self.tag_id = ",".join(self.tag_ids)
+
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag or "all")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag or "all")
         os.makedirs(self.tag_dir, exist_ok=True)
+
+    def _resolve_many(self, tokens):
+        # ponytail: titles contain spaces ("long hair") — greedy longest
+        # match left-to-right so multi-word tags survive whitespace splitting
+        ids, unknown, cache = [], [], {}
+        i = 0
+        while i < len(tokens):
+            if tokens[i].isdigit():
+                ids.append(tokens[i])
+                i += 1
+                continue
+            hit = None
+            for j in range(len(tokens), i, -1):
+                cand = " ".join(tokens[i:j])
+                key = cand.lower()
+                if key not in cache:
+                    cache[key] = self._resolve_tag_id(cand)
+                if cache[key]:
+                    hit = cache[key]
+                    i = j
+                    break
+            if hit:
+                ids.append(hit)
+            else:
+                unknown.append(tokens[i])
+                i += 1
+        return ids, unknown
 
     def _http_session(self):
         s = requests.Session()
@@ -106,8 +130,9 @@ class EShuushuuWorker(BaseDownloader):
             label = f"'{self.original_tag}' + user_id:{self.user_id}"
         self.log(f"Scanning e-shuushuu for: {label}")
 
-        if self.original_tag and not self.tag_id:
-            self.log(f"Unknown tag '{self.original_tag}' — not downloading anything.")
+        if self.original_tag and (self.unknown_tags or not self.tag_id):
+            bad = ", ".join(f"'{t}'" for t in self.unknown_tags) or f"'{self.original_tag}'"
+            self.log(f"Unknown tag(s) {bad} — not downloading anything.")
             return
 
         collected = 0
@@ -205,6 +230,9 @@ class EShuushuuWorker(BaseDownloader):
                 await asyncio.sleep(self.anti_ban_pause)
 
         qsize = self.download_queue.qsize() if self.download_queue else collected
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if qsize == 0: self.log("No new images to download.")
         else: self.log(f"Enqueued {qsize} items. Completing downloads...")
 

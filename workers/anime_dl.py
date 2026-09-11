@@ -221,6 +221,9 @@ class AnimeDlWorker(BaseDownloader):
             if not self.stop_event.is_set():
                 await asyncio.sleep(self.anti_ban_pause)
 
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if collected:
             self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
 

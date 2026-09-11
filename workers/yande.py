@@ -37,24 +37,31 @@ class YandeWorker(BaseWorker):
         uncached = [t for t in tag_names if t not in cache]
         if uncached:
             self.log(f"Fetching types for {len(uncached)} tags...")
-            for tag_name in uncached:
-                try:
-                    resp = await self.session.get("https://yande.re/tag.xml", params={
-                        "name": tag_name, "limit": 1
-                    })
-                    if resp.status != 200:
+            # ponytail: concurrent like gelbooru/safebooru — sequential
+            # per-tag requests stalled every page
+            sem = asyncio.Semaphore(4)
+            async def query_one(tag_name):
+                async with sem:
+                    try:
+                        resp = await self.session.get("https://yande.re/tag.xml", params={
+                            "name": tag_name, "limit": 50
+                        })
+                        if resp.status != 200:
+                            cache[tag_name] = 0
+                        else:
+                            text = await resp.text()
+                            root = ET.fromstring(text)
+                            # ponytail: name= matches substrings and the exact
+                            # row can bury below row 1, so scan every row
+                            cache[tag_name] = 0
+                            for tag_el in root.findall("tag"):
+                                if tag_el.get("name", "").lower() == tag_name.lower():
+                                    cache[tag_name] = int(tag_el.get("type", 0))
+                                    break
+                    except Exception:
                         cache[tag_name] = 0
-                        continue
-                    text = await resp.text()
-                    root = ET.fromstring(text)
-                    tag_el = root.find("tag")
-                    if tag_el is not None:
-                        tag_type = int(tag_el.get("type", 0))
-                    else:
-                        tag_type = 0
-                    cache[tag_name] = tag_type
-                except Exception:
-                    cache[tag_name] = 0
+                    await asyncio.sleep(0.2)
+            await asyncio.gather(*[query_one(t) for t in uncached])
             shared.save_tag_cache(cache, "yande")
         return cache
 
@@ -166,6 +173,9 @@ class YandeWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:

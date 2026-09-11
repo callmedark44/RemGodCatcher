@@ -194,6 +194,9 @@ class PinterestWorker(BaseWorker):
 
             await asyncio.sleep(random.uniform(0.5, 1.5))
 
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         self.log(f"Downloaded {downloaded} items.")
         self.downloaded_count = downloaded
         self.failed_count = len(medias) - downloaded

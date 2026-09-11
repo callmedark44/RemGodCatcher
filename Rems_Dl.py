@@ -144,6 +144,9 @@ def _live_tag_suggest(session, url, timeout=5):
                             break
                 if len(out) >= 50:
                     break
+        # ponytail: autocomplete endpoints serve database junk ("1girl,") —
+        # no valid booru tag ends with a comma
+        out = [t for t in out if not t.endswith(",")]
         return list(dict.fromkeys(out))[:50]
     except Exception:
         return []
@@ -555,7 +558,7 @@ def get_kona_suggestions():
         session = get_session("kona", data.get("net_config", {}))
         live = _live_tag_suggest(
             session,
-            f"https://konachan.com/tag/suggest.json?tag={urllib.parse.quote(query)}")
+            f"https://konachan.com/tag.json?name={urllib.parse.quote(query)}*&limit=50&order=count")
         if live: return jsonify(live)
     except Exception: pass
     if not KONA_TAGS_DB: return jsonify([])
@@ -606,7 +609,7 @@ def get_dan_suggestions():
         if _login and _key:
             auth = (_login, _key)
         resp = session.get("https://danbooru.donmai.us/autocomplete.json",
-                           params={"search[name_matches]": query + "*"},
+                           params={"search[query]": query + "*", "search[type]": "tag_query"},
                            auth=auth, timeout=5)
         if resp.status_code == 200:
             names = []
@@ -625,6 +628,23 @@ def get_sankaku_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
     if len(query) < 2: return jsonify([])
+    # ponytail: the site's own autocomplete (per HAR capture) serves real
+    # tags with counts; the local dump is fragment-polluted, keep it as fallback
+    try:
+        session = get_session("sankaku", data.get("net_config", {}))
+        resp = session.get("https://sankakuapi.com/tags/autosuggestCreating",
+                           params={"lang": "en", "tag": query, "show_meta": 1,
+                                   "target": "post", "show_rating": "true"},
+                           timeout=5)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload if isinstance(payload, list) else payload.get("tags", [])
+            names = [t.get("tagName") or t.get("name") for t in items
+                     if isinstance(t, dict) and (t.get("tagName") or t.get("name"))]
+            names = [n for n in dict.fromkeys(names) if not n.endswith(",")]
+            if names: return jsonify(names[:50])
+    except Exception:
+        pass
     local = _suggest(SANKAKU_TAGS_DB, query) if SANKAKU_TAGS_DB else []
     if local:
         return jsonify(local)
@@ -713,18 +733,85 @@ def get_eshuushuu_suggestions():
         if resp.status_code == 200:
             payload = resp.json()
             items = payload.get("tags", payload) if isinstance(payload, dict) else payload
-            names = [t.get("title", t.get("name")) for t in items
-                     if isinstance(t, dict) and (t.get("title") or t.get("name"))]
-            if names: return jsonify(names[:50])
+            # ponytail: typed objects, not bare names — same title can be an
+            # artist, a character and a general tag at once; the UI colors rows
+            # by type so identical titles stay distinguishable
+            out = []
+            for t in items:
+                if not isinstance(t, dict):
+                    continue
+                title = t.get("title") or t.get("name")
+                if not title:
+                    continue
+                try:
+                    ttype = int(t.get("type", 0))
+                except (TypeError, ValueError):
+                    ttype = 0
+                out.append({"title": title, "type": ttype})
+            if out: return jsonify(out[:50])
     except Exception:
         pass
     return jsonify(local)
 
 @app.route("/api/tags/nekosapi", methods=["POST"])
 def get_nekosapi_suggestions():
-    query = request.json.get("query", "").lower()
-    if not NEKOSAPI_TAGS_DB: return jsonify([])
-    return jsonify([t for t in NEKOSAPI_TAGS_DB if t.lower().startswith(query)][:50])
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower()
+    if len(query) < 2: return jsonify([])
+    live = _refresh_nekosapi_live_tags(data.get("net_config", {}))
+    out = [t for t in live if t.lower().startswith(query)]
+    if NEKOSAPI_TAGS_DB:
+        out += [t for t in NEKOSAPI_TAGS_DB if t.lower().startswith(query) and t not in out]
+    return jsonify(out[:50])
+
+_nekosapi_live_cache = {"tags": [], "at": 0.0}
+
+def _refresh_nekosapi_live_tags(net_config):
+    # ponytail: no tag catalogue endpoint exists, so harvest the
+    # vocabulary from browsed images instead, refreshed daily
+    import time as _time
+    now = _time.time()
+    if _nekosapi_live_cache["tags"] and now - _nekosapi_live_cache["at"] < 86400:
+        return _nekosapi_live_cache["tags"]
+    live_file = os.path.join(DATABASE_DIR, "nekosapi_live_tags.json")
+    disk = []
+    try:
+        import json as _json
+        with open(live_file, "r", encoding="utf-8") as f:
+            saved = _json.load(f)
+        disk = saved.get("tags", []) or []
+        if disk and now - float(saved.get("at", 0)) < 86400:
+            _nekosapi_live_cache.update(tags=disk, at=now)
+            return disk
+    except Exception:
+        pass
+    try:
+        session = get_session("nekosapi", net_config or {})
+        seen = list(disk)
+        for offset in (0, 100, 200, 300, 400):
+            resp = session.get("https://api.nekosapi.com/v4/images",
+                               params={"limit": 100, "offset": offset}, timeout=10)
+            if resp.status_code != 200:
+                break
+            items = resp.json().get("items", [])
+            if not items:
+                break
+            for im in items:
+                for t in im.get("tags", []) or []:
+                    if t and t not in seen:
+                        seen.append(t)
+        if seen:
+            try:
+                import json as _json
+                with open(live_file, "w", encoding="utf-8") as f:
+                    _json.dump({"tags": seen, "at": now}, f)
+            except Exception:
+                pass
+            _nekosapi_live_cache.update(tags=seen, at=now)
+            return seen
+    except Exception:
+        pass
+    return disk
 
 _nekosia_tags_cache = {"tags": [], "at": 0}
 
@@ -780,7 +867,7 @@ def clear_tag_history():
 @app.route("/api/history/remove", methods=["POST"])
 def remove_tag_history():
     data = request.json
-    DatabaseManager.remove_tag_history(data["site"], data["tag"])
+    DatabaseManager.remove_tag_history(data["site"], data["tag"], data.get("rating"))
     return jsonify({"success": True})
 
 @app.route("/api/image_history", methods=["GET"])
@@ -866,17 +953,21 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
             "nekosapi": {"safe", "sensitive", "questionable", "explicit"},
             "nekosia": {"safe", "sensitive"},
             "waifu.im": {"safe", "explicit"},
+            "pixiv": {"safe", "explicit"},
         }
         rating_aliases = {
             "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
             "sensitive": ["sensitive", "suggestive", "rating:sensitive", "rating:s"],
             "questionable": ["questionable", "borderline", "rating:questionable", "rating:q"],
-            "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw"],
+            "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw", "r18"],
         }
         def matches_any_rating(img):
             site = shared.normalize_site(img.get("site", ""))
             # ponytail: rule34 is all-explicit with no rating in path or tags
             if site == "rule34" and "explicit" in rating_filters:
+                return True
+            # ponytail: pinterest has no rating system — treated as all-safe
+            if site == "pinterest" and "safe" in rating_filters:
                 return True
             fpl = img.get("filepath", "").lower()
             all_tags = _get_all_tags(img)
@@ -1006,6 +1097,10 @@ def delete_gallery_image_by_name():
                 print("Error deleting file:", e)
             gallery["images"].pop(i)
             shared.save_gallery(gallery)
+            try:
+                DatabaseManager.remove_image_history(fn)
+            except Exception as e:
+                print("History delete error:", e)
             return jsonify({"success": True})
     return jsonify({"success": False, "error": "not found"}), 404
 
@@ -1032,7 +1127,7 @@ def gallery_file(filepath):
         return "Forbidden", 403
     if os.path.isfile(full):
         return send_file(full)
-    return "Not found", 404
+    return "Image was deleted", 404
 
 @app.route("/api/thumb_by_name/<filename>")
 def thumb_by_name(filename):
@@ -1050,7 +1145,7 @@ def thumb_by_name(filename):
                 full = os.path.join(root, filename)
                 break
         else:
-            return "Not found", 404
+            return "Image was deleted", 404
     return redirect_to_thumb(full, filename)
 
 def redirect_to_thumb(full_path, rel_filename):
@@ -1077,15 +1172,16 @@ def gallery_thumb(filepath):
     full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
     if not full.startswith(os.path.normpath(MASTER_FOLDER)):
         return "Forbidden", 403
-    if not os.path.isfile(full):
-        return "Not found", 404
-
     ext = os.path.splitext(full)[1].lower()
     cache_key = hashlib.sha256(filepath.encode()).hexdigest()[:16]
     cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
 
     if os.path.exists(cache_path):
         return send_file(cache_path, mimetype='image/jpeg')
+    # ponytail: stale cache still beats a broken icon when the user
+    # deleted the source file outside the app, so it is checked above
+    if not os.path.isfile(full):
+        return "Image was deleted", 404
 
     if ext in EXTENSIONS_VIDEO:
         import subprocess
@@ -1140,8 +1236,13 @@ def delete_gallery_image():
             except Exception as e:
                 print("Error deleting file:", e)
             # حذف از دیتابیس گالری
+            fn = img.get("filename", "")
             gallery["images"].pop(i)
             shared.save_gallery(gallery)
+            try:
+                DatabaseManager.remove_image_history(fn)
+            except Exception as e:
+                print("History delete error:", e)
             return jsonify({"success": True})
     return jsonify({"success": False, "error": "Not found"}), 404 
 
@@ -1271,7 +1372,7 @@ def handle_start_worker(data):
 
     if tag:
         try:
-            DatabaseManager.add_tag_history(worker, tag)
+            DatabaseManager.add_tag_history(worker, tag, data.get("rating", "") or "")
         except Exception as e:
             print("History Save Error:", e)
 
@@ -1282,7 +1383,7 @@ def handle_start_worker(data):
     elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), _safe_int(data.get("limit", 30), 30), data.get("nsfw", False), net_config), daemon=True).start()
     elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config), daemon=True).start()
     elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config, data.get("exclude_ai", False)), daemon=True).start()
     elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config, data.get("format", "both")), daemon=True).start()

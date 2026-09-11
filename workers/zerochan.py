@@ -480,6 +480,10 @@ class ZerochanWorker(BaseDownloader):
             page += 1
 
         actual = collected_count + (self.download_queue.qsize() if self.download_queue else 0)
+        # ponytail: a stopped run winds down late (blocking calls) and must
+        # not paint its summaries over the next run's progress and console
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
